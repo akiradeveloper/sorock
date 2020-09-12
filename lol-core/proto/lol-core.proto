@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package lol_core;
+
+message CommitReq {
+    bytes message = 1;
+    bool core = 2;
+}
+message ApplyReq {
+    bytes message = 1;
+    bool core = 2;
+    bool mutation = 3;
+}
+message ApplyRep {
+    bytes message = 1;
+}
+message CommitRep {}
+message Entry {
+    uint64 term = 1;
+    uint64 index = 2;
+    bytes command = 3;
+}
+message AppendEntryReq {
+    uint64 prev_log_term = 1;
+    uint64 prev_log_index = 2;
+    repeated Entry entries = 3;
+}
+message HeaderS {
+    uint64 prev_log_term = 1;
+    uint64 prev_log_index = 2;
+}
+message EntryS {
+    uint64 term = 1;
+    uint64 index = 2;
+}
+message FrameS {
+    bytes frame = 1;
+}
+message AppendEntryReqS {
+    oneof elem {
+        HeaderS header = 1;
+        EntryS entry = 2;
+        FrameS frame = 3;
+    }
+}
+message AppendEntryRep {
+    bool success = 1;
+    uint64 last_log_index = 2;
+}
+message RequestVoteReq {
+    uint64 term = 1;
+    string candidate_id = 2;
+    uint64 last_log_term = 3;
+    uint64 last_log_index = 4;
+}
+message RequestVoteRep {
+    bool vote_granted = 1;
+}
+message HeartbeatReq {
+    uint64 term = 1;
+    string leader_id = 2;
+    uint64 leader_commit = 3;
+}
+message HeartbeatRep {}
+message TimeoutNowReq {}
+message TimeoutNowRep {}
+
+service Raft {
+    rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
+    rpc SendAppendEntry (AppendEntryReq) returns (AppendEntryRep);
+    rpc SendAppendEntryS (stream AppendEntryReqS) returns (AppendEntryRep);
+    rpc RequestLocally (ApplyReq) returns (ApplyRep);
+    rpc RequestApply (ApplyReq) returns (ApplyRep);
+    rpc RequestApplyImmediate (ApplyReq) returns (ApplyRep);
+    rpc RequestCommit (CommitReq) returns (CommitRep);
+    rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
+    rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
+}

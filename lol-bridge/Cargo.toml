@@ -1,0 +1,19 @@
+[package]
+name = "lol-bridge"
+version = "0.1.0"
+authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lol-core = { path = "../lol-core" }
+async-trait = "0.1"
+tonic = "0.2"
+tokio = { version = "0.2", features = ["net"] }
+tower = "0.3"
+prost = "0.6"
+anyhow = "1.0"
+
+[build-dependencies]
+tonic-build = "0.2"

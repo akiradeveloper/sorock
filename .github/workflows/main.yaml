@@ -1,0 +1,17 @@
+name: CI
+
+on:
+    pull_request:
+        branches:
+            - develop
+            - master
+
+jobs:
+    run_test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Build Docker Image
+              run: make docker-build
+            - name: Compile
+              run: ./dev cargo build

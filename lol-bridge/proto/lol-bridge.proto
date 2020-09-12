@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+package lol_bridge;
+
+message ApplyMessageReq {
+    bytes message = 1;
+}
+message ApplyMessageRep {
+    bytes message = 1;
+}
+message InstallSnapshotReq {
+    google.protobuf.BytesValue snapshot = 1;
+}
+message InstallSnapshotRep {}
+message FoldSnapshotReq {
+    google.protobuf.BytesValue snapshot = 1;
+    repeated bytes messages = 2;
+}
+message FoldSnapshotRep {
+    google.protobuf.BytesValue snapshot = 1;
+}
+service AppBridge {
+    rpc ApplyMessage (ApplyMessageReq) returns (ApplyMessageRep);
+    rpc InstallSnapshot (InstallSnapshotReq) returns (InstallSnapshotRep);
+    rpc FoldSnapshot (FoldSnapshotReq) returns (FoldSnapshotRep);
+}
