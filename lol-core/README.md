@@ -16,7 +16,7 @@ A Raft implementation with thin abstraction layer.
 
 ### Thin and Thick abstraction
 
-![abstraction](abstraction.png)
+![abstraction](media/abstraction.png)
 
 We recognize the prior arts like [raft-rs](https://github.com/tikv/raft-rs) and [async-raft](https://github.com/async-raft/async-raft) and find their designs are very similar. We call this **Thick abstraction** because the abstraction layer (typically called RaftStorage) is thick enough to include everything like log structure, snapshotting mechanism and storing most recent vote. Some of them also abstract networking so testing becomes deterministic and choice of networking backend are left to users.
 

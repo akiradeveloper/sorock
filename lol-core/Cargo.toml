@@ -1,13 +1,13 @@
 [package]
 name = "lol-core"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
 description = "A Raft implementation with thin abstraction layer"
 repository = "https://github.com/akiradeveloper/lol"
 readme = "README.md"
-categories = ["algorithm"]
+categories = ["algorithms"]
 keywords = ["raft"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
