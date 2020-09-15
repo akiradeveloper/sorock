@@ -1,0 +1,31 @@
+[package]
+name = "lol-core"
+version = "0.1.2"
+authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = "A Raft implementation with thin abstraction layer"
+repository = "https://github.com/akiradeveloper/lol"
+readme = "../README.md"
+categories = ["algorithms"]
+keywords = ["raft"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tonic = "0.2"
+prost = "0.6"
+tokio = { version = "0.2", features = ["macros"] }
+rand = "0.7"
+async-trait = "0.1.35"
+futures = "0.3.5"
+dashmap = "4.0.0-rc6"
+serde = { version = "1.0", features = ["derive"] }
+rmp = "0.8.9"
+rmp-serde = "0.14.3"
+log = "0.4"
+sysinfo = "0.14"
+anyhow = "1.0"
+
+[build-dependencies]
+tonic-build = "0.2"

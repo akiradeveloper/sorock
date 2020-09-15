@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "lol-core",
+    "lol-admin",
+    "lol-bridge",
+    "lol-monitor",
+
+    # internal
+    "kvs",
+    "integration",
+]
