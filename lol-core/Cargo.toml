@@ -1,12 +1,12 @@
 [package]
 name = "lol-core"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
 description = "A Raft implementation with thin abstraction layer"
 repository = "https://github.com/akiradeveloper/lol"
-readme = "README.md"
+readme = "../README.md"
 categories = ["algorithms"]
 keywords = ["raft"]
 
