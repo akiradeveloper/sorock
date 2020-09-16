@@ -1,6 +1,10 @@
 # lol
 
+[![Crates.io](https://img.shields.io/crates/v/lol-core.svg)](https://crates.io/crates/lol-core)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lol/blob/master/LICENSE)
 [![Tokei](https://tokei.rs/b1/github/akiradeveloper/lol)](https://github.com/akiradeveloper/lol)
+
+[API Docs](https://docs.rs/lol-core/latest/lol_core)
 
 A Raft implementation with thin abstraction layer.
 
