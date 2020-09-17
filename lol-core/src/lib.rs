@@ -44,7 +44,7 @@ type Clock = (Term, Index);
 pub type Id = String;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum Command {
+enum CommandProtocol {
     Noop,
     Snapshot {
         app_snapshot: Snapshot,
@@ -61,14 +61,46 @@ enum Command {
         message: Message,
     },
 }
+#[derive(Clone, Debug)]
+enum Command {
+    Noop,
+    Snapshot {
+        app_snapshot: Option<Vec<u8>>,
+        core_snapshot: HashSet<Id>,
+    },
+    AddServer {
+        id: Id,
+    },
+    RemoveServer {
+        id: Id,
+    },
+    Req {
+        core: bool,
+        message: Vec<u8>
+    }
+}
 impl From<Vec<u8>> for Command {
     fn from(x: Vec<u8>) -> Self {
-        rmp_serde::from_slice(&x).unwrap()
+        let protocol: CommandProtocol = rmp_serde::from_slice(&x).unwrap();
+        match protocol {
+            CommandProtocol::Noop => Command::Noop,
+            CommandProtocol::Snapshot { app_snapshot, core_snapshot } => Command::Snapshot { app_snapshot, core_snapshot },
+            CommandProtocol::AddServer { id } => Command::AddServer { id },
+            CommandProtocol::RemoveServer { id } => Command::RemoveServer { id },
+            CommandProtocol::Req { core, message } => Command::Req { core, message }
+        }
     }
 }
 impl Into<Vec<u8>> for Command {
     fn into(self) -> Vec<u8> {
-        rmp_serde::to_vec(&self).unwrap()
+        let protocol: CommandProtocol = match self {
+            Command::Noop => CommandProtocol::Noop,
+            Command::Snapshot { app_snapshot, core_snapshot } => CommandProtocol::Snapshot { app_snapshot, core_snapshot },
+            Command::AddServer { id } => CommandProtocol::AddServer { id },
+            Command::RemoveServer { id } => CommandProtocol::RemoveServer { id },
+            Command::Req { core, message } => CommandProtocol::Req { core, message }
+        };
+        rmp_serde::to_vec(&protocol).unwrap()
     }
 }
 #[derive(Clone, Debug)]
