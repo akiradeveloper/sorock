@@ -1,6 +1,7 @@
 # lol
 
 [![Crates.io](https://img.shields.io/crates/v/lol-core.svg)](https://crates.io/crates/lol-core)
+![CI](https://github.com/akiradeveloper/lol/workflows/CI/badge.svg)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lol/blob/master/LICENSE)
 [![Tokei](https://tokei.rs/b1/github/akiradeveloper/lol)](https://github.com/akiradeveloper/lol)
 
