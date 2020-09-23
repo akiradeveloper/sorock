@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 
+mod storage;
 mod ack;
 pub mod connection;
 pub mod core_message;
@@ -22,6 +23,29 @@ use thread::news;
 
 pub mod protoimpl {
     tonic::include_proto!("lol_core");
+}
+
+#[derive(Clone)]
+struct Vote {
+    cur_term: Term,
+    voted_for: Option<Id>,
+}
+impl Vote {
+    pub fn new() -> Self {
+        Self {
+            cur_term: 0,
+            voted_for: None,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Entry {
+    /// when this entry was inserted in this node
+    append_time: Instant,
+    prev_clock: Clock,
+    this_clock: Clock,
+    command: Vec<u8>,
 }
 
 #[async_trait]
@@ -44,24 +68,6 @@ type Clock = (Term, Index);
 pub type Id = String;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum CommandProtocol {
-    Noop,
-    Snapshot {
-        app_snapshot: Snapshot,
-        core_snapshot: HashSet<String>,
-    },
-    AddServer {
-        id: Id,
-    },
-    RemoveServer {
-        id: Id,
-    },
-    Req {
-        core: bool,
-        message: Message,
-    },
-}
-#[derive(Clone, Debug)]
 enum Command {
     Noop,
     Snapshot {
@@ -81,47 +87,19 @@ enum Command {
 }
 impl From<Vec<u8>> for Command {
     fn from(x: Vec<u8>) -> Self {
-        let protocol: CommandProtocol = rmp_serde::from_slice(&x).unwrap();
-        match protocol {
-            CommandProtocol::Noop => Command::Noop,
-            CommandProtocol::Snapshot { app_snapshot, core_snapshot } => Command::Snapshot { app_snapshot, core_snapshot },
-            CommandProtocol::AddServer { id } => Command::AddServer { id },
-            CommandProtocol::RemoveServer { id } => Command::RemoveServer { id },
-            CommandProtocol::Req { core, message } => Command::Req { core, message }
-        }
+        rmp_serde::from_slice(&x).unwrap()
     }
 }
 impl Into<Vec<u8>> for Command {
     fn into(self) -> Vec<u8> {
-        let protocol: CommandProtocol = match self {
-            Command::Noop => CommandProtocol::Noop,
-            Command::Snapshot { app_snapshot, core_snapshot } => CommandProtocol::Snapshot { app_snapshot, core_snapshot },
-            Command::AddServer { id } => CommandProtocol::AddServer { id },
-            Command::RemoveServer { id } => CommandProtocol::RemoveServer { id },
-            Command::Req { core, message } => CommandProtocol::Req { core, message }
-        };
-        rmp_serde::to_vec(&protocol).unwrap()
+        rmp_serde::to_vec(&self).unwrap()
     }
-}
-#[derive(Clone, Debug)]
-struct Entry {
-    /// when this entry was inserted in this node
-    append_time: Instant,
-    prev_clock: Clock,
-    this_clock: Clock,
-    command: Command,
 }
 #[derive(Clone, Copy)]
 enum ElectionState {
     Leader,
     Candidate,
     Follower,
-}
-#[derive(Clone)]
-struct Vote {
-    cur_term: Term,
-    voted_for: Option<Id>,
-    election_state: ElectionState,
 }
 // static config
 pub struct Config {
@@ -147,7 +125,7 @@ pub struct RaftCore<A> {
     query_queue: Mutex<query_queue::QueryQueue>,
     last_heartbeat_received: Mutex<Instant>,
     log: Log,
-    vote: RwLock<Vote>,
+    election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
@@ -163,11 +141,7 @@ impl<A: RaftApp> RaftCore<A> {
             id,
             last_heartbeat_received: Mutex::new(Instant::now()),
             log: init_log,
-            vote: RwLock::new(Vote {
-                cur_term: 0,
-                voted_for: None,
-                election_state: ElectionState::Follower,
-            }),
+            election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
@@ -188,7 +162,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
             core_message::Req::ClusterInfo => {
                 let res = core_message::Rep::ClusterInfo {
-                    leader_id: self.vote.read().await.voted_for.clone(),
+                    leader_id: self.load_vote().await.voted_for,
                     membership: {
                         let mut xs: Vec<_> =
                             self.cluster.read().await.id_list().into_iter().collect();
@@ -200,10 +174,10 @@ impl<A: RaftApp> RaftCore<A> {
             }
             core_message::Req::LogInfo => {
                 let res = core_message::Rep::LogInfo {
-                    head_log_index: self.log.head_log_index.load(Ordering::SeqCst),
+                    head_log_index: self.log.get_snapshot_index().await,
                     last_applied: self.log.last_applied.load(Ordering::SeqCst),
                     commit_index: self.log.commit_index.load(Ordering::SeqCst),
-                    last_log_index: self.log.last_log_index.load(Ordering::SeqCst),
+                    last_log_index: self.log.get_last_log_index().await,
                 };
                 Ok(core_message::Rep::serialize(&res))
             }
@@ -222,7 +196,7 @@ impl<A: RaftApp> RaftCore<A> {
             command: Command::Snapshot {
                 app_snapshot: None,
                 core_snapshot: HashSet::new(),
-            },
+            }.into(),
         };
         self.log.try_insert_entry(snapshot, Arc::clone(&self)).await;
         let add_server = Command::AddServer { id };
@@ -232,13 +206,12 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn queue_received_entry(self: &Arc<Self>, req: protoimpl::AppendEntryReq) -> bool {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
-        for e in &req.entries {
-            let command: Command = e.command.clone().into();
+        for e in req.entries {
             let entry = Entry {
                 append_time: Instant::now(),
                 prev_clock,
                 this_clock: (e.term, e.index),
-                command,
+                command: e.command,
             };
             if !self.log.try_insert_entry(entry, Arc::clone(&self)).await {
                 log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
@@ -254,7 +227,7 @@ impl<A: RaftApp> RaftCore<A> {
         leader_term: Term,
         leader_commit: Index,
     ) {
-        let mut vote = self.vote.write().await;
+        let mut vote = self.load_vote().await;
         if leader_term < vote.cur_term {
             log::warn!("heartbeat is stale. rejected");
             return;
@@ -264,7 +237,7 @@ impl<A: RaftApp> RaftCore<A> {
             log::warn!("received heartbeat with newer term. reset vote");
             vote.cur_term = leader_term;
             vote.voted_for = None;
-            vote.election_state = ElectionState::Follower;
+            *self.election_state.write().await = ElectionState::Follower;
         }
 
         if vote.voted_for != Some(leader_id.clone()) {
@@ -272,11 +245,12 @@ impl<A: RaftApp> RaftCore<A> {
             vote.voted_for = Some(leader_id);
         }
 
+        self.store_vote(vote).await;
         *self.last_heartbeat_received.lock().await = Instant::now();
 
         let new_commit_index = std::cmp::min(
             leader_commit,
-            self.log.last_log_index.load(Ordering::SeqCst),
+            self.log.get_last_log_index().await,
         );
         self.log
             .advance_commit_index(new_commit_index, Arc::clone(&self))
@@ -335,6 +309,12 @@ fn into_stream(
     )
 }
 impl<A> RaftCore<A> {
+    async fn store_vote(&self, v: Vote) {
+        self.log.storage.store_vote(v).await
+    }
+    async fn load_vote(&self) -> Vote {
+        self.log.storage.load_vote().await
+    }
     async fn transfer_leadership(&self) {
         let mut xs = vec![];
         let cluster = self.cluster.read().await.internal.clone();
@@ -357,16 +337,18 @@ impl<A> RaftCore<A> {
         }
     }
     async fn try_promote(&self) {
-        self.election_token.acquire().await;
+        let _token = self.election_token.acquire().await;
 
         // vote to self
         let aim_term = {
-            let mut writer = self.vote.write().await;
-            let cur_term = writer.cur_term;
+            let mut new_vote = self.load_vote().await;
+            let cur_term = new_vote.cur_term;
             let aim_term = cur_term + 1;
-            writer.cur_term = aim_term;
-            writer.voted_for = Some(self.id.clone());
-            writer.election_state = ElectionState::Candidate;
+            new_vote.cur_term = aim_term;
+            new_vote.voted_for = Some(self.id.clone());
+
+            self.store_vote(new_vote).await;
+            *self.election_state.write().await = ElectionState::Candidate;
             aim_term
         };
 
@@ -380,7 +362,7 @@ impl<A> RaftCore<A> {
         l: Index,
         r: Index,
     ) -> crate::protoimpl::AppendEntryReq {
-        let head = self.log.x.get(l, |e| e.clone()).await.unwrap();
+        let head = self.log.storage.get_entry(l).await.unwrap();
         let (prev_log_term, prev_log_index) = head.prev_clock;
         let (term, index) = head.this_clock;
         let command = head.command;
@@ -397,7 +379,7 @@ impl<A> RaftCore<A> {
 
         for idx in l + 1..r {
             let e = {
-                let x = self.log.x.get(idx, |e| e.clone()).await.unwrap();
+                let x = self.log.storage.get_entry(idx).await.unwrap();
                 let (term, index) = x.this_clock;
                 let command = x.command;
                 crate::protoimpl::Entry {
@@ -422,7 +404,7 @@ impl<A> RaftCore<A> {
             .clone();
 
         let old_progress = member.progress.unwrap();
-        let cur_last_log_index = self.log.last_log_index.load(Ordering::SeqCst);
+        let cur_last_log_index = self.log.get_last_log_index().await;
 
         // more entries to send?
         let should_send = cur_last_log_index >= old_progress.next_index;
@@ -432,7 +414,7 @@ impl<A> RaftCore<A> {
 
         // the entries to send could be deleted due to previous compactions.
         // in this case, replication will reset from the current head index.
-        let cur_head_log_index = self.log.head_log_index.load(Ordering::SeqCst);
+        let cur_head_log_index = self.log.get_snapshot_index().await;
         if old_progress.next_index < cur_head_log_index {
             log::warn!(
                 "entry not found at next_index (idx={}) for {}",
@@ -505,7 +487,7 @@ impl<A> RaftCore<A> {
             let endpoint = member.endpoint;
             let config = EndpointConfig::default().timeout(Duration::from_millis(100));
             let req = {
-                let term = self.vote.read().await.cur_term;
+                let term = self.load_vote().await.cur_term;
                 protoimpl::HeartbeatReq {
                     term,
                     leader_id: self.id.clone(),
@@ -529,7 +511,7 @@ impl<A> RaftCore<A> {
         candidate_id: Id,
         candidate_last_log_clock: Clock,
     ) -> bool {
-        let mut vote = self.vote.write().await;
+        let mut vote = self.load_vote().await;
         if candidate_term < vote.cur_term {
             log::warn!("candidate term is older. reject vote");
             return false;
@@ -539,19 +521,19 @@ impl<A> RaftCore<A> {
             log::warn!("received newer term. reset vote");
             vote.cur_term = candidate_term;
             vote.voted_for = None;
-            vote.election_state = ElectionState::Follower;
+            *self.election_state.write().await = ElectionState::Follower;
         }
 
+        let cur_last_index = self.log.get_last_log_index().await;
         let this_last_log_clock = self
             .log
-            .x
-            .get(self.log.last_log_index.load(Ordering::SeqCst), |e| {
-                e.this_clock
-            })
+            .storage
+            .get_entry(cur_last_index)
             .await
-            .unwrap();
+            .unwrap().this_clock;
         if candidate_last_log_clock < this_last_log_clock {
             log::warn!("candidate clock is older. reject vote");
+            self.store_vote(vote).await;
             return false;
         }
 
@@ -569,6 +551,7 @@ impl<A> RaftCore<A> {
             }
         };
 
+        self.store_vote(vote).await;
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         grant
     }
@@ -580,7 +563,7 @@ impl<A> RaftCore<A> {
             let mut match_indices = vec![];
             for (id, member) in cluster {
                 if id == self.id {
-                    let last_log_index = self.log.last_log_index.load(Ordering::SeqCst);
+                    let last_log_index = self.log.get_last_log_index().await;
                     match_indices.push(last_log_index);
                 } else {
                     match_indices.push(member.progress.unwrap().match_index);
@@ -609,13 +592,14 @@ impl<A> RaftCore<A> {
             (others, quorum)
         };
 
-        let last_log_index = self.log.last_log_index.load(Ordering::SeqCst);
+        let last_log_index = self.log.get_last_log_index().await;
         let last_log_clock = self
             .log
-            .x
-            .get(last_log_index, |e| e.this_clock)
+            .storage
+            .get_entry(last_log_index)
             .await
-            .unwrap();
+            .unwrap()
+            .this_clock;
 
         let timeout = Duration::from_secs(5);
         let mut vote_requests = vec![];
@@ -648,7 +632,7 @@ impl<A> RaftCore<A> {
             // initialize replication progress
             {
                 let initial_progress = membership::ReplicationProgress::new(
-                    self.log.last_log_index.load(Ordering::SeqCst),
+                    self.log.get_last_log_index().await,
                 );
                 let mut cluster = self.cluster.write().await;
                 for (id, member) in &mut cluster.internal {
@@ -659,12 +643,11 @@ impl<A> RaftCore<A> {
             }
 
             // become the leader of the aim term because the vote was done for the term.
-            {
-                let mut vote = self.vote.write().await;
-                vote.cur_term = aim_term;
-                vote.voted_for = Some(self.id.clone());
-                vote.election_state = ElectionState::Leader;
-            }
+            self.store_vote(Vote {
+                cur_term: aim_term,
+                voted_for: Some(self.id.clone()),
+            }).await;
+            *self.election_state.write().await = ElectionState::Leader;
 
             // as soon as the node becomes the leader, replicate noop entries with term
             self.queue_entry(Command::Noop, None).await;
@@ -672,23 +655,20 @@ impl<A> RaftCore<A> {
             self.broadcast_heartbeat().await;
         } else {
             log::info!("failed to become leader. now back to follower");
-            let mut vote = self.vote.write().await;
-            vote.election_state = ElectionState::Follower;
+            *self.election_state.write().await = ElectionState::Follower;
         }
     }
     async fn queue_entry(&self, command: Command, ack: Option<Ack>) {
-        let term = self.vote.read().await.cur_term;
+        let term = self.load_vote().await.cur_term;
         self.log.append_new_entry(command, ack, term).await;
     }
 }
 struct Log {
-    x: table::Table<Entry>,
+    storage: storage::memory::Storage,
     ack_chans: RwLock<HashMap<Index, Ack>>,
 
-    head_log_index: AtomicU64, // monotonic
     last_applied: AtomicU64,   // monotonic
     commit_index: AtomicU64,   // monotonic
-    last_log_index: AtomicU64,
 
     append_token: Semaphore,
     commit_token: Semaphore,
@@ -701,15 +681,12 @@ struct Log {
 }
 impl Log {
     async fn new() -> Self {
-        let h = table::Table::new();
         Self {
-            x: h,
+            storage: storage::memory::Storage::new(),
             ack_chans: RwLock::new(HashMap::new()),
 
-            head_log_index: 0.into(),
             last_applied: 0.into(),
             commit_index: 0.into(),
-            last_log_index: 0.into(),
 
             append_token: Semaphore::new(1),
             commit_token: Semaphore::new(1),
@@ -721,42 +698,44 @@ impl Log {
             apply_news: Mutex::new(news::News::new()),
         }
     }
+    async fn get_last_log_index(&self) -> Index {
+        self.storage.get_last_index().await
+    }
+    async fn get_snapshot_index(&self) -> Index {
+        self.storage.get_snapshot_index().await
+    }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) {
         let _token = self.append_token.acquire().await;
 
-        let cur_last_log_index = self.last_log_index.load(Ordering::SeqCst);
-        let prev_clock = self
-            .x
-            .get(cur_last_log_index, |e| e.this_clock)
-            .await
-            .unwrap();
+        let cur_last_log_index = self.storage.get_last_index().await;
+        let prev_clock = self.storage.get_entry(cur_last_log_index).await.unwrap().this_clock;
         let new_index = cur_last_log_index + 1;
         let this_clock = (term, new_index);
         let e = Entry {
             append_time: Instant::now(),
             prev_clock,
             this_clock,
-            command,
+            command: command.into(),
         };
-        self.x.insert(new_index, e).await;
+        self.storage.insert_entry(new_index, e).await;
         if let Some(x) = ack {
             self.ack_chans.write().await.insert(new_index, x);
         }
-        self.last_log_index.store(new_index, Ordering::SeqCst);
         self.append_news.lock().await.publish();
     }
     async fn try_insert_entry<A: RaftApp>(&self, mut entry: Entry, core: Arc<RaftCore<A>>) -> bool {
         let _token = self.append_token.acquire().await;
 
         let (_, prev_index) = entry.prev_clock;
-        if let Some(prev_clock) = self.x.get(prev_index, |e| e.this_clock).await {
+        if let Some(prev_clock) = self.storage.get_entry(prev_index).await.map(|x| x.this_clock) {
             if prev_clock != entry.prev_clock {
                 return false;
             }
         } else {
             // if the entry is snapshot then we should insert this entry without consistency checks.
             // old entries before the new snapshot will be garbage collected.
-            if std::matches!(entry.command, Command::Snapshot { .. }) {
+            let command = entry.command.clone();
+            if std::matches!(command.into(), Command::Snapshot { .. }) {
                 let (_, new_index) = entry.this_clock;
                 log::warn!(
                     "log is too old. replicated a snapshot (idx={}) from leader",
@@ -764,19 +743,18 @@ impl Log {
                 );
 
                 entry.append_time = Instant::now();
-                self.x.insert(new_index, entry).await;
-                self.last_log_index.store(new_index, Ordering::SeqCst);
+                let old_head_index = self.storage.get_snapshot_index().await;
+                self.storage.insert_snapshot(new_index, entry).await;
                 self.commit_index.store(new_index - 1, Ordering::SeqCst);
                 self.last_applied.store(new_index - 1, Ordering::SeqCst);
-                let old_head_index = self.head_log_index.fetch_max(new_index, Ordering::SeqCst);
 
+                for idx in old_head_index..new_index {
+                    core.log.ack_chans.write().await.remove(&idx);
+                }
                 tokio::spawn({
                     let core = Arc::clone(&core);
                     async move {
-                        for idx in old_head_index..new_index {
-                            core.log.x.remove(idx).await;
-                            core.log.ack_chans.write().await.remove(&idx);
-                        }
+                        core.log.storage.delete_before(new_index);
                     }
                 });
 
@@ -788,27 +766,24 @@ impl Log {
 
         let (_, new_index) = entry.this_clock;
 
-        if let Some(old_clock) = self.x.get(new_index, |e| e.this_clock).await {
+        if let Some(old_clock) = self.storage.get_entry(new_index).await.map(|e| e.this_clock) {
             if old_clock == entry.this_clock {
                 // if there is a entry with the same term and index
                 // then the entry should be the same so skip insertion.
             } else {
                 log::warn!("log conflicted at idx: {}", new_index);
 
-                let old_last_log_index = self.last_log_index.load(Ordering::SeqCst);
+                let old_last_log_index = self.storage.get_last_index().await;
                 for idx in new_index..old_last_log_index {
-                    self.x.remove(idx).await;
                     self.ack_chans.write().await.remove(&idx);
                 }
 
                 entry.append_time = Instant::now();
-                self.x.insert(new_index, entry).await;
-                self.last_log_index.store(new_index, Ordering::SeqCst);
+                self.storage.insert_entry(new_index, entry).await;
             }
         } else {
             entry.append_time = Instant::now();
-            self.x.insert(new_index, entry).await;
-            self.last_log_index.store(new_index, Ordering::SeqCst);
+            self.storage.insert_entry(new_index, entry).await;
         }
 
         true
@@ -822,7 +797,7 @@ impl Log {
         }
 
         for i in old_agreement + 1..=new_agreement {
-            let command = self.x.get(i, |e| e.command.clone()).await.unwrap();
+            let command = self.storage.get_entry(i).await.unwrap().command.into();
             match command {
                 Command::AddServer { id } => {
                     log::info!("add-server: {}", id);
@@ -837,11 +812,11 @@ impl Log {
                     core.cluster.write().await.remove_server(id.clone());
                     let remove_leader = id == core.id
                         && std::matches!(
-                            core.vote.read().await.election_state,
+                            *core.election_state.read().await,
                             ElectionState::Leader
                         );
                     if remove_leader {
-                        core.vote.write().await.election_state = ElectionState::Follower;
+                        *core.election_state.write().await = ElectionState::Follower;
 
                         // if leader node steps down choose one of the follower node to
                         // become candidate immediately so the downtime becomes shorter.
@@ -878,10 +853,10 @@ impl Log {
     async fn advance_last_applied<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
         let (command, apply_idx) = {
             let apply_idx = self.last_applied.load(Ordering::SeqCst) + 1;
-            let command = self.x.get(apply_idx, |e| e.command.clone()).await.unwrap();
+            let command = self.storage.get_entry(apply_idx).await.unwrap().command;
             (command, apply_idx)
         };
-        let ok = match command {
+        let ok = match command.into() {
             Command::Snapshot { app_snapshot, .. } => {
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(app_snapshot).await;
@@ -927,8 +902,9 @@ impl Log {
             let mut res = None;
             // find a compaction point before last_applied but old enough so fresh entries
             // will be replicated to slower nodes.
-            for i in (self.head_log_index.load(Ordering::SeqCst) + 1..=last_applied).rev() {
-                let append_time = self.x.get(i, |e| e.append_time).await.unwrap();
+            let cur_head_index = self.storage.get_snapshot_index().await;
+            for i in (cur_head_index + 1..=last_applied).rev() {
+                let append_time = self.storage.get_entry(i).await.unwrap().append_time;
                 if now - append_time < guard_period {
                     // fresh entries will not be a target of compaction.
                 } else {
@@ -949,7 +925,7 @@ impl Log {
 
         let _token = self.compaction_token.acquire().await;
 
-        let cur_head_log_index = self.head_log_index.load(Ordering::SeqCst);
+        let cur_head_log_index = self.storage.get_snapshot_index().await;
 
         if new_head_index <= cur_head_log_index {
             return;
@@ -960,21 +936,17 @@ impl Log {
             cur_head_log_index,
             new_head_index
         );
-        let cur_snapshot = self
-            .x
-            .get(cur_head_log_index, |e| e.command.clone())
-            .await
-            .unwrap();
+        let cur_snapshot = self.storage.get_entry(cur_head_log_index).await.unwrap().command;
         if let Command::Snapshot {
             app_snapshot,
             core_snapshot,
-        } = cur_snapshot
+        } = cur_snapshot.into()
         {
             let mut new_app_snapshot = app_snapshot;
             let mut new_core_snapshot = core_snapshot;
             let mut app_messages = vec![];
             for i in cur_head_log_index + 1..=new_head_index {
-                match self.x.get(i, |e| e.command.clone()).await.unwrap() {
+                match self.storage.get_entry(i).await.unwrap().command.into() {
                     Command::AddServer { id } => {
                         log::info!("snapshot fold: add-server({})", id);
                         new_core_snapshot.insert(id);
@@ -1010,28 +982,21 @@ impl Log {
             };
 
             let new_head = {
-                let mut e = self.x.get(new_head_index, |e| e.clone()).await.unwrap();
+                let mut e = self.storage.get_entry(new_head_index).await.unwrap();
                 e.command = Command::Snapshot {
                     app_snapshot: new_app_snapshot,
                     core_snapshot: new_core_snapshot,
-                };
+                }.into();
                 e
             };
-            self.x.insert(new_head_index, new_head).await;
-            let old_head_index = self
-                .head_log_index
-                .fetch_max(new_head_index, Ordering::SeqCst);
+            self.storage.insert_snapshot(new_head_index, new_head).await;
 
             log::info!(
-                "remove old entries in [{}, {})",
-                old_head_index,
+                "remove old entries before {}",
                 new_head_index
             );
             tokio::spawn(async move {
-                for idx in old_head_index..new_head_index {
-                    core.log.x.remove(idx).await;
-                    assert!(!core.log.ack_chans.read().await.contains_key(&idx));
-                }
+                core.log.storage.delete_before(new_head_index).await;
             });
         } else {
             unreachable!()

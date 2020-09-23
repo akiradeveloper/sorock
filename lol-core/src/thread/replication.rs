@@ -16,7 +16,7 @@ impl<A: RaftApp> Thread<A> {
                 let core = Arc::clone(&self.core);
                 let follower_id = self.follower_id.clone();
                 async move {
-                    let election_state = core.vote.read().await.election_state;
+                    let election_state = *core.election_state.read().await;
                     if !std::matches!(election_state, ElectionState::Leader) {
                         return false;
                     }

@@ -14,7 +14,7 @@ impl<A: RaftApp> Thread<A> {
             while let Ok(true) = tokio::spawn({
                 let core = Arc::clone(&self.core);
                 async move {
-                    let election_state = core.vote.read().await.election_state;
+                    let election_state = *core.election_state.read().await;
                     if std::matches!(election_state, ElectionState::Leader) {
                         let old_agreement = core.log.commit_index.load(Ordering::SeqCst);
                         let new_agreement = core.find_new_agreement().await;
