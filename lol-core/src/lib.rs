@@ -13,7 +13,6 @@ pub mod core_message;
 mod membership;
 mod query_queue;
 mod quorum_join;
-mod table;
 mod thread;
 mod thread_drop;
 
