@@ -6,14 +6,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 
-mod storage;
+pub mod storage;
 mod ack;
 pub mod connection;
 pub mod core_message;
 mod membership;
 mod query_queue;
 mod quorum_join;
-mod table;
 mod thread;
 mod thread_drop;
 
@@ -25,28 +24,7 @@ pub mod protoimpl {
     tonic::include_proto!("lol_core");
 }
 
-#[derive(Clone)]
-struct Vote {
-    cur_term: Term,
-    voted_for: Option<Id>,
-}
-impl Vote {
-    pub fn new() -> Self {
-        Self {
-            cur_term: 0,
-            voted_for: None,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct Entry {
-    /// when this entry was inserted in this node
-    append_time: Instant,
-    prev_clock: Clock,
-    this_clock: Clock,
-    command: Vec<u8>,
-}
+use storage::{Entry, Vote};
 
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {

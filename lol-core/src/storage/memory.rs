@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::{Entry, Vote, Index};
+use super::{Entry, Vote};
+use crate::Index;
 
 pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,

@@ -1,6 +1,6 @@
 use crate::{Clock, Term, Index, Id};
 use rocksdb::{DB, Options, WriteBatch};
-use crate::{Entry, Vote};
+use super::{Entry, Vote};
 
 static CF_ENTRIES: &str = "entries";
 static CF_CTRL: &str = "ctrl";
