@@ -31,7 +31,7 @@ impl<A: RaftApp> Thread<A> {
                 let now = Instant::now();
                 let elapsed = now - last_time;
                 if elapsed > election_timeout {
-                    let election_state = core.vote.read().await.election_state;
+                    let election_state = *core.election_state.read().await;
                     if std::matches!(election_state, ElectionState::Follower) {
                         log::info!("heartbeat is not received for {} ms", elapsed.as_millis());
                         core.try_promote().await;

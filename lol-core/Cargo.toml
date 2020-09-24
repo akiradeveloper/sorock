@@ -26,6 +26,7 @@ rmp-serde = "0.14.3"
 log = "0.4"
 sysinfo = "0.14"
 anyhow = "1.0"
+rocksdb = "*"
 
 [build-dependencies]
 tonic-build = "0.2"

@@ -62,7 +62,7 @@ impl Cluster {
             tokio::spawn(g);
             self.thread_drop.insert(id.clone(), dropper);
 
-            let last_log_index = core.log.last_log_index.load(Ordering::SeqCst);
+            let last_log_index = core.log.get_last_log_index().await;
             ClusterMember {
                 endpoint,
                 progress: Some(ReplicationProgress::new(last_log_index)),
