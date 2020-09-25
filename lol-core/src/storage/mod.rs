@@ -31,7 +31,7 @@ pub struct Entry {
 
 // TODO error handling
 #[async_trait::async_trait]
-pub trait RaftStorage {
+pub trait RaftStorage: Sync + Send + 'static {
     /// delete ..r
     async fn delete_before(&self, r: Index);
     /// save snapshot entry and forward snapshot_index atomically

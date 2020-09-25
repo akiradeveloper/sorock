@@ -19,6 +19,7 @@ mod thread_drop;
 use ack::Ack;
 use connection::EndpointConfig;
 use thread::news;
+use storage::RaftStorage;
 
 pub mod protoimpl {
     tonic::include_proto!("lol_core");
@@ -109,10 +110,10 @@ pub struct RaftCore<A> {
     election_token: Semaphore,
 }
 impl<A: RaftApp> RaftCore<A> {
-    pub async fn new(app: A, config: Config, tunable: TunableConfig) -> Self {
+    pub async fn new(app: A, storage: Box<dyn RaftStorage>, config: Config, tunable: TunableConfig) -> Self {
         let id = config.id;
         let init_cluster = membership::Cluster::empty(id.clone()).await;
-        let init_log = Log::new().await;
+        let init_log = Log::new(storage).await;
         Self {
             app,
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
@@ -642,7 +643,7 @@ impl<A> RaftCore<A> {
     }
 }
 struct Log {
-    storage: storage::memory::Storage,
+    storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<HashMap<Index, Ack>>,
 
     last_applied: AtomicU64,   // monotonic
@@ -658,9 +659,9 @@ struct Log {
     apply_news: Mutex<news::News>,
 }
 impl Log {
-    async fn new() -> Self {
+    async fn new(storage: Box<dyn RaftStorage>) -> Self {
         Self {
-            storage: storage::memory::Storage::new(),
+            storage,
             ack_chans: RwLock::new(HashMap::new()),
 
             last_applied: 0.into(),
