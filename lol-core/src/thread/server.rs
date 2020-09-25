@@ -19,7 +19,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.vote.read().await.clone();
+        let vote = self.core.load_vote().await;
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -27,7 +27,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
         let leader_id = vote.voted_for.unwrap();
 
-        if std::matches!(vote.election_state, ElectionState::Leader) {
+        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let (ack, rx) = ack::channel_for_apply();
             let req = request.into_inner();
             if req.mutation {
@@ -52,7 +52,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.vote.read().await.clone();
+        let vote = self.core.load_vote().await;
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -60,7 +60,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
         let leader_id = vote.voted_for.unwrap();
 
-        if std::matches!(vote.election_state, ElectionState::Leader) {
+        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let req = request.into_inner();
             let res = if req.core {
                 self.core.apply_message(req.message).await
@@ -79,7 +79,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<CommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
-        let vote = self.core.vote.read().await.clone();
+        let vote = self.core.load_vote().await;
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -87,7 +87,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
         let leader_id = vote.voted_for.unwrap();
 
-        if std::matches!(vote.election_state, ElectionState::Leader) {
+        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let (ack, rx) = ack::channel_for_commit();
             let req = request.into_inner();
             let command = if req.core {
@@ -150,7 +150,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let success = self.core.queue_received_entry(request.into_inner()).await;
         let res = AppendEntryRep {
             success,
-            last_log_index: self.core.log.last_log_index.load(Ordering::SeqCst),
+            last_log_index: self.core.log.get_last_log_index().await,
         };
         Ok(tonic::Response::new(res))
     }
@@ -210,7 +210,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let success = self.core.queue_received_entry(req).await;
         let res = AppendEntryRep {
             success,
-            last_log_index: self.core.log.last_log_index.load(Ordering::SeqCst),
+            last_log_index: self.core.log.get_last_log_index().await,
         };
         Ok(tonic::Response::new(res))
     }
@@ -232,8 +232,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
-        let vote = self.core.vote.read().await.clone();
-        if std::matches!(vote.election_state, ElectionState::Follower) {
+        if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
             self.core.try_promote().await;
         }
         let res = TimeoutNowRep {};

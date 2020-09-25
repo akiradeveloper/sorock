@@ -114,7 +114,8 @@ async fn main() {
         })
         .init();
 
-    let core = RaftCore::new(app, config, tunable).await;
+    let storage = lol_core::storage::memory::Storage::new();
+    let core = RaftCore::new(app, storage, config, tunable).await;
     let core = Arc::new(core);
     let res = lol_core::start_server(core).await;
     if res.is_err() {

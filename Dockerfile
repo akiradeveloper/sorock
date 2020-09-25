@@ -1,14 +1,15 @@
 FROM 'centos:7'
 WORKDIR '/lol-root'
 
-RUN yum install -y sudo gcc
-RUN yum install -y iputils bind-utils make
+RUN yum install -y sudo gcc iputils bind-utils make
 RUN yum install -y ruby
+RUN yum install -y clang gcc-c++
 
 ARG USER
 ARG UID
 RUN groupadd ${USER}
-RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${USER} ${USER}
+RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${USER} -G wheel,root ${USER}
+RUN echo '%wheel ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER ${USER}
 
 RUN curl https://sh.rustup.rs -sSf >> ${HOME}/rustup.rs
