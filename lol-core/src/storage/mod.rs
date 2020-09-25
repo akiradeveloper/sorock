@@ -8,11 +8,11 @@ pub mod disk;
 
 #[derive(Clone)]
 pub struct Vote {
-    pub cur_term: Term,
-    pub voted_for: Option<Id>,
+    pub(crate) cur_term: Term,
+    pub(crate) voted_for: Option<Id>,
 }
 impl Vote {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             cur_term: 0,
             voted_for: None,
@@ -23,10 +23,10 @@ impl Vote {
 #[derive(Clone)]
 pub struct Entry {
     /// when this entry was inserted in this node
-    pub append_time: Instant,
-    pub prev_clock: Clock,
-    pub this_clock: Clock,
-    pub command: Vec<u8>,
+    pub(crate) append_time: Instant,
+    pub(crate) prev_clock: Clock,
+    pub(crate) this_clock: Clock,
+    pub(crate) command: Vec<u8>,
 }
 
 // TODO error handling
