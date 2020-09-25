@@ -733,7 +733,7 @@ impl Log {
                 tokio::spawn({
                     let core = Arc::clone(&core);
                     async move {
-                        core.log.storage.delete_before(new_index);
+                        core.log.storage.delete_before(new_index).await;
                     }
                 });
 
