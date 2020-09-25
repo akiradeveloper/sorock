@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -644,7 +644,7 @@ impl<A> RaftCore<A> {
 }
 struct Log {
     storage: Box<dyn RaftStorage>,
-    ack_chans: RwLock<HashMap<Index, Ack>>,
+    ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
     last_applied: AtomicU64,   // monotonic
     commit_index: AtomicU64,   // monotonic
@@ -662,7 +662,7 @@ impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         Self {
             storage,
-            ack_chans: RwLock::new(HashMap::new()),
+            ack_chans: RwLock::new(BTreeMap::new()),
 
             last_applied: 0.into(),
             commit_index: 0.into(),
@@ -682,6 +682,16 @@ impl Log {
     }
     async fn get_snapshot_index(&self) -> Index {
         self.storage.get_snapshot_index().await
+    }
+    async fn clean_garbages(&self) {
+        let r = self.storage.get_snapshot_index().await;
+        // remove entries
+        self.storage.delete_before(r).await;
+        // remove acks
+        let ls: Vec<u64> = self.ack_chans.read().await.range(..r).map(|x| *x.0).collect();
+        for i in ls {
+            self.ack_chans.write().await.remove(&i);
+        }
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) {
         let _token = self.append_token.acquire().await;
@@ -730,12 +740,6 @@ impl Log {
                 for idx in old_head_index..new_index {
                     core.log.ack_chans.write().await.remove(&idx);
                 }
-                tokio::spawn({
-                    let core = Arc::clone(&core);
-                    async move {
-                        core.log.storage.delete_before(new_index).await;
-                    }
-                });
 
                 return true;
             } else {
@@ -969,14 +973,6 @@ impl Log {
                 e
             };
             self.storage.insert_snapshot(new_head_index, new_head).await;
-
-            log::info!(
-                "remove old entries before {}",
-                new_head_index
-            );
-            tokio::spawn(async move {
-                core.log.storage.delete_before(new_head_index).await;
-            });
         } else {
             unreachable!()
         }
@@ -992,5 +988,6 @@ pub async fn start_server<A: RaftApp>(
     tokio::spawn(thread::election::run(Arc::clone(&core)));
     tokio::spawn(thread::execution::run(Arc::clone(&core)));
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
+    tokio::spawn(thread::gc::run(Arc::clone(&core)));
     thread::server::run(Arc::clone(&core)).await
 }
