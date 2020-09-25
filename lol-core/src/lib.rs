@@ -110,10 +110,10 @@ pub struct RaftCore<A> {
     election_token: Semaphore,
 }
 impl<A: RaftApp> RaftCore<A> {
-    pub async fn new(app: A, storage: Box<dyn RaftStorage>, config: Config, tunable: TunableConfig) -> Self {
+    pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Self {
         let id = config.id;
         let init_cluster = membership::Cluster::empty(id.clone()).await;
-        let init_log = Log::new(storage).await;
+        let init_log = Log::new(Box::new(storage)).await;
         Self {
             app,
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
