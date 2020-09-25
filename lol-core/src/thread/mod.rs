@@ -8,3 +8,4 @@ pub mod news;
 pub mod query_executor;
 pub mod replication;
 pub mod server;
+pub mod gc;
