@@ -2,8 +2,6 @@ use crate::{Clock, Term, Index, Id};
 use std::time::Instant;
 
 pub mod memory;
-
-#[cfg(feature = "persistency")]
 pub mod disk;
 
 #[derive(Clone)]
