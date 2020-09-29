@@ -504,12 +504,18 @@ impl<A> RaftCore<A> {
         }
 
         let cur_last_index = self.log.get_last_log_index().await;
+
+        // suppose we have 3 in-memory nodes ND0-2 and initially ND0 is the leader,
+        // log is fully replicated between nodes and there is no in-coming entries.
+        // suddenly, ND0 and 1 is crashed and soon later rebooted.
+        // in this case, ND2 should become leader by getting vote from either ND0 or ND1.
+        // this is why using weakest clock (0,0) here when there is no entry in the log.
         let this_last_log_clock = self
             .log
             .storage
             .get_entry(cur_last_index)
-            .await
-            .unwrap().this_clock;
+            .await.map(|x| x.this_clock).unwrap_or((0,0));
+
         if candidate_last_log_clock < this_last_log_clock {
             log::warn!("candidate clock is older. reject vote");
             self.store_vote(vote).await;

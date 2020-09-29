@@ -206,12 +206,19 @@ fn test_huge_replication() {
     assert!(r.is_ok());
 
     env.stop(0);
-    // wait for reelection
-    thread::sleep(Duration::from_secs(5));
+    // wait for compaction
+    thread::sleep(Duration::from_secs(10));
 
     let r = Client::to(0, env.clone()).get("k");
     assert!(r.is_err());
+    
+    env.stop(2);
+    env.start(0);
 
+    // wait for reelection in case the former leader is ND2
+    thread::sleep(Duration::from_secs(5));
+
+    // after huge replication, read will succeed
     let x = Client::to(1, env.clone()).get("k").expect("read failed");
     assert_eq!(x.0.unwrap().len(), 100_000_000);
 }
