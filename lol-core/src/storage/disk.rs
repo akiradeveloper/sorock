@@ -17,6 +17,7 @@ struct EntryB {
     append_time: u64,
     prev_clock: (u64, u64),
     this_clock: (u64, u64),
+    #[serde(with = "serde_bytes")]
     command: Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
