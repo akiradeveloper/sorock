@@ -1,5 +1,5 @@
 use crate::{Clock, Term, Index, Id};
-use std::time::Instant;
+use std::time::Duration;
 
 pub mod memory;
 pub mod disk;
@@ -21,7 +21,7 @@ impl Vote {
 #[derive(Clone)]
 pub struct Entry {
     /// when this entry was inserted in this node
-    pub(crate) append_time: Instant,
+    pub(crate) append_time: Duration,
     pub(crate) prev_clock: Clock,
     pub(crate) this_clock: Clock,
     pub(crate) command: Vec<u8>,
@@ -44,7 +44,7 @@ pub trait RaftStorage: Sync + Send + 'static {
 
 async fn test_storage<S: RaftStorage>(s: S) {
     let e = Entry {
-        append_time: Instant::now(),
+        append_time: Duration::new(0,0),
         prev_clock: (0,0),
         this_clock: (0,0),
         command: vec![]

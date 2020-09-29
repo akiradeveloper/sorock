@@ -4,7 +4,7 @@ use super::{Entry, Vote};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use tokio::sync::Semaphore;
-use std::time::Instant;
+use std::time::Duration;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -31,7 +31,7 @@ impl From<Vec<u8>> for Entry {
     fn from(x: Vec<u8>) -> Self {
         let x: EntryB = rmp_serde::from_slice(&x).unwrap();
         Entry {
-            append_time: Instant::now(), // tmp
+            append_time: Duration::from_millis(x.append_time),
             prev_clock: x.prev_clock,
             this_clock: x.this_clock,
             command: x.command,
@@ -41,7 +41,7 @@ impl From<Vec<u8>> for Entry {
 impl Into<Vec<u8>> for Entry {
     fn into(self) -> Vec<u8> {
         let x = EntryB {
-            append_time: 0, // tmp
+            append_time: self.append_time.as_millis() as u64,
             prev_clock: self.prev_clock,
             this_clock: self.this_clock,
             command: self.command,
@@ -248,7 +248,7 @@ async fn test_rocksdb_persistency() {
     let s: Box<super::RaftStorage> = Box::new(builder.open());
 
     let e = Entry {
-        append_time: Instant::now(),
+        append_time: Duration::new(0,0),
         prev_clock: (0,0),
         this_clock: (0,0),
         command: vec![]
