@@ -157,7 +157,7 @@ pub struct Storage {
     snapshot_lock: Semaphore,
 }
 impl Storage {
-    pub fn new(db: DB) -> Self {
+    fn new(db: DB) -> Self {
         Self {
             db,
             snapshot_lock: Semaphore::new(1),
