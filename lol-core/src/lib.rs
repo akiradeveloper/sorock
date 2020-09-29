@@ -50,6 +50,7 @@ pub type Id = String;
 enum Command {
     Noop,
     Snapshot {
+        #[serde(with = "serde_bytes")]
         app_snapshot: Option<Vec<u8>>,
         core_snapshot: HashSet<Id>,
     },
@@ -61,6 +62,7 @@ enum Command {
     },
     Req {
         core: bool,
+        #[serde(with = "serde_bytes")]
         message: Vec<u8>
     }
 }

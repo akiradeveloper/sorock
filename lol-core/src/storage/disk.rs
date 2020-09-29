@@ -17,6 +17,7 @@ struct EntryB {
     append_time: u64,
     prev_clock: (u64, u64),
     this_clock: (u64, u64),
+    #[serde(with = "serde_bytes")]
     command: Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -157,7 +158,7 @@ pub struct Storage {
     snapshot_lock: Semaphore,
 }
 impl Storage {
-    pub fn new(db: DB) -> Self {
+    fn new(db: DB) -> Self {
         Self {
             db,
             snapshot_lock: Semaphore::new(1),
@@ -226,7 +227,8 @@ impl super::RaftStorage for Storage {
 
 #[tokio::test]
 async fn test_rocksdb_storage() {
-    let path = Path::new("tmp1.db");
+    std::fs::create_dir("/tmp/lol");
+    let path = Path::new("/tmp/lol/disk1.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
@@ -241,7 +243,8 @@ async fn test_rocksdb_storage() {
 async fn test_rocksdb_persistency() {
     use std::time::Instant;
 
-    let path = Path::new("tmp2.db");
+    std::fs::create_dir("/tmp/lol");
+    let path = Path::new("/tmp/lol/disk2.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
