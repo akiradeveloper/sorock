@@ -226,7 +226,8 @@ impl super::RaftStorage for Storage {
 
 #[tokio::test]
 async fn test_rocksdb_storage() {
-    let path = Path::new("tmp1.db");
+    std::fs::create_dir("/tmp/lol");
+    let path = Path::new("/tmp/lol/disk1.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
@@ -241,7 +242,8 @@ async fn test_rocksdb_storage() {
 async fn test_rocksdb_persistency() {
     use std::time::Instant;
 
-    let path = Path::new("tmp2.db");
+    std::fs::create_dir("/tmp/lol");
+    let path = Path::new("/tmp/lol/disk2.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
