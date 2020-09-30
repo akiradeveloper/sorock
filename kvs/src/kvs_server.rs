@@ -102,7 +102,7 @@ async fn main() {
     let app = KVS::new();
     let id = connection::resolve(&opt.id).unwrap();
     let config = Config { id: id.clone() };
-    let mut tunable = TunableConfig::new();
+    let mut tunable = TunableConfig::default();
 
     // compactions runs every 5 secs.
     // be careful, the tests depends on this value.

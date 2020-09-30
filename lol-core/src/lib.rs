@@ -93,7 +93,7 @@ pub struct TunableConfig {
     pub compaction_memory_limit: f64,
 }
 impl TunableConfig {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         Self {
             compaction_interval_sec: 300,
             compaction_memory_limit: 0.9,
