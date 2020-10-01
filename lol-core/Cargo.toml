@@ -1,6 +1,6 @@
 [package]
 name = "lol-core"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -20,17 +20,13 @@ rand = "0.7"
 async-trait = "0.1.35"
 futures = "0.3.5"
 serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
 rmp = "0.8.9"
 rmp-serde = "0.14.3"
 log = "0.4"
 sysinfo = "0.14"
 anyhow = "1.0"
-
-rocksdb = { version = "0.15", optional = true }
+rocksdb = "0.15"
 
 [build-dependencies]
 tonic-build = "0.2"
-
-[features]
-full = ["persistency"]
-persistency = ["rocksdb"]

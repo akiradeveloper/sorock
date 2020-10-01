@@ -50,6 +50,7 @@ pub type Id = String;
 enum Command {
     Noop,
     Snapshot {
+        #[serde(with = "serde_bytes")]
         app_snapshot: Option<Vec<u8>>,
         core_snapshot: HashSet<Id>,
     },
@@ -61,6 +62,7 @@ enum Command {
     },
     Req {
         core: bool,
+        #[serde(with = "serde_bytes")]
         message: Vec<u8>
     }
 }
@@ -91,7 +93,7 @@ pub struct TunableConfig {
     pub compaction_memory_limit: f64,
 }
 impl TunableConfig {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         Self {
             compaction_interval_sec: 300,
             compaction_memory_limit: 0.9,
@@ -169,7 +171,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn init_cluster(self: &Arc<Self>, id: Id) {
         let snapshot = Entry {
-            append_time: Instant::now(),
+            append_time: self.log.since_boot_time(),
             prev_clock: (0, 0),
             this_clock: (0, 1),
             command: Command::Snapshot {
@@ -187,7 +189,7 @@ impl<A: RaftApp> RaftCore<A> {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
         for e in req.entries {
             let entry = Entry {
-                append_time: Instant::now(),
+                append_time: self.log.since_boot_time(), // tmp. will be overwritten
                 prev_clock,
                 this_clock: (e.term, e.index),
                 command: e.command,
@@ -504,12 +506,18 @@ impl<A> RaftCore<A> {
         }
 
         let cur_last_index = self.log.get_last_log_index().await;
+
+        // suppose we have 3 in-memory nodes ND0-2 and initially ND0 is the leader,
+        // log is fully replicated between nodes and there is no in-coming entries.
+        // suddenly, ND0 and 1 is crashed and soon later rebooted.
+        // in this case, ND2 should become leader by getting vote from either ND0 or ND1.
+        // this is why using weakest clock (0,0) here when there is no entry in the log.
         let this_last_log_clock = self
             .log
             .storage
             .get_entry(cur_last_index)
-            .await
-            .unwrap().this_clock;
+            .await.map(|x| x.this_clock).unwrap_or((0,0));
+
         if candidate_last_log_clock < this_last_log_clock {
             log::warn!("candidate clock is older. reject vote");
             self.store_vote(vote).await;
@@ -643,6 +651,8 @@ impl<A> RaftCore<A> {
     }
 }
 struct Log {
+    boot_time: Instant,
+
     storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
@@ -661,6 +671,8 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         Self {
+            boot_time: Instant::now(),
+
             storage,
             ack_chans: RwLock::new(BTreeMap::new()),
 
@@ -676,6 +688,9 @@ impl Log {
             commit_news: Mutex::new(news::News::new()),
             apply_news: Mutex::new(news::News::new()),
         }
+    }
+    fn since_boot_time(&self) -> Duration {
+        Instant::now() - self.boot_time
     }
     async fn get_last_log_index(&self) -> Index {
         self.storage.get_last_index().await
@@ -701,7 +716,7 @@ impl Log {
         let new_index = cur_last_log_index + 1;
         let this_clock = (term, new_index);
         let e = Entry {
-            append_time: Instant::now(),
+            append_time: self.since_boot_time(),
             prev_clock,
             this_clock,
             command: command.into(),
@@ -731,7 +746,7 @@ impl Log {
                     new_index
                 );
 
-                entry.append_time = Instant::now();
+                entry.append_time = self.since_boot_time();
                 let old_head_index = self.storage.get_snapshot_index().await;
                 self.storage.insert_snapshot(new_index, entry).await;
                 self.commit_index.store(new_index - 1, Ordering::SeqCst);
@@ -761,11 +776,11 @@ impl Log {
                     self.ack_chans.write().await.remove(&idx);
                 }
 
-                entry.append_time = Instant::now();
+                entry.append_time = self.since_boot_time();
                 self.storage.insert_entry(new_index, entry).await;
             }
         } else {
-            entry.append_time = Instant::now();
+            entry.append_time = self.since_boot_time();
             self.storage.insert_entry(new_index, entry).await;
         }
 
@@ -880,7 +895,7 @@ impl Log {
     }
     async fn find_compaction_point(&self, guard_period: Duration) -> Option<Index> {
         let last_applied = self.last_applied.load(Ordering::SeqCst);
-        let now = Instant::now();
+        let now = self.since_boot_time();
         let new_head_index = {
             let mut res = None;
             // find a compaction point before last_applied but old enough so fresh entries

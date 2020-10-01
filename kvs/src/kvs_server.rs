@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
+use std::path::Path;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
@@ -101,20 +102,30 @@ async fn main() {
     let app = KVS::new();
     let id = connection::resolve(&opt.id).unwrap();
     let config = Config { id: id.clone() };
-    let mut tunable = TunableConfig::new();
+    let mut tunable = TunableConfig::default();
 
     // compactions runs every 5 secs.
     // be careful, the tests depends on this value.
     tunable.compaction_interval_sec = 5;
 
+    let id_cln = id.clone();
     env_logger::builder()
         .format(move |buf, record| {
             let ts = buf.timestamp();
-            writeln!(buf, "[{} {}] {}> {}", ts, record.level(), id, record.args())
+            writeln!(buf, "[{} {}] {}> {}", ts, record.level(), id_cln, record.args())
         })
         .init();
 
-    let storage = lol_core::storage::memory::Storage::new();
+    // let storage = lol_core::storage::memory::Storage::new();
+
+    std::fs::create_dir("/tmp/lol");
+    let path = format!("/tmp/lol/{}.db", id);
+    let path = Path::new(&path);
+    let builder = lol_core::storage::disk::StorageBuilder::new(&path);
+    builder.destory();
+    builder.create();
+    let storage = builder.open();
+
     let core = RaftCore::new(app, storage, config, tunable).await;
     let core = Arc::new(core);
     let res = lol_core::start_server(core).await;

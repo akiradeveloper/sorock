@@ -54,3 +54,9 @@ impl super::RaftStorage for Storage {
         self.vote.lock().await.clone()
     }
 }
+
+#[tokio::test]
+async fn test_mem_storage() {
+    let s = Storage::new();
+    super::test_storage(s).await;
+}
