@@ -747,14 +747,9 @@ impl Log {
                 );
 
                 entry.append_time = self.since_boot_time();
-                let old_head_index = self.storage.get_snapshot_index().await;
                 self.storage.insert_snapshot(new_index, entry).await;
                 self.commit_index.store(new_index - 1, Ordering::SeqCst);
                 self.last_applied.store(new_index - 1, Ordering::SeqCst);
-
-                for idx in old_head_index..new_index {
-                    core.log.ack_chans.write().await.remove(&idx);
-                }
 
                 return true;
             } else {
