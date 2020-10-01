@@ -15,6 +15,7 @@ mod query_queue;
 mod quorum_join;
 mod thread;
 mod thread_drop;
+mod snapshot;
 
 use ack::Ack;
 use connection::EndpointConfig;
@@ -667,6 +668,8 @@ struct Log {
     replication_news: Mutex<news::News>,
     commit_news: Mutex<news::News>,
     apply_news: Mutex<news::News>,
+
+    snapshot_queue: snapshot::SnapshotQueue,
 }
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
@@ -687,6 +690,8 @@ impl Log {
             replication_news: Mutex::new(news::News::new()),
             commit_news: Mutex::new(news::News::new()),
             apply_news: Mutex::new(news::News::new()),
+
+            snapshot_queue: snapshot::SnapshotQueue::new(),
         }
     }
     fn since_boot_time(&self) -> Duration {
@@ -747,7 +752,7 @@ impl Log {
                 );
 
                 entry.append_time = self.since_boot_time();
-                self.storage.insert_snapshot(new_index, entry).await;
+                self.insert_snapshot(entry).await;
                 self.commit_index.store(new_index - 1, Ordering::SeqCst);
                 self.last_applied.store(new_index - 1, Ordering::SeqCst);
 
@@ -780,6 +785,10 @@ impl Log {
         }
 
         true
+    }
+    async fn insert_snapshot(&self, e: Entry) {
+        let (_, idx) = e.this_clock;
+        self.storage.insert_snapshot(idx, e).await;
     }
     async fn advance_commit_index<A: RaftApp>(&self, new_agreement: Index, core: Arc<RaftCore<A>>) {
         let _token = self.commit_token.acquire().await;
@@ -982,7 +991,7 @@ impl Log {
                 }.into();
                 e
             };
-            self.storage.insert_snapshot(new_head_index, new_head).await;
+            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_head }, Duration::from_secs(0)).await;
         } else {
             unreachable!()
         }
@@ -999,5 +1008,6 @@ pub async fn start_server<A: RaftApp>(
     tokio::spawn(thread::execution::run(Arc::clone(&core)));
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
     tokio::spawn(thread::gc::run(Arc::clone(&core)));
+    tokio::spawn(thread::snapshot_installer::run(Arc::clone(&core)));
     thread::server::run(Arc::clone(&core)).await
 }
