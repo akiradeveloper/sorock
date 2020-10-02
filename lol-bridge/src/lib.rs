@@ -25,12 +25,19 @@ pub struct RaftAppBridge {
 }
 #[async_trait]
 impl RaftApp for RaftAppBridge {
-    async fn apply_message(&self, request: Message) -> anyhow::Result<Message> {
+    async fn process_message(&self, request: Message) -> anyhow::Result<Message> {
+        let chan = Self::connect(self.config.clone()).await?;
+        let mut cli = AppBridgeClient::new(chan);
+        let req = protoimpl::ProcessMessageReq { message: request };
+        let protoimpl::ProcessMessageRep { message } = cli.process_message(req).await?.into_inner();
+        Ok(message)
+    }
+    async fn apply_message(&self, request: Message) -> anyhow::Result<(Message, Snapshot)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::ApplyMessageReq { message: request };
-        let protoimpl::ApplyMessageRep { message } = cli.apply_message(req).await?.into_inner();
-        Ok(message)
+        let protoimpl::ApplyMessageRep { message, snapshot } = cli.apply_message(req).await?.into_inner();
+        Ok((message, snapshot))
     }
     async fn install_snapshot(&self, snapshot: Snapshot) -> anyhow::Result<()> {
         let chan = Self::connect(self.config.clone()).await?;

@@ -63,9 +63,9 @@ impl<A: RaftApp> Raft for Thread<A> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let req = request.into_inner();
             let res = if req.core {
-                self.core.apply_message(req.message).await
+                self.core.process_message(req.message).await
             } else {
-                self.core.app.apply_message(req.message).await
+                self.core.app.process_message(req.message).await
             };
             res.map(|x| tonic::Response::new(ApplyRep { message: x }))
                 .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
@@ -121,9 +121,9 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
         let req = request.into_inner();
         let res = if req.core {
-            self.core.apply_message(req.message).await
+            self.core.process_message(req.message).await
         } else {
-            self.core.app.apply_message(req.message).await
+            self.core.app.process_message(req.message).await
         };
         res.map(|x| tonic::Response::new(ApplyRep { message: x }))
             .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
