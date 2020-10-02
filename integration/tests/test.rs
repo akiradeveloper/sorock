@@ -7,7 +7,7 @@ use std::time::Duration;
 fn test_one_node_start_and_stop() {
     let env = init_cluster(1);
     for _ in 0..10 {
-        env.start(1);
+        env.start(1, vec![]);
         env.stop(1);
     }
 }
@@ -31,7 +31,7 @@ fn test_env_drop() {
     for _ in 0..10 {
         let env = init_cluster(1);
         for id in 1..=100 {
-            env.start(id);
+            env.start(id, vec![]);
         }
     }
 }
@@ -40,12 +40,12 @@ fn test_create_three_nodes_cluster() {
     let env = init_cluster(1);
     assert_cluster(Duration::from_secs(5), vec![0], vec![0], env.clone());
 
-    env.start(1);
+    env.start(1, vec![]);
 
     Admin::to(0, env.clone()).add_server(1, env.clone());
     assert_cluster(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
 
-    env.start(2);
+    env.start(2, vec![]);
 
     Admin::to(1, env.clone()).add_server(2, env.clone());
     assert_cluster(
@@ -72,7 +72,7 @@ fn test_one_node_operations() {
 fn test_two_nodes_operations() {
     let env = init_cluster(1);
 
-    env.start(1);
+    env.start(1, vec![]);
 
     Admin::to(0, env.clone()).add_server(1, env.clone());
     assert_cluster(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
@@ -160,7 +160,7 @@ fn test_add_new_node() {
         Client::to(0, env.clone()).set("a", "1");
     }
     thread::sleep(Duration::from_secs(10));
-    env.start(2);
+    env.start(2, vec![]);
     Admin::to(0, env.clone()).add_server(2, env.clone());
     thread::sleep(Duration::from_secs(5));
     env.stop(1);
@@ -213,7 +213,7 @@ fn test_huge_replication() {
     assert!(r.is_err());
     
     env.stop(2);
-    env.start(0);
+    env.start(0, vec![]);
 
     // wait for reelection in case the former leader is ND2
     thread::sleep(Duration::from_secs(5));
@@ -260,7 +260,7 @@ fn test_reelection_after_leader_crash() {
 
     // FIXME for what reason?
     // restart the server
-    env.start(0);
+    env.start(0, vec![]);
     assert_cluster(
         Duration::from_secs(5),
         vec![0, 1, 2],
@@ -308,4 +308,28 @@ fn test_yield_leadership() {
     let cluster_info = Admin::to(1, env.clone()).cluster_info().unwrap();
     assert!(cluster_info.leader_id.is_some());
     assert_ne!(cluster_info.leader_id, Some(env.node_id(0)));
+}
+#[test]
+fn test_copy_snapshot() {
+    let env = Environment::new(0, vec!["--copy-snapshot-mode"]);
+    Client::to(0, env.clone()).set_rep("k", "1", 1);
+    Client::to(0, env.clone()).set_rep("k", "2", 1);
+    Client::to(0, env.clone()).set_rep("k", "3", 1);
+    Client::to(0, env.clone()).set_rep("k", "2", 1);
+    // snapshot inserted
+    thread::sleep(Duration::from_secs(3));
+
+    // add ND1 into the cluster
+    env.start(1, vec![]);
+    Admin::to(0, env.clone()).add_server(1, env.clone());
+    // snapshot is replicated
+    thread::sleep(Duration::from_secs(3));
+
+    env.stop(0);
+    env.start(0, vec![]);
+    // wait for reelection
+    thread::sleep(Duration::from_secs(3));
+
+    let v = Client::to(1, env.clone()).get("k").unwrap().0.unwrap();
+    assert_eq!(v, "2");
 }

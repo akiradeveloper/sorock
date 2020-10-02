@@ -12,11 +12,14 @@ use std::path::Path;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
 struct Opt {
+    #[structopt(long)]
+    copy_snapshot_mode: bool,
     #[structopt(name = "ID")]
     id: String,
 }
 struct KVS {
     mem: Arc<RwLock<BTreeMap<String, String>>>,
+    copy_snapshot_mode: bool,
 }
 #[async_trait]
 impl RaftApp for KVS {
@@ -50,7 +53,9 @@ impl RaftApp for KVS {
     }
     async fn apply_message(&self, x: Message) -> anyhow::Result<(Message, Snapshot)> {
         let res = self.process_message(x).await?;
-        Ok((res, None)) // tmp
+        let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
+        let new_snapshot = kvs::Snapshot::serialize(&new_snapshot);
+        Ok((res, Some(new_snapshot)))
     }
     async fn install_snapshot(&self, x: Snapshot) -> anyhow::Result<()> {
         if let Some(x) = x {
@@ -94,6 +99,7 @@ impl KVS {
     pub fn new() -> Self {
         Self {
             mem: Arc::new(RwLock::new(BTreeMap::new())),
+            copy_snapshot_mode: false,
         }
     }
 }
@@ -103,14 +109,22 @@ use std::io::Write;
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let app = KVS::new();
+    let mut app = KVS::new();
+    app.copy_snapshot_mode = opt.copy_snapshot_mode;
+
     let id = connection::resolve(&opt.id).unwrap();
     let config = Config { id: id.clone() };
     let mut tunable = TunableConfig::default();
 
-    // compactions runs every 5 secs.
-    // be careful, the tests depends on this value.
-    tunable.compaction_interval_sec = 5;
+    if !opt.copy_snapshot_mode {
+        // compactions runs every 5 secs.
+        // be careful, the tests depends on this value.
+        tunable.compaction_interval_sec = 5;
+        tunable.compaction_delay_sec = 5;
+    } else {
+        tunable.compaction_interval_sec = 0;
+        tunable.compaction_delay_sec = 1;
+    }
 
     let id_cln = id.clone();
     env_logger::builder()

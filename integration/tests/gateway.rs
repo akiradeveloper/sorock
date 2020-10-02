@@ -11,8 +11,8 @@ async fn test_gateway() {
     let gateway = gateway::Gateway::new(initial).await;
     gateway::Gateway::start_companion_thread(&gateway).await;
 
-    env.start(1);
-    env.start(2);
+    env.start(1, vec![]);
+    env.start(2, vec![]);
     Admin::to(0, env.clone()).add_server(1, env.clone());
     Admin::to(0, env.clone()).add_server(2, env.clone());
     tokio::time::delay_for(Duration::from_secs(6)).await;
