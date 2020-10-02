@@ -89,6 +89,7 @@ pub struct Config {
     pub id: Id,
 }
 pub struct TunableConfig {
+    pub compaction_delay_sec: u64,
     /// the interval that compaction runs
     pub compaction_interval_sec: u64,
     /// the system memory threshold threshold that compaction runs
@@ -97,6 +98,7 @@ pub struct TunableConfig {
 impl TunableConfig {
     pub fn default() -> Self {
         Self {
+            compaction_delay_sec: 300,
             compaction_interval_sec: 300,
             compaction_memory_limit: 0.9,
         }
@@ -191,7 +193,7 @@ impl<A: RaftApp> RaftCore<A> {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
         for e in req.entries {
             let entry = Entry {
-                append_time: self.log.since_boot_time(), // tmp. will be overwritten
+                append_time: self.log.since_boot_time(), // this is a temp value. will be overwritten
                 prev_clock,
                 this_clock: (e.term, e.index),
                 command: e.command,
@@ -902,9 +904,12 @@ impl Log {
                                 }.into(),
                                 .. apply_entry
                             };
+                            let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
+                            let delay = Duration::from_secs(delay_sec);
+                            log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
                             self.snapshot_queue.insert(snapshot::InsertSnapshot {
                                 e: snapshot_entry,
-                            }, Duration::from_secs(5)).await; // tmp
+                            }, delay).await;
                         }
                         true
                     }
@@ -1023,7 +1028,9 @@ impl Log {
                 }.into();
                 e
             };
-            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_head }, Duration::from_secs(0)).await;
+            let no_delay = Duration::from_secs(0);
+            log::info!("fold snapshot is made and will be inserted immediately");
+            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_head }, no_delay).await;
         } else {
             unreachable!()
         }

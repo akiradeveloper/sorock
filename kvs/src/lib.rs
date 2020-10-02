@@ -38,10 +38,10 @@ impl Rep {
     }
 }
 impl Snapshot {
-    pub fn serialize(msg: &Self) -> Vec<u8> {
+    pub fn serialize(msg: &Snapshot) -> Vec<u8> {
         serde_json::to_vec(msg).unwrap()
     }
-    pub fn deserialize(b: &[u8]) -> Option<Self> {
+    pub fn deserialize(b: &[u8]) -> Option<Snapshot> {
         serde_json::from_slice(b).ok()
     }
 }
