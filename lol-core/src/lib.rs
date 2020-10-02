@@ -30,7 +30,8 @@ use storage::{Entry, Vote};
 
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
-    async fn apply_message(&self, request: Message) -> anyhow::Result<Message>;
+    async fn process_message(&self, request: Message) -> anyhow::Result<Message>;
+    async fn apply_message(&self, request: Message) -> anyhow::Result<(Message, Snapshot)>;
     async fn install_snapshot(&self, snapshot: Snapshot) -> anyhow::Result<()>;
     async fn fold_snapshot(
         &self,
@@ -129,7 +130,7 @@ impl<A: RaftApp> RaftCore<A> {
             election_token: Semaphore::new(1),
         }
     }
-    async fn apply_message(self: &Arc<Self>, msg: Message) -> anyhow::Result<Message> {
+    async fn process_message(self: &Arc<Self>, msg: Message) -> anyhow::Result<Message> {
         let req = core_message::Req::deserialize(&msg).unwrap();
         match req {
             core_message::Req::InitCluster => {
@@ -855,10 +856,11 @@ impl Log {
         self.commit_news.lock().await.publish();
     }
     async fn advance_last_applied<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
-        let (command, apply_idx) = {
+        let (apply_idx, apply_entry, command) = {
             let apply_idx = self.last_applied.load(Ordering::SeqCst) + 1;
-            let command = self.storage.get_entry(apply_idx).await.unwrap().command;
-            (command, apply_idx)
+            let mut e = self.storage.get_entry(apply_idx).await.unwrap();
+            let command = std::mem::take(&mut e.command);
+            (apply_idx, e, command)
         };
         let ok = match command.into() {
             Command::Snapshot { app_snapshot, core_snapshot } => {
@@ -875,12 +877,13 @@ impl Log {
             }
             Command::Req { message, core } => {
                 let res = if core {
-                    raft_core.apply_message(message).await
+                    let res = raft_core.process_message(message).await;
+                    res.map(|x| (x, None))
                 } else {
                     raft_core.app.apply_message(message).await
                 };
                 match res {
-                    Ok(msg) => {
+                    Ok((msg, new_app_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
                         if ack_chans.contains_key(&apply_idx) {
                             let ack = ack_chans.get(&apply_idx).unwrap();
@@ -889,6 +892,19 @@ impl Log {
                                     let _ = tx.send(ack::ApplyOk(msg));
                                 }
                             }
+                        }
+
+                        if let Some(new_app_snapshot) = new_app_snapshot {
+                            let snapshot_entry = Entry {
+                                command: Command::Snapshot {
+                                    app_snapshot: Some(new_app_snapshot),
+                                    core_snapshot: self.applied_membership.lock().await.clone(),
+                                }.into(),
+                                .. apply_entry
+                            };
+                            self.snapshot_queue.insert(snapshot::InsertSnapshot {
+                                e: snapshot_entry,
+                            }, Duration::from_secs(5)).await; // tmp
                         }
                         true
                     }

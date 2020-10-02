@@ -20,7 +20,7 @@ struct KVS {
 }
 #[async_trait]
 impl RaftApp for KVS {
-    async fn apply_message(&self, x: Message) -> anyhow::Result<Message> {
+    async fn process_message(&self, x: Message) -> anyhow::Result<Message> {
         let msg = kvs::Req::deserialize(&x);
         match msg {
             Some(x) => match x {
@@ -47,6 +47,10 @@ impl RaftApp for KVS {
             },
             None => Err(anyhow!("the message not supported")),
         }
+    }
+    async fn apply_message(&self, x: Message) -> anyhow::Result<(Message, Snapshot)> {
+        let res = self.process_message(x).await?;
+        Ok((res, None)) // tmp
     }
     async fn install_snapshot(&self, x: Snapshot) -> anyhow::Result<()> {
         if let Some(x) = x {
