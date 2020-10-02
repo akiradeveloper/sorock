@@ -669,6 +669,7 @@ struct Log {
     commit_news: Mutex<news::News>,
     apply_news: Mutex<news::News>,
 
+    applied_membership: Mutex<HashSet<Id>>,
     snapshot_queue: snapshot::SnapshotQueue,
 }
 impl Log {
@@ -691,6 +692,7 @@ impl Log {
             commit_news: Mutex::new(news::News::new()),
             apply_news: Mutex::new(news::News::new()),
 
+            applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
         }
     }
@@ -859,11 +861,17 @@ impl Log {
             (command, apply_idx)
         };
         let ok = match command.into() {
-            Command::Snapshot { app_snapshot, .. } => {
+            Command::Snapshot { app_snapshot, core_snapshot } => {
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(app_snapshot).await;
                 log::info!("install app snapshot (complete)");
-                res.is_ok()
+                let success = res.is_ok();
+                if success {
+                    *self.applied_membership.lock().await = core_snapshot;
+                    true
+                } else {
+                    false
+                }
             }
             Command::Req { message, core } => {
                 let res = if core {
@@ -889,7 +897,15 @@ impl Log {
                         false
                     }
                 }
-            }
+            },
+            Command::AddServer { id } => {
+                self.applied_membership.lock().await.insert(id);
+                true
+            },
+            Command::RemoveServer { id } => {
+                self.applied_membership.lock().await.remove(&id);
+                true
+            },
             _ => true,
         };
         if ok {
