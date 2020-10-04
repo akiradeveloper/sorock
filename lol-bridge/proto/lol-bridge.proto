@@ -12,6 +12,7 @@ message ProcessMessageRep {
 }
 message ApplyMessageReq {
     bytes message = 1;
+    uint64 apply_index = 2;
 }
 message ApplyMessageRep {
     bytes message = 1;
@@ -19,6 +20,7 @@ message ApplyMessageRep {
 }
 message InstallSnapshotReq {
     google.protobuf.BytesValue snapshot = 1;
+    uint64 apply_index = 2;
 }
 message InstallSnapshotRep {}
 message FoldSnapshotReq {
