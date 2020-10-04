@@ -138,15 +138,15 @@ async fn main() {
         })
         .init();
 
-    // let storage = lol_core::storage::memory::Storage::new();
+    let storage = lol_core::storage::memory::Storage::new();
 
-    std::fs::create_dir("/tmp/lol");
-    let path = format!("/tmp/lol/{}.db", id);
-    let path = Path::new(&path);
-    let builder = lol_core::storage::disk::StorageBuilder::new(&path);
-    builder.destory();
-    builder.create();
-    let storage = builder.open();
+    // std::fs::create_dir("/tmp/lol");
+    // let path = format!("/tmp/lol/{}.db", id);
+    // let path = Path::new(&path);
+    // let builder = lol_core::storage::disk::StorageBuilder::new(&path);
+    // builder.destory();
+    // builder.create();
+    // let storage = builder.open();
 
     let core = RaftCore::new(app, storage, config, tunable).await;
     let core = Arc::new(core);
