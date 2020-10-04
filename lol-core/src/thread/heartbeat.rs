@@ -2,7 +2,7 @@ use crate::{ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A> {
+struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
 }
 impl<A: RaftApp> Thread<A> {

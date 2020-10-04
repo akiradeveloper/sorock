@@ -28,7 +28,7 @@ message FoldSnapshotReq {
     repeated bytes messages = 2;
 }
 message FoldSnapshotRep {
-    google.protobuf.BytesValue snapshot = 1;
+    bytes snapshot = 1;
 }
 service AppBridge {
     rpc ProcessMessage (ProcessMessageReq) returns (ProcessMessageRep);
