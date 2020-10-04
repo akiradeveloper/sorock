@@ -53,9 +53,13 @@ impl RaftApp for KVS {
     }
     async fn apply_message(&self, x: Message) -> anyhow::Result<(Message, Snapshot)> {
         let res = self.process_message(x).await?;
-        let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
-        let new_snapshot = kvs::Snapshot::serialize(&new_snapshot);
-        Ok((res, Some(new_snapshot)))
+        let new_snapshot = if self.copy_snapshot_mode {
+            let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
+            Some(kvs::Snapshot::serialize(&new_snapshot))
+        } else {
+            None
+        };
+        Ok((res, new_snapshot))
     }
     async fn install_snapshot(&self, x: Snapshot) -> anyhow::Result<()> {
         if let Some(x) = x {
