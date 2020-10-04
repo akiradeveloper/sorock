@@ -31,19 +31,19 @@ use storage::{Entry, Vote};
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     async fn process_message(&self, request: Message) -> anyhow::Result<Message>;
-    async fn apply_message(&self, request: Message) -> anyhow::Result<(Message, Snapshot)>;
-    async fn install_snapshot(&self, snapshot: Snapshot) -> anyhow::Result<()>;
+    async fn apply_message(&self, request: Message, apply_index: Index) -> anyhow::Result<(Message, Option<Snapshot>)>;
+    async fn install_snapshot(&self, snapshot: Option<Snapshot>, apply_index: Index) -> anyhow::Result<()>;
     async fn fold_snapshot(
         &self,
-        old_snapshot: Snapshot,
+        old_snapshot: Option<Snapshot>,
         requests: Vec<Message>,
-    ) -> anyhow::Result<Snapshot>;
+    ) -> anyhow::Result<Option<Snapshot>>;
 }
 
 pub type Message = Vec<u8>;
-pub type Snapshot = Option<Vec<u8>>;
+pub type Snapshot = Vec<u8>;
 type Term = u64;
-type Index = u64;
+pub type Index = u64;
 type Clock = (Term, Index);
 /// id = ip:port
 pub type Id = String;
@@ -867,7 +867,7 @@ impl Log {
         let ok = match command.into() {
             Command::Snapshot { app_snapshot, core_snapshot } => {
                 log::info!("install app snapshot");
-                let res = raft_core.app.install_snapshot(app_snapshot).await;
+                let res = raft_core.app.install_snapshot(app_snapshot, apply_idx).await;
                 log::info!("install app snapshot (complete)");
                 let success = res.is_ok();
                 if success {
@@ -882,7 +882,7 @@ impl Log {
                     let res = raft_core.process_message(message).await;
                     res.map(|x| (x, None))
                 } else {
-                    raft_core.app.apply_message(message).await
+                    raft_core.app.apply_message(message, apply_idx).await
                 };
                 match res {
                     Ok((msg, new_app_snapshot)) => {

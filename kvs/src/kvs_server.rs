@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lol_core::connection;
-use lol_core::{Config, Message, RaftApp, RaftCore, Snapshot, TunableConfig};
+use lol_core::{Index, Config, Message, RaftApp, RaftCore, Snapshot, TunableConfig};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,13 +51,17 @@ impl RaftApp for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: Message) -> anyhow::Result<(Message, Snapshot)> {
+    async fn apply_message(&self, x: Message, _: Index) -> anyhow::Result<(Message, Option<Snapshot>)> {
         let res = self.process_message(x).await?;
-        let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
-        let new_snapshot = kvs::Snapshot::serialize(&new_snapshot);
-        Ok((res, Some(new_snapshot)))
+        let new_snapshot = if self.copy_snapshot_mode {
+            let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
+            Some(kvs::Snapshot::serialize(&new_snapshot))
+        } else {
+            None
+        };
+        Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Snapshot) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<Snapshot>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             // emulate heavy install_snapshot
             tokio::time::delay_for(Duration::from_secs(10)).await;
@@ -72,9 +76,9 @@ impl RaftApp for KVS {
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Snapshot,
+        old_snapshot: Option<Snapshot>,
         xs: Vec<Message>,
-    ) -> anyhow::Result<Snapshot> {
+    ) -> anyhow::Result<Option<Snapshot>> {
         let mut old = old_snapshot
             .map(|x| kvs::Snapshot::deserialize(&x).unwrap())
             .unwrap_or(kvs::Snapshot { h: BTreeMap::new() });
@@ -134,15 +138,15 @@ async fn main() {
         })
         .init();
 
-    // let storage = lol_core::storage::memory::Storage::new();
+    let storage = lol_core::storage::memory::Storage::new();
 
-    std::fs::create_dir("/tmp/lol");
-    let path = format!("/tmp/lol/{}.db", id);
-    let path = Path::new(&path);
-    let builder = lol_core::storage::disk::StorageBuilder::new(&path);
-    builder.destory();
-    builder.create();
-    let storage = builder.open();
+    // std::fs::create_dir("/tmp/lol");
+    // let path = format!("/tmp/lol/{}.db", id);
+    // let path = Path::new(&path);
+    // let builder = lol_core::storage::disk::StorageBuilder::new(&path);
+    // builder.destory();
+    // builder.create();
+    // let storage = builder.open();
 
     let core = RaftCore::new(app, storage, config, tunable).await;
     let core = Arc::new(core);
