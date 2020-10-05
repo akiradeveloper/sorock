@@ -26,7 +26,16 @@ rmp-serde = "0.14.3"
 log = "0.4"
 sysinfo = "0.14"
 anyhow = "1.0"
-rocksdb = "0.15"
+
+rocksdb = { version = "0.15", optional = true }
 
 [build-dependencies]
 tonic-build = "0.2"
+
+[features]
+full = ["persistency"]
+persistency = ["rocksdb"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
