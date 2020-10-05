@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashSet};
