@@ -17,14 +17,15 @@ impl<A: RaftApp> Thread<A> {
             let interval = Duration::from_secs(v);
             tokio::time::delay_for(interval).await;
 
+            let delay = Duration::from_secs(self.core.tunable.read().await.compaction_delay_sec);
             let core = Arc::clone(&self.core);
             let f = async move {
                 log::info!("start compaction L1");
-                let new_head_index = core.log.find_compaction_point(interval).await;
-                log::info!("new compaction point: {:?}", new_head_index);
-                if let Some(new_head_index) = new_head_index {
+                let new_snapshot_index = core.log.find_compaction_point(delay).await;
+                log::info!("new compaction point: {:?}", new_snapshot_index);
+                if let Some(new_snapshot_index) = new_snapshot_index {
                     core.log
-                        .advance_head_log_index(new_head_index, Arc::clone(&core))
+                        .advance_snapshot_index(new_snapshot_index, Arc::clone(&core))
                         .await;
                 }
             };

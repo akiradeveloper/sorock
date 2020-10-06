@@ -2,6 +2,9 @@ use crate::{Clock, Term, Index, Id};
 use std::time::Duration;
 
 pub mod memory;
+
+#[cfg(feature = "persistency")]
+#[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
 pub mod disk;
 
 #[derive(Clone, Debug, PartialEq)]

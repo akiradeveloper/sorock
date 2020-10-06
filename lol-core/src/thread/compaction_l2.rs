@@ -20,9 +20,9 @@ impl<A: RaftApp> Thread<A> {
                 let usage = used_memory_kb / total_memory_kb;
                 if usage > core.tunable.read().await.compaction_memory_limit {
                     log::warn!("start compaction L2");
-                    let new_head_index = core.log.last_applied.load(Ordering::SeqCst);
+                    let new_snapshot_index = core.log.last_applied.load(Ordering::SeqCst);
                     core.log
-                        .advance_head_log_index(new_head_index, Arc::clone(&core))
+                        .advance_snapshot_index(new_snapshot_index, Arc::clone(&core))
                         .await;
                 }
             };

@@ -11,7 +11,7 @@ pub struct Membership {
 
 #[derive(Clone, Debug)]
 pub struct LogInfo {
-    pub head_log_index: u64,
+    pub snapshot_index: u64,
     pub last_applied: u64,
     pub commit_index: u64,
     pub last_log_index: u64,
@@ -66,7 +66,7 @@ where
             let id = membership.membership[i].to_owned();
             let alive = health_checks.contains(&id);
             let loginfo = loginfos.get(&id).unwrap_or(&LogInfo {
-                head_log_index: 0,
+                snapshot_index: 0,
                 last_applied: 0,
                 commit_index: 0,
                 last_log_index: 0,
@@ -74,7 +74,7 @@ where
             members.push(ui::Member {
                 id: id,
                 alive,
-                head_log_index: loginfo.head_log_index,
+                snapshot_index: loginfo.snapshot_index,
                 last_applied: loginfo.last_applied,
                 commit_index: loginfo.commit_index,
             })

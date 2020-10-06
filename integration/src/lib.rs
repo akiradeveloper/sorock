@@ -117,13 +117,13 @@ fn available_port() -> std::io::Result<u16> {
     TcpListener::bind("localhost:0").map(|x| x.local_addr().unwrap().port())
 }
 impl Environment {
-    pub fn new(id: u8) -> Arc<Self> {
+    pub fn new(id: u8, args: Vec<&str>) -> Arc<Self> {
         thread::sleep(Duration::from_secs(1));
         let x = Self {
             port_list: RwLock::new(HashMap::new()),
             node_list: RwLock::new(HashMap::new()),
         };
-        x.start(id);
+        x.start(id, args);
         thread::sleep(Duration::from_millis(1000));
         let env = Arc::new(x);
         Admin::to(id, env.clone()).init_cluster().unwrap();
@@ -135,7 +135,7 @@ impl Environment {
         let port = port_list.get(&id).unwrap();
         format!("127.0.0.1:{}", port)
     }
-    pub fn start(&self, id: u8) {
+    pub fn start(&self, id: u8, args: Vec<&str>) {
         let mut port_list = self.port_list.write().unwrap();
         let port = match port_list.get(&id) {
             Some(&port) => port,
@@ -147,6 +147,7 @@ impl Environment {
         };
         let child = std::process::Command::new("kvs-server")
             .arg(&format!("127.0.0.1:{}", port))
+            .args(args)
             .spawn()
             .expect(&format!("failed to start node id={}", id));
 
@@ -315,9 +316,9 @@ pub fn eventually<T: Eq>(timeout: Duration, should_be: T, f: impl Fn() -> T) -> 
     }
 }
 pub fn init_cluster(n: u8) -> Arc<Environment> {
-    let env = Environment::new(0);
+    let env = Environment::new(0, vec![]);
     for k in 1..n {
-        env.start(k);
+        env.start(k, vec![]);
         Admin::to(0, env.clone()).add_server(k, env.clone());
         let mut nodes = vec![];
         for i in 0..=k {

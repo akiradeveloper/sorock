@@ -14,4 +14,4 @@ jobs:
             - name: Build Docker Image
               run: make docker-build
             - name: Compile
-              run: ./dev cargo build
+              run: ./dev cargo build --all-features

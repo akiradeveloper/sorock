@@ -103,14 +103,14 @@ async fn main() -> anyhow::Result<()> {
             let res = conn.request_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::LogInfo {
-                head_log_index,
+                snapshot_index,
                 last_applied,
                 commit_index,
                 last_log_index,
             } = msg
             {
                 Ok(app::LogInfo {
-                    head_log_index,
+                    snapshot_index,
                     last_applied,
                     commit_index,
                     last_log_index,
