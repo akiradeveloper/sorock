@@ -161,7 +161,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
             core_message::Req::LogInfo => {
                 let res = core_message::Rep::LogInfo {
-                    head_log_index: self.log.get_snapshot_index().await,
+                    snapshot_index: self.log.get_snapshot_index().await,
                     last_applied: self.log.last_applied.load(Ordering::SeqCst),
                     commit_index: self.log.commit_index.load(Ordering::SeqCst),
                     last_log_index: self.log.get_last_log_index().await,
@@ -349,10 +349,10 @@ impl<A> RaftCore<A> {
         l: Index,
         r: Index,
     ) -> crate::protoimpl::AppendEntryReq {
-        let head = self.log.storage.get_entry(l).await.unwrap();
-        let (prev_log_term, prev_log_index) = head.prev_clock;
-        let (term, index) = head.this_clock;
-        let command = head.command;
+        let snapshot = self.log.storage.get_entry(l).await.unwrap();
+        let (prev_log_term, prev_log_index) = snapshot.prev_clock;
+        let (term, index) = snapshot.this_clock;
+        let command = snapshot.command;
         let e = crate::protoimpl::Entry {
             term,
             index,
@@ -400,16 +400,16 @@ impl<A> RaftCore<A> {
         }
 
         // the entries to send could be deleted due to previous compactions.
-        // in this case, replication will reset from the current head index.
-        let cur_head_log_index = self.log.get_snapshot_index().await;
-        if old_progress.next_index < cur_head_log_index {
+        // in this case, replication will reset from the current snapshot index.
+        let cur_snapshot_index = self.log.get_snapshot_index().await;
+        if old_progress.next_index < cur_snapshot_index {
             log::warn!(
                 "entry not found at next_index (idx={}) for {}",
                 old_progress.next_index,
                 follower_id
             );
             let mut cluster = self.cluster.write().await;
-            let new_progress = membership::ReplicationProgress::new(cur_head_log_index);
+            let new_progress = membership::ReplicationProgress::new(cur_snapshot_index);
             cluster.internal.get_mut(&follower_id).unwrap().progress = Some(new_progress);
             return true;
         }
@@ -939,12 +939,12 @@ impl Log {
     async fn find_compaction_point(&self, guard_period: Duration) -> Option<Index> {
         let last_applied = self.last_applied.load(Ordering::SeqCst);
         let now = self.since_boot_time();
-        let new_head_index = {
+        let new_snapshot_index = {
             let mut res = None;
             // find a compaction point before last_applied but old enough so fresh entries
             // will be replicated to slower nodes.
-            let cur_head_index = self.storage.get_snapshot_index().await;
-            for i in (cur_head_index + 1..=last_applied).rev() {
+            let cur_snapshot_index = self.storage.get_snapshot_index().await;
+            for i in (cur_snapshot_index + 1..=last_applied).rev() {
                 let append_time = self.storage.get_entry(i).await.unwrap().append_time;
                 if now - append_time < guard_period {
                     // fresh entries will not be a target of compaction.
@@ -955,29 +955,29 @@ impl Log {
             }
             res
         };
-        new_head_index
+        new_snapshot_index
     }
-    async fn advance_head_log_index<A: RaftApp>(
+    async fn advance_snapshot_index<A: RaftApp>(
         &self,
-        new_head_index: Index,
+        new_snapshot_index: Index,
         core: Arc<RaftCore<A>>,
     ) {
-        assert!(new_head_index <= self.last_applied.load(Ordering::SeqCst));
+        assert!(new_snapshot_index <= self.last_applied.load(Ordering::SeqCst));
 
         let _token = self.compaction_token.acquire().await;
 
-        let cur_head_log_index = self.storage.get_snapshot_index().await;
+        let cur_snapshot_index = self.storage.get_snapshot_index().await;
 
-        if new_head_index <= cur_head_log_index {
+        if new_snapshot_index <= cur_snapshot_index {
             return;
         }
 
         log::info!(
-            "advance head index {} -> {}",
-            cur_head_log_index,
-            new_head_index
+            "advance snapshot index {} -> {}",
+            cur_snapshot_index,
+            new_snapshot_index
         );
-        let cur_snapshot = self.storage.get_entry(cur_head_log_index).await.unwrap().command;
+        let cur_snapshot = self.storage.get_entry(cur_snapshot_index).await.unwrap().command;
         if let Command::Snapshot {
             app_snapshot,
             core_snapshot,
@@ -986,7 +986,7 @@ impl Log {
             let mut new_app_snapshot = app_snapshot;
             let mut new_core_snapshot = core_snapshot;
             let mut app_messages = vec![];
-            for i in cur_head_log_index + 1..=new_head_index {
+            for i in cur_snapshot_index + 1..=new_snapshot_index {
                 match self.storage.get_entry(i).await.unwrap().command.into() {
                     Command::AddServer { id } => {
                         log::info!("snapshot fold: add-server({})", id);
@@ -1022,8 +1022,8 @@ impl Log {
                 }
             };
 
-            let new_head = {
-                let mut e = self.storage.get_entry(new_head_index).await.unwrap();
+            let new_snapshot = {
+                let mut e = self.storage.get_entry(new_snapshot_index).await.unwrap();
                 e.command = Command::Snapshot {
                     app_snapshot: new_app_snapshot,
                     core_snapshot: new_core_snapshot,
@@ -1032,7 +1032,7 @@ impl Log {
             };
             let no_delay = Duration::from_secs(0);
             log::info!("fold snapshot is made and will be inserted immediately");
-            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_head }, no_delay).await;
+            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_snapshot }, no_delay).await;
         } else {
             unreachable!()
         }
