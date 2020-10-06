@@ -1,10 +1,10 @@
 [package]
 name = "lol-core"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
-description = "A Raft implementation with thin abstraction layer"
+description = "A Raft implementation in Rust language."
 repository = "https://github.com/akiradeveloper/lol"
 readme = "../README.md"
 categories = ["algorithms"]
