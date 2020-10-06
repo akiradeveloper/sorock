@@ -19,7 +19,7 @@ pub enum Rep {
         membership: Vec<Id>,
     },
     LogInfo {
-        head_log_index: u64,
+        snapshot_index: u64,
         last_applied: u64,
         commit_index: u64,
         last_log_index: u64,

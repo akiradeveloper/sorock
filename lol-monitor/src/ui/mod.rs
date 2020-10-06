@@ -14,7 +14,7 @@ use tui::{
 pub struct Member {
     pub id: String,
     pub alive: bool,
-    pub head_log_index: u64,
+    pub snapshot_index: u64,
     pub last_applied: u64,
     pub commit_index: u64,
 }
@@ -73,7 +73,7 @@ where
 
         let snapshot_index = Paragraph::new(Span::raw(format!(
             "Snapshot Index: {}",
-            member.head_log_index
+            member.snapshot_index
         )));
         f.render_widget(snapshot_index, chunks[0]);
 
