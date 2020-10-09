@@ -6,11 +6,11 @@ use tokio::stream::StreamExt;
 
 use protoimpl::{
     raft_server::{Raft, RaftServer},
-    AppendEntryRep, AppendEntryReq, AppendEntryReqS, ApplyRep, ApplyReq, CommitRep, CommitReq,
+    AppendEntryRep, AppendEntryReq, AppendEntryReqS, GetSnapshotReq, GetSnapshotRep, ApplyRep, ApplyReq, CommitRep, CommitReq,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
 };
 
-struct Thread<A> {
+struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
 }
 #[tonic::async_trait]
@@ -167,11 +167,13 @@ impl<A: RaftApp> Raft for Thread<A> {
         let mut req = if let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
             if let Elem::Header(protoimpl::HeaderS {
+                sender_id,
                 prev_log_index,
                 prev_log_term,
             }) = e
             {
                 protoimpl::AppendEntryReq {
+                    sender_id,
                     prev_log_index,
                     prev_log_term,
                     entries: vec![],
@@ -213,6 +215,20 @@ impl<A: RaftApp> Raft for Thread<A> {
             last_log_index: self.core.log.get_last_log_index().await,
         };
         Ok(tonic::Response::new(res))
+    }
+    type GetSnapshotStream = crate::snapshot::SnapshotStreamOut;
+    async fn get_snapshot(
+        &self,
+        request: tonic::Request<GetSnapshotReq>,
+    ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
+        let req = request.into_inner();
+        let snapshot_index = req.index;
+        let snapshot = self.core.snapshot_inventory.get(snapshot_index).await;
+        if snapshot.is_none() {
+            return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
+        }
+        let snapshot: Arc<dyn crate::snapshot::ToSnapshotStream> = snapshot.unwrap();
+        Ok(tonic::Response::new(crate::snapshot::map_out(snapshot.to_snapshot_stream().await)))
     }
     async fn send_heartbeat(
         &self,

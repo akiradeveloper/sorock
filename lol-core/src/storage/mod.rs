@@ -30,12 +30,13 @@ pub struct Entry {
     pub(crate) command: Vec<u8>,
 }
 
-// TODO error handling
+/// the abstraction for the backing storage.
+/// basically it is considered as a sequence of log entries and the recent vote.
 #[async_trait::async_trait]
 pub trait RaftStorage: Sync + Send + 'static {
-    /// delete ..r
+    /// delete range ..r
     async fn delete_before(&self, r: Index);
-    /// save snapshot entry and forward snapshot_index atomically
+    /// save the snapshot entry so snapshot index always advance.
     async fn insert_snapshot(&self, i: Index, e: Entry);
     async fn insert_entry(&self, i: Index, e: Entry);
     async fn get_entry(&self, i: Index) -> Option<Entry>;

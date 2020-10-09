@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::delay_for;
 
-struct Thread<A> {
+struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
 }
 impl<A: RaftApp> Thread<A> {

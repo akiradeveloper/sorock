@@ -1,5 +1,6 @@
 use crate::Id;
 
+/// "Req"uest
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
     InitCluster,
@@ -9,6 +10,7 @@ pub enum Req {
     LogInfo,
     HealthCheck,
 }
+/// "Rep"ly
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Rep {
     InitCluster {

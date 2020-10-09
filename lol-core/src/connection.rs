@@ -47,6 +47,7 @@ impl Endpoint {
             })
     }
 }
+/// resolve the socket address
 pub fn resolve(id: &str) -> Option<String> {
     use std::net::ToSocketAddrs;
     let res = id.to_socket_addrs();
@@ -76,6 +77,9 @@ mod tests {
     }
 }
 
+/// the purpose of gateway is to track the cluster members.
+/// in Raft you can access the leader node if you know at least one node in the cluster
+/// and gateway maintains the cluster members by polling the current membership.
 pub mod gateway {
     use super::*;
     use crate::{core_message, thread_drop};
@@ -91,11 +95,15 @@ pub mod gateway {
         cached: Vec<Endpoint>,
     }
     impl Gateway {
+        /// build a gateway from a node list.
+        /// the node list should include at least one node actually being in the cluster.
         pub async fn new(initial: HashSet<Id>) -> Arc<RwLock<Self>> {
             let gateway = Arc::new(RwLock::new(Self::new_inner(initial)));
             gateway.write().await.compute_cache();
             gateway
         }
+        /// spawn companion thread the periodically refresh the
+        /// internal cache of Gateway.
         pub async fn start_companion_thread(gateway: &Arc<RwLock<Self>>) {
             let cln = Arc::clone(&gateway);
             let companion = async move {
@@ -119,7 +127,7 @@ pub mod gateway {
                 cached: vec![],
             }
         }
-        pub fn compute_cache(&mut self) {
+        fn compute_cache(&mut self) {
             let mut v = vec![];
             for member in &self.awared_membership {
                 let rank = if Some(member) == self.awared_leader.as_ref() {
@@ -137,6 +145,8 @@ pub mod gateway {
             }
             self.cached = endpoints;
         }
+        /// get the current node list tracked by this gateway.
+        /// if there is a leader in the list the node comes first.
         pub fn query_sequence(&self) -> Vec<Endpoint> {
             self.cached.clone()
         }
