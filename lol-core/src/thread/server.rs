@@ -6,7 +6,8 @@ use tokio::stream::StreamExt;
 
 use protoimpl::{
     raft_server::{Raft, RaftServer},
-    AppendEntryRep, AppendEntryReq, AppendEntryReqS, GetSnapshotReq, GetSnapshotRep, ApplyRep, ApplyReq, CommitRep, CommitReq,
+    AppendEntryRep, AppendEntryReq, AppendEntryReqS, GetSnapshotReq, GetSnapshotRep,
+    ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
 };
 
@@ -46,33 +47,6 @@ impl<A: RaftApp> Raft for Thread<A> {
             let endpoint = Endpoint::new(leader_id);
             let mut conn = endpoint.connect().await?;
             conn.request_apply(request).await
-        }
-    }
-    async fn request_apply_immediate(
-        &self,
-        request: tonic::Request<ApplyReq>,
-    ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
-        if vote.voted_for.is_none() {
-            return Err(tonic::Status::failed_precondition(
-                "leader is not known by the server",
-            ));
-        }
-        let leader_id = vote.voted_for.unwrap();
-
-        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
-            let req = request.into_inner();
-            let res = if req.core {
-                self.core.process_message(req.message).await
-            } else {
-                self.core.app.process_message(req.message).await
-            };
-            res.map(|x| tonic::Response::new(ApplyRep { message: x }))
-                .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
-        } else {
-            let endpoint = Endpoint::new(leader_id);
-            let mut conn = endpoint.connect().await?;
-            conn.request_apply_immediate(request).await
         }
     }
     async fn request_commit(
@@ -115,17 +89,44 @@ impl<A: RaftApp> Raft for Thread<A> {
             conn.request_commit(request).await
         }
     }
-    async fn request_locally(
+    async fn request_process(
         &self,
-        request: tonic::Request<ApplyReq>,
-    ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
+        request: tonic::Request<ProcessReq>,
+    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
+        let vote = self.core.load_vote().await;
+        if vote.voted_for.is_none() {
+            return Err(tonic::Status::failed_precondition(
+                "leader is not known by the server",
+            ));
+        }
+        let leader_id = vote.voted_for.unwrap();
+
+        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
+            let req = request.into_inner();
+            let res = if req.core {
+                self.core.process_message(req.message).await
+            } else {
+                self.core.app.process_message(req.message).await
+            };
+            res.map(|x| tonic::Response::new(ProcessRep { message: x }))
+                .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
+        } else {
+            let endpoint = Endpoint::new(leader_id);
+            let mut conn = endpoint.connect().await?;
+            conn.request_process(request).await
+        }
+    }
+    async fn request_process_locally(
+        &self,
+        request: tonic::Request<ProcessReq>,
+    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
         let req = request.into_inner();
         let res = if req.core {
             self.core.process_message(req.message).await
         } else {
             self.core.app.process_message(req.message).await
         };
-        res.map(|x| tonic::Response::new(ApplyRep { message: x }))
+        res.map(|x| tonic::Response::new(ProcessRep { message: x }))
             .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
     }
     async fn request_vote(

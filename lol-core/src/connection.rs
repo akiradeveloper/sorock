@@ -155,12 +155,11 @@ pub mod gateway {
             let config = EndpointConfig::default();
             exec(&config, &endpoints, |mut conn: Connection| async move {
                 let req = core_message::Req::ClusterInfo;
-                let req = protoimpl::ApplyReq {
-                    mutation: false,
+                let req = protoimpl::ProcessReq {
                     core: true,
                     message: core_message::Req::serialize(&req),
                 };
-                let res = conn.request_apply_immediate(req).await?.into_inner();
+                let res = conn.request_process(req).await?.into_inner();
                 let res = core_message::Rep::deserialize(&res.message).unwrap();
                 if let core_message::Rep::ClusterInfo {
                     leader_id,

@@ -60,12 +60,11 @@ async fn main() {
         // core locally
         Sub::InitCluster => {
             let msg = core_message::Req::InitCluster;
-            let req = protoimpl::ApplyReq {
+            let req = protoimpl::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
-                mutation: true,
             };
-            let res = conn.request_locally(req).await.unwrap().into_inner();
+            let res = conn.request_process_locally(req).await.unwrap().into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             let msg = if let core_message::Rep::InitCluster { ok } = msg {
                 lol_admin::InitCluster { ok }
@@ -78,12 +77,11 @@ async fn main() {
         // core locally
         Sub::ClusterInfo => {
             let msg = core_message::Req::ClusterInfo;
-            let req = protoimpl::ApplyReq {
+            let req = protoimpl::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
-                mutation: false,
             };
-            let res = conn.request_locally(req).await.unwrap().into_inner();
+            let res = conn.request_process_locally(req).await.unwrap().into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             let msg = if let core_message::Rep::ClusterInfo {
                 leader_id,
