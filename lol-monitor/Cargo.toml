@@ -15,6 +15,6 @@ tui = "*"
 tokio = { version = "0.2", features = ["macros", "rt-threaded", "stream" ] }
 termion = { version = "1.5", optional = true }
 anyhow = "1.0"
-futures = "0.3.5"
+futures = "0.3"
 clap = "3.0.0-beta.1"
 async-stream = "*"
