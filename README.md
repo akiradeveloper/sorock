@@ -6,9 +6,9 @@
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lol/blob/master/LICENSE)
 [![Tokei](https://tokei.rs/b1/github/akiradeveloper/lol)](https://github.com/akiradeveloper/lol)
 
-A Raft implementation in Rust language.
+A Raft implementation in Rust language. To support this project please give it a ⭐
 
-This project is still in development. ;-)
+[Get Started](https://github.com/akiradeveloper/lol/wiki)
 
 ## Participate in this project
 
