@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 lol-core = { path = "../lol-core" }
-async-trait = "0.1.35"
+async-trait = "0.1"
 tokio = { version = "0.2", features = ["macros", "rt-threaded"] }
 structopt = "0.3"
 serde = { version = "1.0", features = ["derive"] }
