@@ -10,7 +10,7 @@ A Raft implementation in Rust language. To support this project please give it a
 
 [Get Started](https://github.com/akiradeveloper/lol/wiki)
 
-## Participate in this project
+## How to participate in this project
 
 Use docker container to make an dev environment on your computer.
 
