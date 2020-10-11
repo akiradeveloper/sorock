@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A> {
+struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
     subscriber: news::Subscriber,
 }

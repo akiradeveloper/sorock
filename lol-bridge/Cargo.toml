@@ -1,6 +1,6 @@
 [package]
 name = "lol-bridge"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 lol-core = { path = "../lol-core" }
 async-trait = "0.1"
-tonic = "0.2"
+tonic = "0.3"
 tokio = { version = "0.2", features = ["net"] }
 tower = "0.3"
 prost = "0.6"

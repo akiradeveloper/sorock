@@ -3,7 +3,7 @@ use crate::{ElectionState, Id, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A> {
+struct Thread<A: RaftApp> {
     follower_id: Id,
     core: Arc<RaftCore<A>>,
     subscriber: news::Subscriber,

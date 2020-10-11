@@ -43,12 +43,11 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::exec(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::ClusterInfo;
-            let req = protoimpl::ApplyReq {
+            let req = protoimpl::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
-                mutation: false,
             };
-            let res = conn.request_apply_immediate(req).await?.into_inner();
+            let res = conn.request_process(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::ClusterInfo {
                 leader_id,
@@ -95,12 +94,11 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::LogInfo;
-            let req = protoimpl::ApplyReq {
+            let req = protoimpl::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
-                mutation: false,
             };
-            let res = conn.request_locally(req).await?.into_inner();
+            let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::LogInfo {
                 snapshot_index,
@@ -153,12 +151,11 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::HealthCheck;
-            let req = protoimpl::ApplyReq {
+            let req = protoimpl::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
-                mutation: false,
             };
-            let res = conn.request_locally(req).await?.into_inner();
+            let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::HealthCheck { ok } = msg {
                 Ok(app::HealthCheck { ok })

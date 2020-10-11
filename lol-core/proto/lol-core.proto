@@ -2,10 +2,6 @@ syntax = "proto3";
 
 package lol_core;
 
-message CommitReq {
-    bytes message = 1;
-    bool core = 2;
-}
 message ApplyReq {
     bytes message = 1;
     bool core = 2;
@@ -14,20 +10,33 @@ message ApplyReq {
 message ApplyRep {
     bytes message = 1;
 }
+message CommitReq {
+    bytes message = 1;
+    bool core = 2;
+}
 message CommitRep {}
+message ProcessReq {
+    bytes message = 1;
+    bool core = 2;
+}
+message ProcessRep {
+    bytes message = 1;
+}
 message Entry {
     uint64 term = 1;
     uint64 index = 2;
     bytes command = 3;
 }
 message AppendEntryReq {
-    uint64 prev_log_term = 1;
-    uint64 prev_log_index = 2;
-    repeated Entry entries = 3;
+    string sender_id = 1;
+    uint64 prev_log_term = 2;
+    uint64 prev_log_index = 3;
+    repeated Entry entries = 4;
 }
 message HeaderS {
-    uint64 prev_log_term = 1;
-    uint64 prev_log_index = 2;
+    string sender_id = 1;
+    uint64 prev_log_term = 2;
+    uint64 prev_log_index = 3;
 }
 message EntryS {
     uint64 term = 1;
@@ -46,6 +55,12 @@ message AppendEntryReqS {
 message AppendEntryRep {
     bool success = 1;
     uint64 last_log_index = 2;
+}
+message GetSnapshotReq {
+    uint64 index = 1;
+}
+message GetSnapshotRep {
+    bytes chunk = 1;
 }
 message RequestVoteReq {
     uint64 term = 1;
@@ -69,10 +84,11 @@ service Raft {
     rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
     rpc SendAppendEntry (AppendEntryReq) returns (AppendEntryRep);
     rpc SendAppendEntryS (stream AppendEntryReqS) returns (AppendEntryRep);
-    rpc RequestLocally (ApplyReq) returns (ApplyRep);
+    rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
-    rpc RequestApplyImmediate (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);
+    rpc RequestProcess (ProcessReq) returns (ProcessRep);
+    rpc RequestProcessLocally (ProcessReq) returns (ProcessRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
 }

@@ -1,6 +1,6 @@
 [package]
 name = "lol-core"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -13,12 +13,12 @@ keywords = ["raft"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.2"
+tonic = "0.3"
 prost = "0.6"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "0.2", features = ["macros", "fs"] }
 rand = "0.7"
-async-trait = "0.1.35"
-futures = "0.3.5"
+async-trait = "0.1"
+futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 rmp = "0.8.9"
@@ -26,6 +26,8 @@ rmp-serde = "0.14.3"
 log = "0.4"
 sysinfo = "0.14"
 anyhow = "1.0"
+tokio-util = { version = "0.3", features = ["codec"] }
+bytes = "0.5.6"
 
 rocksdb = { version = "0.15", optional = true }
 
