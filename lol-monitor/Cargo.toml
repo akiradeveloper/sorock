@@ -1,6 +1,6 @@
 [package]
 name = "lol-monitor"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
