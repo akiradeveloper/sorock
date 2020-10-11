@@ -2,10 +2,6 @@ syntax = "proto3";
 
 package lol_core;
 
-message CommitReq {
-    bytes message = 1;
-    bool core = 2;
-}
 message ApplyReq {
     bytes message = 1;
     bool core = 2;
@@ -14,7 +10,18 @@ message ApplyReq {
 message ApplyRep {
     bytes message = 1;
 }
+message CommitReq {
+    bytes message = 1;
+    bool core = 2;
+}
 message CommitRep {}
+message ProcessReq {
+    bytes message = 1;
+    bool core = 2;
+}
+message ProcessRep {
+    bytes message = 1;
+}
 message Entry {
     uint64 term = 1;
     uint64 index = 2;
@@ -78,10 +85,10 @@ service Raft {
     rpc SendAppendEntry (AppendEntryReq) returns (AppendEntryRep);
     rpc SendAppendEntryS (stream AppendEntryReqS) returns (AppendEntryRep);
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
-    rpc RequestLocally (ApplyReq) returns (ApplyRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
-    rpc RequestApplyImmediate (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);
+    rpc RequestProcess (ProcessReq) returns (ProcessRep);
+    rpc RequestProcessLocally (ProcessReq) returns (ProcessRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
 }
