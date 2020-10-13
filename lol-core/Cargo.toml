@@ -32,7 +32,7 @@ bytes = "0.5.6"
 rocksdb = { version = "0.15", optional = true }
 
 [build-dependencies]
-tonic-build = "0.2"
+tonic-build = "0.3"
 
 [features]
 full = ["persistency"]
