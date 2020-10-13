@@ -1,7 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lol_core::connection;
-use lol_core::{Index, Config, Message, RaftApp, RaftCore, TunableConfig};
+use lol_core::{Index, Config, Message, RaftApp, RaftCore, TunableConfig, SnapshotTag};
+use lol_core::snapshot::{SnapshotStream, BytesSnapshot};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +24,6 @@ struct KVS {
 }
 #[async_trait]
 impl RaftApp for KVS {
-    type Snapshot = lol_core::snapshot::BytesSnapshot;
     async fn process_message(&self, x: Message) -> anyhow::Result<Message> {
         let msg = kvs::Req::deserialize(&x);
         match msg {
@@ -52,7 +52,7 @@ impl RaftApp for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: Message, _: Index) -> anyhow::Result<(Message, Option<Self::Snapshot>)> {
+    async fn apply_message(&self, x: Message, _: Index) -> anyhow::Result<(Message, Option<SnapshotTag>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
@@ -63,7 +63,7 @@ impl RaftApp for KVS {
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<&Self::Snapshot>, _: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&SnapshotTag>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             // emulate heavy install_snapshot
             tokio::time::delay_for(Duration::from_secs(10)).await;
@@ -78,9 +78,9 @@ impl RaftApp for KVS {
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&Self::Snapshot>,
+        old_snapshot: Option<&SnapshotTag>,
         xs: Vec<Message>,
-    ) -> anyhow::Result<Self::Snapshot> {
+    ) -> anyhow::Result<SnapshotTag> {
         let mut old = old_snapshot
             .map(|x| kvs::Snapshot::deserialize(x.as_ref()).unwrap())
             .unwrap_or(kvs::Snapshot { h: BTreeMap::new() });
@@ -99,6 +99,18 @@ impl RaftApp for KVS {
         }
         let b = kvs::Snapshot::serialize(&old);
         Ok(b.into())
+    }
+    async fn from_snapshot_stream(&self, st: SnapshotStream) -> anyhow::Result<SnapshotTag> {
+        let b = BytesSnapshot::from_snapshot_stream(st).await?;
+        let b = b.as_ref().to_vec();
+        Ok(b.into())
+    }
+    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> SnapshotStream {
+        let b: BytesSnapshot = x.as_ref().to_vec().into();
+        b.to_snapshot_stream().await
+    }
+    async fn delete_resource(_: &SnapshotTag) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 impl KVS {

@@ -44,6 +44,8 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn get_last_index(&self) -> Index;
     async fn store_vote(&self, v: Vote);
     async fn load_vote(&self) -> Vote;
+    async fn put_tag(&self, i: Index, snapshot: crate::SnapshotTag);
+    async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag>;
 }
 
 async fn test_storage<S: RaftStorage>(s: S) {
@@ -54,10 +56,17 @@ async fn test_storage<S: RaftStorage>(s: S) {
         command: vec![]
     };
 
-    // load/store vote
+    // vote
+    let id = "hoge".to_owned();
     assert_eq!(s.load_vote().await, Vote { cur_term: 0, voted_for: None });
-    s.store_vote(Vote { cur_term: 1, voted_for: Some("hoge".to_owned()) }).await;
-    assert_eq!(s.load_vote().await, Vote { cur_term: 1, voted_for: Some("hoge".to_owned()) });
+    s.store_vote(Vote { cur_term: 1, voted_for: Some(id.clone()) }).await;
+    assert_eq!(s.load_vote().await, Vote { cur_term: 1, voted_for: Some(id.clone()) });
+
+    // tag
+    let tag: crate::SnapshotTag = vec![].into();
+    assert!(s.get_tag(10).await.is_none());
+    s.put_tag(10, tag.clone()).await;
+    assert_eq!(s.get_tag(10).await, Some(tag.clone()));
 
     assert_eq!(s.get_snapshot_index().await, 0);
     assert_eq!(s.get_last_index().await, 0);

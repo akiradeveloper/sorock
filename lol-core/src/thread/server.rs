@@ -224,12 +224,12 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
         let snapshot_index = req.index;
-        let snapshot = self.core.snapshot_inventory.get(snapshot_index).await;
-        if snapshot.is_none() {
+        let st = self.core.make_snapshot_stream(snapshot_index).await;
+        if st.is_none() {
             return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
         }
-        let snapshot: Arc<dyn crate::snapshot::ToSnapshotStream> = snapshot.unwrap();
-        Ok(tonic::Response::new(crate::snapshot::map_out(snapshot.to_snapshot_stream().await)))
+        let st = st.unwrap();
+        Ok(tonic::Response::new(crate::snapshot::map_out(st)))
     }
     async fn send_heartbeat(
         &self,

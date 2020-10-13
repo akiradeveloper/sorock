@@ -9,6 +9,7 @@ pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,
     vote: Arc<Mutex<Vote>>,
     snapshot_index: AtomicU64,
+    tags: Arc<RwLock<BTreeMap<u64, crate::SnapshotTag>>>,
 }
 impl Storage {
     pub fn new() -> Self {
@@ -16,11 +17,18 @@ impl Storage {
             entries: Arc::new(RwLock::new(BTreeMap::new())),
             vote: Arc::new(Mutex::new(Vote::new())),
             snapshot_index: AtomicU64::new(0),
+            tags: Arc::new(RwLock::new(BTreeMap::new()))
         }
     }
 }
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
+    async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag> {
+        self.tags.read().await.get(&i).cloned()
+    }
+    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) {
+        self.tags.write().await.insert(i, x);
+    }
     async fn get_last_index(&self) -> Index {
         let x = self.entries.read().await;
         match x.iter().next_back() {
@@ -32,6 +40,10 @@ impl super::RaftStorage for Storage {
         let ls: Vec<u64> = self.entries.read().await.range(..r).map(|x| *x.0).collect();
         for i in ls {
             self.entries.write().await.remove(&i);
+        }
+        let ls: Vec<u64> = self.tags.read().await.range(..r).map(|x| *x.0).collect();
+        for i in ls {
+            self.tags.write().await.remove(&i);
         }
     }
     async fn insert_snapshot(&self, i: Index, e: Entry) {
