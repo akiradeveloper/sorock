@@ -38,22 +38,42 @@ use storage::{Entry, Vote};
 /// the abstraction for user-defined application runs on the RaftCore.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
-    type Snapshot: snapshot::ToSnapshotStream + snapshot::FromSnapshotStream;
     /// how state machine interacts with inputs from clients.
     async fn process_message(&self, request: Message) -> anyhow::Result<Message>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
-    async fn apply_message(&self, request: Message, apply_index: Index) -> anyhow::Result<(Message, Option<Self::Snapshot>)>;
+    async fn apply_message(&self, request: Message, apply_index: Index) -> anyhow::Result<(Message, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
-    async fn install_snapshot(&self, snapshot: Option<&Self::Snapshot>, apply_index: Index) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
     /// this function is called from compaction threads.
     /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&Self::Snapshot>,
+        old_snapshot: Option<&SnapshotTag>,
         requests: Vec<Message>,
-    ) -> anyhow::Result<Self::Snapshot>;
+    ) -> anyhow::Result<SnapshotTag>;
+    /// make a snapshot resource and returns the tag.
+    async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
+    /// make a snapshot stream from a snapshot resource bound to the tag.
+    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+    /// delete a snapshot resource bound to the tag.
+    async fn delete_resource(x: &SnapshotTag) -> anyhow::Result<()>;
+}
+
+/// snapshot tag is a tag that bound to some snapshot resource.
+/// if the resource is a file the tag is the path to the file, for example.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SnapshotTag(bytes::Bytes);
+impl AsRef<[u8]> for SnapshotTag {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+impl From<Vec<u8>> for SnapshotTag {
+    fn from(x: Vec<u8>) -> SnapshotTag {
+        SnapshotTag(x.into())
+    }
 }
 
 pub type Message = Vec<u8>;
@@ -133,7 +153,6 @@ pub struct RaftCore<A: RaftApp> {
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
-    snapshot_inventory: snapshot::SnapshotInventory<A::Snapshot>,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Self {
@@ -150,7 +169,6 @@ impl<A: RaftApp> RaftCore<A> {
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
-            snapshot_inventory: snapshot::SnapshotInventory::new(),
         }
     }
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
@@ -162,9 +180,18 @@ impl<A: RaftApp> RaftCore<A> {
         let res = conn.get_snapshot(req).await?;
         let st = res.into_inner();
         let st = Box::pin(snapshot::map_in(st));
-        let snapshot: A::Snapshot = snapshot::FromSnapshotStream::from_snapshot_stream(st).await;
-        self.snapshot_inventory.put(snapshot_index, snapshot).await;
+        let snapshot = self.app.from_snapshot_stream(st).await?;
+        self.log.storage.put_tag(snapshot_index, snapshot).await;
         Ok(())
+    }
+    async fn make_snapshot_stream(&self, snapshot_index: Index) -> Option<snapshot::SnapshotStream> {
+        let snapshot = self.log.storage.get_tag(snapshot_index).await;
+        if snapshot.is_none() {
+            return None
+        }
+        let snapshot = snapshot.unwrap();
+        let st = self.app.to_snapshot_stream(&snapshot).await;
+        Some(st)
     }
     async fn process_message(self: &Arc<Self>, msg: Message) -> anyhow::Result<Message> {
         let req = core_message::Req::deserialize(&msg).unwrap();
@@ -752,7 +779,6 @@ impl Log {
         for i in ls {
             self.ack_chans.write().await.remove(&i);
         }
-        core.snapshot_inventory.delete_before(r).await;
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) {
         let _token = self.append_token.acquire().await;
@@ -910,8 +936,8 @@ impl Log {
         };
         let ok = match command.into() {
             Command::Snapshot { core_snapshot } => {
-                let app_snapshot = raft_core.snapshot_inventory.get(apply_idx).await;
-                let app_snapshot: Option<&A::Snapshot> = app_snapshot.as_deref();
+                let app_snapshot = self.storage.get_tag(apply_idx).await;
+                let app_snapshot: Option<&SnapshotTag> = app_snapshot.as_ref();
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(app_snapshot, apply_idx).await;
                 log::info!("install app snapshot (complete)");
@@ -943,7 +969,7 @@ impl Log {
                         }
 
                         if let Some(new_app_snapshot) = new_app_snapshot {
-                            raft_core.snapshot_inventory.put(apply_idx, new_app_snapshot).await;
+                            self.storage.put_tag(apply_idx, new_app_snapshot).await;
 
                             let snapshot_entry = Entry {
                                 command: Command::Snapshot {
@@ -1057,8 +1083,8 @@ impl Log {
                     _ => {}
                 }
             }
-            let base_app_snapshot = core.snapshot_inventory.get(base_snapshot_index).await;
-            let base_app_snapshot: Option<&A::Snapshot> = base_app_snapshot.as_deref();
+            let base_app_snapshot = self.storage.get_tag(base_snapshot_index).await;
+            let base_app_snapshot: Option<&SnapshotTag> = base_app_snapshot.as_ref();
             let new_app_snapshot = match core.app.fold_snapshot(base_app_snapshot, app_messages).await {
                 Ok(x) => x,
                 Err(_) => {
@@ -1066,7 +1092,7 @@ impl Log {
                     return;
                 }
             };
-            core.snapshot_inventory.put(new_snapshot_index, new_app_snapshot).await;
+            self.storage.put_tag(new_snapshot_index, new_app_snapshot).await;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await.unwrap();
                 e.command = Command::Snapshot {

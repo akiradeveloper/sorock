@@ -8,6 +8,7 @@ use std::time::Duration;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
+const CF_TAGS: &str = "tags";
 const SNAPSHOT_INDEX: &str = "snapshot_index";
 const VOTE: &str = "vote";
 const CMP: &str = "index_asc";
@@ -117,6 +118,7 @@ impl StorageBuilder {
         opts.set_comparator(CMP, comparator_fn);
         let cf_descs = vec![
             ColumnFamilyDescriptor::new(CF_ENTRIES, opts),
+            ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
             ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
         ];
         let mut db = DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap();
@@ -143,6 +145,7 @@ impl StorageBuilder {
         opts.set_comparator(CMP, comparator_fn);
         let cf_descs = vec![
             ColumnFamilyDescriptor::new(CF_ENTRIES, opts),
+            ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
             ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
         ];
         DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap()
@@ -167,6 +170,15 @@ impl Storage {
 }
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
+    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) {
+        let cf = self.db.cf_handle(CF_TAGS).unwrap();
+        self.db.put_cf(&cf, encode_index(i), x).unwrap(); 
+    }
+    async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag> {
+        let cf = self.db.cf_handle(CF_TAGS).unwrap();
+        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i)).unwrap(); 
+        b.map(|x| x.into())
+    }
     async fn delete_before(&self, r: Index) {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         self.db.delete_range_cf(cf, encode_index(0), encode_index(r)).unwrap();
@@ -256,17 +268,23 @@ async fn test_rocksdb_persistency() {
         this_clock: (0,0),
         command: vec![]
     };
+    let tag: crate::SnapshotTag = vec![].into();
 
+    s.put_tag(1, tag.clone()).await;
     s.insert_snapshot(1, e.clone()).await;
     s.insert_entry(2, e.clone()).await;
     s.insert_entry(3, e.clone()).await;
     s.insert_entry(4, e.clone()).await;
+    s.put_tag(3, tag.clone()).await;
     s.insert_snapshot(3, e.clone()).await;
 
     drop(s);
 
     let s: Box<super::RaftStorage> = Box::new(builder.open());
     assert_eq!(s.load_vote().await, Vote { cur_term: 0, voted_for: None });
+    assert!(s.get_tag(1).await.is_some());
+    assert!(s.get_tag(2).await.is_none());
+    assert!(s.get_tag(3).await.is_some());
     assert_eq!(s.get_snapshot_index().await, 3);
     assert_eq!(s.get_last_index().await, 4);
 
