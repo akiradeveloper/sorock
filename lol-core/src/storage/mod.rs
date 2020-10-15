@@ -1,5 +1,6 @@
 use crate::{Clock, Term, Index, Id};
 use std::time::Duration;
+use std::collections::BTreeSet;
 
 pub mod memory;
 
@@ -45,7 +46,9 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn store_vote(&self, v: Vote);
     async fn load_vote(&self) -> Vote;
     async fn put_tag(&self, i: Index, snapshot: crate::SnapshotTag);
+    async fn delete_tag(&self, i: Index);
     async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag>;
+    async fn list_tags(&self) -> BTreeSet<Index>;
 }
 
 async fn test_storage<S: RaftStorage>(s: S) {

@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeSet, BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -58,7 +58,7 @@ pub trait RaftApp: Sync + Send + 'static {
     /// make a snapshot stream from a snapshot resource bound to the tag.
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
-    async fn delete_resource(x: &SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 /// snapshot tag is a tag that bound to some snapshot resource.
@@ -171,6 +171,7 @@ impl<A: RaftApp> RaftCore<A> {
             election_token: Semaphore::new(1),
         }
     }
+
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(5));
         let mut conn = Endpoint::new(to).connect_with(config).await?;
@@ -772,6 +773,15 @@ impl Log {
     }
     async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) {
         let r = self.storage.get_snapshot_index().await;
+        // delete old snapshots
+        let ls: Vec<Index> = self.storage.list_tags().await.range(..r).map(|x| *x).collect();
+        for i in ls {
+            let tag = self.storage.get_tag(i).await.unwrap();
+            let res = core.app.delete_resource(&tag).await;
+            if res.is_ok() {
+                self.storage.delete_tag(i);
+            }
+        }
         // remove entries
         self.storage.delete_before(r).await;
         // remove acks
@@ -928,18 +938,18 @@ impl Log {
         self.commit_news.lock().await.publish();
     }
     async fn advance_last_applied<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
-        let (apply_idx, apply_entry, command) = {
-            let apply_idx = self.last_applied.load(Ordering::SeqCst) + 1;
-            let mut e = self.storage.get_entry(apply_idx).await.unwrap();
+        let (apply_index, apply_entry, command) = {
+            let apply_index = self.last_applied.load(Ordering::SeqCst) + 1;
+            let mut e = self.storage.get_entry(apply_index).await.unwrap();
             let command = std::mem::take(&mut e.command);
-            (apply_idx, e, command)
+            (apply_index, e, command)
         };
         let ok = match command.into() {
             Command::Snapshot { core_snapshot } => {
-                let app_snapshot = self.storage.get_tag(apply_idx).await;
+                let app_snapshot = self.storage.get_tag(apply_index).await;
                 let app_snapshot: Option<&SnapshotTag> = app_snapshot.as_ref();
                 log::info!("install app snapshot");
-                let res = raft_core.app.install_snapshot(app_snapshot, apply_idx).await;
+                let res = raft_core.app.install_snapshot(app_snapshot, apply_index).await;
                 log::info!("install app snapshot (complete)");
                 let success = res.is_ok();
                 if success {
@@ -954,22 +964,22 @@ impl Log {
                     let res = raft_core.process_message(message).await;
                     res.map(|x| (x, None))
                 } else {
-                    raft_core.app.apply_message(message, apply_idx).await
+                    raft_core.app.apply_message(message, apply_index).await
                 };
                 match res {
                     Ok((msg, new_app_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
-                        if ack_chans.contains_key(&apply_idx) {
-                            let ack = ack_chans.get(&apply_idx).unwrap();
+                        if ack_chans.contains_key(&apply_index) {
+                            let ack = ack_chans.get(&apply_index).unwrap();
                             if std::matches!(ack, Ack::OnApply(_)) {
-                                if let Ack::OnApply(tx) = ack_chans.remove(&apply_idx).unwrap() {
+                                if let Ack::OnApply(tx) = ack_chans.remove(&apply_index).unwrap() {
                                     let _ = tx.send(ack::ApplyOk(msg));
                                 }
                             }
                         }
 
                         if let Some(new_app_snapshot) = new_app_snapshot {
-                            self.storage.put_tag(apply_idx, new_app_snapshot).await;
+                            self.storage.put_tag(apply_index, new_app_snapshot).await;
 
                             let snapshot_entry = Entry {
                                 command: Command::Snapshot {
@@ -1003,7 +1013,7 @@ impl Log {
             _ => true,
         };
         if ok {
-            self.last_applied.store(apply_idx, Ordering::SeqCst);
+            self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_news.lock().await.publish();
         }
     }
