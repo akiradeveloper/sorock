@@ -1,5 +1,6 @@
 use crate::{Clock, Term, Index, Id};
-use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor};
+use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor, IteratorMode};
+use std::collections::BTreeSet;
 use super::{Entry, Vote};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
@@ -170,6 +171,19 @@ impl Storage {
 }
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
+    async fn list_tags(&self) -> BTreeSet<Index> {
+        let cf = self.db.cf_handle(CF_TAGS).unwrap();
+        let mut iter = self.db.iterator_cf(cf, IteratorMode::Start);
+        let mut r = BTreeSet::new();
+        for (k, v) in iter {
+            r.insert(decode_index(&k));
+        }
+        r
+    }
+    async fn delete_tag(&self, i: Index) {
+        let cf = self.db.cf_handle(CF_TAGS).unwrap();
+        self.db.delete_cf(&cf, encode_index(i));
+    }
     async fn put_tag(&self, i: Index, x: crate::SnapshotTag) {
         let cf = self.db.cf_handle(CF_TAGS).unwrap();
         self.db.put_cf(&cf, encode_index(i), x).unwrap(); 

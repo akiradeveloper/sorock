@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeSet, BTreeMap};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -23,6 +23,16 @@ impl Storage {
 }
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
+    async fn delete_tag(&self, i: Index) {
+        self.tags.write().await.remove(&i);
+    }
+    async fn list_tags(&self) -> BTreeSet<Index> {
+        let mut r = BTreeSet::new();
+        for k in self.tags.read().await.keys() {
+            r.insert(*k);
+        }
+        r
+    }
     async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag> {
         self.tags.read().await.get(&i).cloned()
     }

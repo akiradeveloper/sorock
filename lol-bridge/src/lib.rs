@@ -74,7 +74,7 @@ impl RaftApp for RaftAppBridge {
         let b: BytesSnapshot = x.as_ref().to_vec().into();
         b.to_snapshot_stream().await
     }
-    async fn delete_resource(_: &SnapshotTag) -> anyhow::Result<()> {
+    async fn delete_resource(&self, _: &SnapshotTag) -> anyhow::Result<()> {
         Ok(())
     }
 }
