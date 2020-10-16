@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lol_core::connection;
-use lol_core::{Index, Config, Message, RaftApp, RaftCore, TunableConfig, SnapshotTag};
+use lol_core::{Index, Config, Message, RaftApp, RaftCore, TunableConfig, SnapshotTag, storage::RaftStorage};
 use lol_core::snapshot::{SnapshotStream, BytesSnapshot};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -13,8 +13,19 @@ use std::path::Path;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
 struct Opt {
+    // use persistent storage with is identified by the given id.
+    #[structopt(long)]
+    use_persistency: Option<u8>,
+    // if this is set, the persistent storage is reset.
+    #[structopt(long)]
+    reset_persistency: bool,
+    // if copy_snapshot_mode is chosen, fold snapshot is disabled and
+    // copy snapshot is made on every apply.
     #[structopt(long)]
     copy_snapshot_mode: bool,
+    // the interval of the fold snapshot
+    #[structopt(long)]
+    compaction_interval_sec: Option<u64>,
     #[structopt(name = "ID")]
     id: String,
 }
@@ -135,10 +146,11 @@ async fn main() {
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {
-        // compactions runs every 5 secs.
-        // be careful, the tests depends on this value.
-        tunable.compaction_interval_sec = 5;
-        tunable.compaction_delay_sec = 5;
+        // by default, compactions runs every 5 secs.
+        // this value is carefully chosen, the tests depends on this value.
+        let v = opt.compaction_interval_sec.unwrap_or(5);
+        tunable.compaction_interval_sec = v;
+        tunable.compaction_delay_sec = v;
     } else {
         tunable.compaction_interval_sec = 0;
         tunable.compaction_delay_sec = 1;
@@ -152,17 +164,22 @@ async fn main() {
         })
         .init();
 
-    let storage = lol_core::storage::memory::Storage::new();
+    let core = if let Some(id) = opt.use_persistency {
+        std::fs::create_dir("/tmp/lol");
+        let path = format!("/tmp/lol/{}.db", id);
+        let path = Path::new(&path);
+        let builder = lol_core::storage::disk::StorageBuilder::new(&path);
+        if opt.reset_persistency {
+            builder.destory();
+        }
+        builder.create();
+        let storage = builder.open();
+        RaftCore::new(app, storage, config, tunable).await
+    } else {
+        let storage = lol_core::storage::memory::Storage::new();
+        RaftCore::new(app, storage, config, tunable).await
+    };
 
-    // std::fs::create_dir("/tmp/lol");
-    // let path = format!("/tmp/lol/{}.db", id);
-    // let path = Path::new(&path);
-    // let builder = lol_core::storage::disk::StorageBuilder::new(&path);
-    // builder.destory();
-    // builder.create();
-    // let storage = builder.open();
-
-    let core = RaftCore::new(app, storage, config, tunable).await;
     let core = Arc::new(core);
     let res = lol_core::start_server(core).await;
     if res.is_err() {
