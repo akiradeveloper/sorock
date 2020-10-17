@@ -66,8 +66,16 @@ impl<A: RaftApp> Raft for Thread<A> {
             let req = request.into_inner();
             let command = if req.core {
                 match core_message::Req::deserialize(&req.message).unwrap() {
-                    core_message::Req::AddServer(id) => Command::AddServer { id },
-                    core_message::Req::RemoveServer(id) => Command::RemoveServer { id },
+                    core_message::Req::AddServer(id) => {
+                        let mut membership = self.core.cluster.read().await.id_list();
+                        membership.insert(id);
+                        Command::ClusterConfiguration { membership }
+                    },
+                    core_message::Req::RemoveServer(id) => {
+                        let mut membership = self.core.cluster.read().await.id_list();
+                        membership.remove(&id);
+                        Command::ClusterConfiguration { membership }
+                    },
                     _ => Command::Req {
                         message: req.message,
                         core: req.core,
