@@ -89,11 +89,8 @@ enum Command {
     Snapshot {
         core_snapshot: HashSet<Id>,
     },
-    AddServer {
-        id: Id,
-    },
-    RemoveServer {
-        id: Id,
+    ClusterConfiguration {
+        membership: HashSet<Id>,
     },
     Req {
         core: bool,
@@ -171,7 +168,20 @@ impl<A: RaftApp> RaftCore<A> {
             election_token: Semaphore::new(1),
         }
     }
-
+    async fn do_change_membership(self: &Arc<Self>, membership: &HashSet<Id>) {
+        self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await;
+    }
+    async fn change_membership(self: &Arc<Self>, command: Command) {
+        match command {
+            Command::Snapshot { core_snapshot } => {
+                self.do_change_membership(&core_snapshot).await
+            },
+            Command::ClusterConfiguration { membership } => {
+                self.do_change_membership(&membership).await
+            },
+            _ => {},
+        }
+    }
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(5));
         let mut conn = Endpoint::new(to).connect_with(config).await?;
@@ -245,8 +255,11 @@ impl<A: RaftApp> RaftCore<A> {
             }.into(),
         };
         self.log.try_insert_entry(snapshot, self.id.clone(), Arc::clone(&self)).await;
-        let add_server = Command::AddServer { id };
+        let mut membership = HashSet::new();
+        membership.insert(id);
+        let add_server = Command::ClusterConfiguration { membership: membership.clone() };
         self.log.append_new_entry(add_server, None, 0).await;
+        self.do_change_membership(&membership).await;
 
         self.log.advance_commit_index(2, Arc::clone(&self)).await;
     }
@@ -259,10 +272,13 @@ impl<A: RaftApp> RaftCore<A> {
                 this_clock: (e.term, e.index),
                 command: e.command,
             };
+            let command = entry.command.clone().into();
             if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await {
                 log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
                 return false;
             }
+            self.change_membership(command).await;
+
             prev_clock = (e.term, e.index);
         }
         true
@@ -383,7 +399,7 @@ impl<A: RaftApp> RaftCore<A> {
             });
         }
     }
-    async fn try_promote(&self) {
+    async fn try_promote(self: &Arc<Self>) {
         let _token = self.election_token.acquire().await;
 
         // vote to self
@@ -629,7 +645,7 @@ impl<A: RaftApp> RaftCore<A> {
         };
         new_agreement
     }
-    async fn try_promote_at(&self, aim_term: Term) {
+    async fn try_promote_at(self: &Arc<Self>, aim_term: Term) {
         let (others, quorum) = {
             let cur_cluster = self.cluster.read().await.internal.clone();
             let n = cur_cluster.len();
@@ -712,9 +728,10 @@ impl<A: RaftApp> RaftCore<A> {
             *self.election_state.write().await = ElectionState::Follower;
         }
     }
-    async fn queue_entry(&self, command: Command, ack: Option<Ack>) {
+    async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) {
         let term = self.load_vote().await.cur_term;
-        self.log.append_new_entry(command, ack, term).await;
+        self.log.append_new_entry(command.clone(), ack, term).await;
+        self.change_membership(command).await;
     }
 }
 struct Log {
@@ -886,38 +903,17 @@ impl Log {
         for i in old_agreement + 1..=new_agreement {
             let command = self.storage.get_entry(i).await.unwrap().command.into();
             match command {
-                Command::AddServer { id } => {
-                    log::info!("add-server: {}", id);
-                    core.cluster
-                        .write()
-                        .await
-                        .add_server(id.clone(), Arc::clone(&core))
-                        .await;
-                }
-                Command::RemoveServer { id } => {
-                    log::info!("remove-server: {}", id);
-                    core.cluster.write().await.remove_server(id.clone());
-                    let remove_leader = id == core.id
-                        && std::matches!(
-                            *core.election_state.read().await,
-                            ElectionState::Leader
-                        );
-                    if remove_leader {
+                Command::ClusterConfiguration { membership } => {
+                    let remove_this_node = !membership.contains(&core.id);
+                    let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
+                    if remove_this_node && is_leader {
                         *core.election_state.write().await = ElectionState::Follower;
-
+            
                         // if leader node steps down choose one of the follower node to
                         // become candidate immediately so the downtime becomes shorter.
                         core.transfer_leadership().await;
-                    }
-                }
-                Command::Snapshot { core_snapshot, .. } => {
-                    log::info!("install core snapshot: {:?}", core_snapshot);
-                    core.cluster
-                        .write()
-                        .await
-                        .set_membership(&core_snapshot, Arc::clone(&core))
-                        .await;
-                }
+                    } 
+                },
                 _ => {}
             }
 
@@ -1002,12 +998,8 @@ impl Log {
                     }
                 }
             },
-            Command::AddServer { id } => {
-                self.applied_membership.lock().await.insert(id);
-                true
-            },
-            Command::RemoveServer { id } => {
-                self.applied_membership.lock().await.remove(&id);
+            Command::ClusterConfiguration { membership } => {
+                *self.applied_membership.lock().await = membership;
                 true
             },
             _ => true,
@@ -1069,13 +1061,8 @@ impl Log {
             let mut app_messages = vec![];
             for i in cur_snapshot_index + 1..=new_snapshot_index {
                 match self.storage.get_entry(i).await.unwrap().command.into() {
-                    Command::AddServer { id } => {
-                        log::info!("snapshot fold: add-server({})", id);
-                        new_core_snapshot.insert(id);
-                    }
-                    Command::RemoveServer { id } => {
-                        log::info!("snapshot fold: remove-server({})", id);
-                        new_core_snapshot.remove(&id);
+                    Command::ClusterConfiguration { membership } => {
+                        new_core_snapshot = membership;
                     }
                     Command::Req {
                         message,

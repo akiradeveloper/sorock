@@ -2,6 +2,7 @@ use integration::*;
 use std::time::Duration;
 use std::thread;
 
+#[ignore]
 #[test]
 fn test_persistency_reboot() {
     let env = Environment::new(0, vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=0"]);
