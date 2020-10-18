@@ -152,11 +152,12 @@ pub struct RaftCore<A: RaftApp> {
     election_token: Semaphore,
 }
 impl<A: RaftApp> RaftCore<A> {
-    pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Self {
+    pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
         let id = config.id;
         let init_cluster = membership::Cluster::empty(id.clone()).await;
+        let init_membership = Self::find_last_membership(&storage).await;
         let init_log = Log::new(Box::new(storage)).await;
-        Self {
+        let r = Arc::new(Self {
             app,
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
             id,
@@ -166,9 +167,35 @@ impl<A: RaftApp> RaftCore<A> {
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
+        });
+        log::info!("initial membership is {:?}", init_membership);
+        r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await;
+        r
+    }
+    async fn find_last_membership<S: RaftStorage>(storage: &S) -> HashSet<Id> {
+        let from = storage.get_snapshot_index().await;
+        if from == 0 {
+            return HashSet::new()
         }
+        let to = storage.get_last_index().await;
+        assert!(from <= to);
+        let mut ret = HashSet::new();
+        for i in from ..= to {
+            let e = storage.get_entry(i).await.unwrap();
+            match e.command.into() {
+                Command::Snapshot { core_snapshot } => {
+                    ret = core_snapshot;
+                },
+                Command::ClusterConfiguration { membership } => {
+                    ret = membership;
+                },
+                _ => {}
+            }
+        }
+        ret
     }
     async fn do_change_membership(self: &Arc<Self>, membership: &HashSet<Id>) {
+        log::info!("change membership to {:?}", membership);
         self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await;
     }
     async fn change_membership(self: &Arc<Self>, command: Command) {
