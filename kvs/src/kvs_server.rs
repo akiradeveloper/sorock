@@ -171,8 +171,8 @@ async fn main() {
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
         if opt.reset_persistency {
             builder.destory();
+            builder.create();
         }
-        builder.create();
         let storage = builder.open();
         RaftCore::new(app, storage, config, tunable).await
     } else {
@@ -180,7 +180,6 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
-    let core = Arc::new(core);
     let res = lol_core::start_server(core).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);

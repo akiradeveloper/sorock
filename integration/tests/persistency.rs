@@ -2,7 +2,6 @@ use integration::*;
 use std::time::Duration;
 use std::thread;
 
-#[ignore]
 #[test]
 fn test_persistency_reboot() {
     let env = Environment::new(0, vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=0"]);
@@ -22,8 +21,7 @@ fn test_persistency_reboot() {
     env.stop(1);
     env.stop(2);
 
-    let env = Environment::new(0, vec!["--use-persistency=0", "--compaction-interval-sec=0"]);
-    for id in 1..=2 {
+    for id in 0..=2 {
         let s = format!("--use-persistency={}", id);
         env.start(id, vec![&s, "--compaction-interval-sec=0"]);
         thread::sleep(Duration::from_secs(2));
