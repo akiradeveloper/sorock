@@ -1,6 +1,7 @@
 use crate::{Clock, Term, Index, Id};
 use std::time::Duration;
 use std::collections::BTreeSet;
+use bytes::Bytes;
 
 pub mod memory;
 
@@ -26,7 +27,7 @@ impl Vote {
 pub struct Entry {
     pub(crate) prev_clock: Clock,
     pub(crate) this_clock: Clock,
-    pub(crate) command: Vec<u8>,
+    pub(crate) command: Bytes,
 }
 
 /// the abstraction for the backing storage.
@@ -53,7 +54,7 @@ async fn test_storage<S: RaftStorage>(s: S) {
     let e = Entry {
         prev_clock: (0,0),
         this_clock: (0,0),
-        command: vec![]
+        command: Bytes::new(),
     };
 
     // vote

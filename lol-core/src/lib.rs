@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
+use bytes::Bytes;
 
 /// the abstraction for the backing storage and some implementations.
 pub mod storage;
@@ -101,14 +102,14 @@ enum Command {
         message: Vec<u8>
     }
 }
-impl From<Vec<u8>> for Command {
-    fn from(x: Vec<u8>) -> Self {
-        rmp_serde::from_slice(&x).unwrap()
+impl From<Bytes> for Command {
+    fn from(x: Bytes) -> Self {
+        rmp_serde::from_slice(x.as_ref()).unwrap()
     }
 }
-impl Into<Vec<u8>> for Command {
-    fn into(self) -> Vec<u8> {
-        rmp_serde::to_vec(&self).unwrap()
+impl Into<Bytes> for Command {
+    fn into(self) -> Bytes {
+        rmp_serde::to_vec(&self).unwrap().into()
     }
 }
 #[derive(Clone, Copy)]
@@ -289,7 +290,7 @@ impl<A: RaftApp> RaftCore<A> {
 
         self.log.advance_commit_index(2, Arc::clone(&self)).await;
     }
-    async fn queue_received_entry(self: &Arc<Self>, req: protoimpl::AppendEntryReq) -> bool {
+    async fn queue_received_entry(self: &Arc<Self>, req: AppendEntryBuffer) -> bool {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
         for e in req.entries {
             let entry = Entry {
@@ -297,12 +298,12 @@ impl<A: RaftApp> RaftCore<A> {
                 this_clock: (e.term, e.index),
                 command: e.command,
             };
-            let command = entry.command.clone().into();
+            let command = entry.command.clone();
             if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await {
                 log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
                 return false;
             }
-            self.change_membership(command).await;
+            self.change_membership(command.into()).await;
 
             prev_clock = (e.term, e.index);
         }
@@ -362,20 +363,31 @@ impl<A: RaftApp> RaftCore<A> {
             .await;
     }
 }
+struct AppendEntryElem {
+    term: Term,
+    index: Index,
+    command: Bytes,
+}
+struct AppendEntryBuffer {
+    sender_id: String,
+    prev_log_term: Term,
+    prev_log_index: Index,
+    entries: Vec<AppendEntryElem>,
+}
 fn into_stream(
-    req: crate::protoimpl::AppendEntryReq,
-) -> impl futures::stream::Stream<Item = crate::protoimpl::AppendEntryReqS> {
-    use crate::protoimpl::{append_entry_req_s::Elem, EntryS, FrameS, HeaderS};
+    req: AppendEntryBuffer,
+) -> impl futures::stream::Stream<Item = crate::protoimpl::AppendEntryReq> {
+    use crate::protoimpl::{append_entry_req::Elem, AppendStreamEntry, AppendStreamFrame, AppendStreamHeader};
     let mut elems = vec![];
 
-    elems.push(Elem::Header(HeaderS {
+    elems.push(Elem::Header(AppendStreamHeader {
         sender_id: req.sender_id,
         prev_log_index: req.prev_log_index,
         prev_log_term: req.prev_log_term,
     }));
 
     for e in &req.entries {
-        elems.push(Elem::Entry(EntryS {
+        elems.push(Elem::Entry(AppendStreamEntry {
             term: e.term,
             index: e.index,
         }));
@@ -383,7 +395,7 @@ fn into_stream(
         let command = e.command.clone();
         // the chunk size of 16KB-64KB is known as best in gRPC streaming.
         for chunk in command.chunks(32_000) {
-            frames.push(Elem::Frame(FrameS {
+            frames.push(Elem::Frame(AppendStreamFrame {
                 frame: chunk.to_owned(),
             }));
         }
@@ -393,7 +405,7 @@ fn into_stream(
     futures::stream::iter(
         elems
             .into_iter()
-            .map(|x| crate::protoimpl::AppendEntryReqS { elem: Some(x) }),
+            .map(|x| crate::protoimpl::AppendEntryReq { elem: Some(x) }),
     )
 }
 impl<A: RaftApp> RaftCore<A> {
@@ -449,17 +461,16 @@ impl<A: RaftApp> RaftCore<A> {
         &self,
         l: Index,
         r: Index,
-    ) -> crate::protoimpl::AppendEntryReq {
-        let snapshot = self.log.storage.get_entry(l).await.unwrap();
-        let (prev_log_term, prev_log_index) = snapshot.prev_clock;
-        let (term, index) = snapshot.this_clock;
-        let command = snapshot.command;
-        let e = crate::protoimpl::Entry {
+    ) -> AppendEntryBuffer {
+        let head = self.log.storage.get_entry(l).await.unwrap();
+        let (prev_log_term, prev_log_index) = head.prev_clock;
+        let (term, index) = head.this_clock;
+        let e = AppendEntryElem {
             term,
             index,
-            command: command.into(),
+            command: head.command,
         };
-        let mut req = crate::protoimpl::AppendEntryReq {
+        let mut req = AppendEntryBuffer {
             sender_id: self.id.clone(),
             prev_log_term,
             prev_log_index,
@@ -470,11 +481,10 @@ impl<A: RaftApp> RaftCore<A> {
             let e = {
                 let x = self.log.storage.get_entry(idx).await.unwrap();
                 let (term, index) = x.this_clock;
-                let command = x.command;
-                crate::protoimpl::Entry {
+                AppendEntryElem {
                     term,
                     index,
-                    command: command.into(),
+                    command: x.command,
                 }
             };
             req.entries.push(e);
@@ -527,7 +537,7 @@ impl<A: RaftApp> RaftCore<A> {
         let res = async {
             let endpoint = member.endpoint;
             let mut conn = endpoint.connect().await?;
-            conn.send_append_entry_s(into_stream(req)).await
+            conn.send_append_entry(into_stream(req)).await
         }
         .await;
 

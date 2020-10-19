@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use tokio::sync::Semaphore;
 use std::time::Duration;
+use bytes::Bytes;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -35,7 +36,7 @@ impl From<Vec<u8>> for Entry {
         Entry {
             prev_clock: x.prev_clock,
             this_clock: x.this_clock,
-            command: x.command,
+            command: x.command.into(),
         }
     }
 }
@@ -44,7 +45,7 @@ impl Into<Vec<u8>> for Entry {
         let x = EntryB {
             prev_clock: self.prev_clock,
             this_clock: self.this_clock,
-            command: self.command,
+            command: self.command.as_ref().into(),
         };
         rmp_serde::to_vec(&x).unwrap()
     }
@@ -276,7 +277,7 @@ async fn test_rocksdb_persistency() {
     let e = Entry {
         prev_clock: (0,0),
         this_clock: (0,0),
-        command: vec![]
+        command: Bytes::new(),
     };
     let tag: crate::SnapshotTag = vec![].into();
 
