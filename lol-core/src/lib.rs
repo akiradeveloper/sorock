@@ -271,7 +271,6 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn init_cluster(self: &Arc<Self>, id: Id) {
         let snapshot = Entry {
-            append_time: self.log.since_boot_time(),
             prev_clock: (0, 0),
             this_clock: (0, 1),
             command: Command::Snapshot {
@@ -291,7 +290,6 @@ impl<A: RaftApp> RaftCore<A> {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
         for e in req.entries {
             let entry = Entry {
-                append_time: self.log.since_boot_time(), // this is a temp value. will be overwritten
                 prev_clock,
                 this_clock: (e.term, e.index),
                 command: e.command,
@@ -759,8 +757,6 @@ impl<A: RaftApp> RaftCore<A> {
     }
 }
 struct Log {
-    boot_time: Instant,
-
     storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
@@ -782,8 +778,6 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         Self {
-            boot_time: Instant::now(),
-
             storage,
             ack_chans: RwLock::new(BTreeMap::new()),
 
@@ -802,9 +796,6 @@ impl Log {
             applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
         }
-    }
-    fn since_boot_time(&self) -> Duration {
-        Instant::now() - self.boot_time
     }
     async fn get_last_log_index(&self) -> Index {
         self.storage.get_last_index().await
@@ -839,7 +830,6 @@ impl Log {
         let new_index = cur_last_log_index + 1;
         let this_clock = (term, new_index);
         let e = Entry {
-            append_time: self.since_boot_time(),
             prev_clock,
             this_clock,
             command: command.into(),
@@ -877,7 +867,6 @@ impl Log {
                     }
                 }
 
-                entry.append_time = self.since_boot_time();
                 self.insert_snapshot(entry).await;
                 self.commit_index.store(snapshot_index - 1, Ordering::SeqCst);
                 self.last_applied.store(snapshot_index - 1, Ordering::SeqCst);
@@ -902,11 +891,9 @@ impl Log {
                     self.ack_chans.write().await.remove(&idx);
                 }
 
-                entry.append_time = self.since_boot_time();
                 self.storage.insert_entry(new_index, entry).await;
             }
         } else {
-            entry.append_time = self.since_boot_time();
             self.storage.insert_entry(new_index, entry).await;
         }
 
