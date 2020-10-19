@@ -1033,27 +1033,6 @@ impl Log {
             self.apply_news.lock().await.publish();
         }
     }
-    async fn find_compaction_point(&self, guard_period: Duration) -> Option<Index> {
-        let last_applied = self.last_applied.load(Ordering::SeqCst);
-        let now = self.since_boot_time();
-        let new_snapshot_index = {
-            let mut res = None;
-            // find a compaction point before last_applied but old enough so fresh entries
-            // will be replicated to slower nodes.
-            let cur_snapshot_index = self.storage.get_snapshot_index().await;
-            for i in (cur_snapshot_index + 1..=last_applied).rev() {
-                let append_time = self.storage.get_entry(i).await.unwrap().append_time;
-                if now - append_time < guard_period {
-                    // fresh entries will not be a target of compaction.
-                } else {
-                    res = Some(i);
-                    break;
-                }
-            }
-            res
-        };
-        new_snapshot_index
-    }
     async fn create_fold_snapshot<A: RaftApp>(
         &self,
         new_snapshot_index: Index,
@@ -1121,9 +1100,8 @@ impl Log {
                 }.into();
                 e
             };
-            let no_delay = Duration::from_secs(0);
-            log::info!("fold snapshot is made and will be inserted immediately");
-            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_snapshot }, no_delay).await;
+            let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
+            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_snapshot }, delay).await;
         } else {
             unreachable!()
         }
