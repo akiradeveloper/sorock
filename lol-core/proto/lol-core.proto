@@ -67,6 +67,7 @@ message RequestVoteReq {
     string candidate_id = 2;
     uint64 last_log_term = 3;
     uint64 last_log_index = 4;
+    bool force_vote = 5;
 }
 message RequestVoteRep {
     bool vote_granted = 1;

@@ -145,9 +145,10 @@ impl<A: RaftApp> Raft for Thread<A> {
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
         let candidate_clock = (req.last_log_term, req.last_log_index);
+        let force_vote = req.force_vote;
         let vote_granted = self
             .core
-            .receive_vote(candidate_term, candidate_id, candidate_clock)
+            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote)
             .await;
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))
@@ -258,7 +259,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         request: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
-            self.core.try_promote().await;
+            self.core.try_promote(true).await;
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))

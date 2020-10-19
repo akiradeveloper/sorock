@@ -28,6 +28,9 @@ use connection::{Endpoint, EndpointConfig};
 use thread::news;
 use storage::RaftStorage;
 
+// this is currently fixed but can be place in tunable if it is needed.
+const ELECTION_TIMEOUT_MS: u64 = 500;
+
 /// proto file compiled.
 pub mod protoimpl {
     tonic::include_proto!("lol_core");
@@ -421,7 +424,7 @@ impl<A: RaftApp> RaftCore<A> {
             });
         }
     }
-    async fn try_promote(self: &Arc<Self>) {
+    async fn try_promote(self: &Arc<Self>, force_vote: bool) {
         let _token = self.election_token.acquire().await;
 
         // vote to self
@@ -440,7 +443,7 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("start election. try promote at term {}", aim_term);
 
         // try to promote at the term.
-        self.try_promote_at(aim_term).await;
+        self.try_promote_at(aim_term, force_vote).await;
     }
     async fn prepare_replication_request(
         &self,
@@ -596,7 +599,15 @@ impl<A: RaftApp> RaftCore<A> {
         candidate_term: Term,
         candidate_id: Id,
         candidate_last_log_clock: Clock,
+        force_vote: bool,
     ) -> bool {
+        if !force_vote {
+            let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
+            if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
+                return false
+            }
+        }
+
         let mut vote = self.load_vote().await;
         if candidate_term < vote.cur_term {
             log::warn!("candidate term is older. reject vote");
@@ -667,7 +678,7 @@ impl<A: RaftApp> RaftCore<A> {
         };
         new_agreement
     }
-    async fn try_promote_at(self: &Arc<Self>, aim_term: Term) {
+    async fn try_promote_at(self: &Arc<Self>, aim_term: Term, force_vote: bool) {
         let (others, quorum) = {
             let cur_cluster = self.cluster.read().await.internal.clone();
             let n = cur_cluster.len();
@@ -704,6 +715,11 @@ impl<A: RaftApp> RaftCore<A> {
                     candidate_id: myid,
                     last_log_term,
                     last_log_index,
+                    // $4.2.3
+                    // if force_vote is set, the receiver server accepts the vote request
+                    // regardless of the heartbeat timeout otherwise the vote request is
+                    // dropped when it's receiving heartbeat.
+                    force_vote,
                 };
                 let config = EndpointConfig::default().timeout(timeout);
                 let res = async {
