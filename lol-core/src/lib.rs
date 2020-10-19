@@ -600,6 +600,11 @@ impl<A: RaftApp> RaftCore<A> {
         candidate_id: Id,
         candidate_last_log_clock: Clock,
     ) -> bool {
+        let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
+        if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
+            return false
+        }
+
         let mut vote = self.load_vote().await;
         if candidate_term < vote.cur_term {
             log::warn!("candidate term is older. reject vote");
