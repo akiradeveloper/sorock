@@ -125,15 +125,12 @@ pub struct TunableConfig {
     pub compaction_delay_sec: u64,
     /// the interval that compaction runs
     pub compaction_interval_sec: u64,
-    /// the system memory threshold threshold that compaction runs
-    pub compaction_memory_limit: f64,
 }
 impl TunableConfig {
     pub fn default() -> Self {
         Self {
             compaction_delay_sec: 300,
             compaction_interval_sec: 300,
-            compaction_memory_limit: 0.9,
         }
     }
 }
@@ -1057,7 +1054,7 @@ impl Log {
         };
         new_snapshot_index
     }
-    async fn advance_snapshot_index<A: RaftApp>(
+    async fn create_fold_snapshot<A: RaftApp>(
         &self,
         new_snapshot_index: Index,
         core: Arc<RaftCore<A>>,
@@ -1137,8 +1134,7 @@ pub async fn start_server<A: RaftApp>(
 ) -> Result<(), tonic::transport::Error> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
-    tokio::spawn(thread::compaction_l1::run(Arc::clone(&core)));
-    tokio::spawn(thread::compaction_l2::run(Arc::clone(&core)));
+    tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));
     tokio::spawn(thread::execution::run(Arc::clone(&core)));
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));

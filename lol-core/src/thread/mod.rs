@@ -1,6 +1,5 @@
 pub mod commit;
-pub mod compaction_l1;
-pub mod compaction_l2;
+pub mod compaction;
 pub mod election;
 pub mod execution;
 pub mod heartbeat;

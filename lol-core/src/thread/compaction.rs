@@ -25,7 +25,7 @@ impl<A: RaftApp> Thread<A> {
                 log::info!("new compaction point: {:?}", new_snapshot_index);
                 if let Some(new_snapshot_index) = new_snapshot_index {
                     core.log
-                        .advance_snapshot_index(new_snapshot_index, Arc::clone(&core))
+                        .create_fold_snapshot(new_snapshot_index, Arc::clone(&core))
                         .await;
                 }
             };

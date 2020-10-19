@@ -24,7 +24,6 @@ serde_bytes = "0.11"
 rmp = "0.8.9"
 rmp-serde = "0.14.3"
 log = "0.4"
-sysinfo = "0.14"
 anyhow = "1.0"
 tokio-util = { version = "0.3", features = ["codec"] }
 bytes = "0.5.6"
