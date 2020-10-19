@@ -125,15 +125,12 @@ pub struct TunableConfig {
     pub compaction_delay_sec: u64,
     /// the interval that compaction runs
     pub compaction_interval_sec: u64,
-    /// the system memory threshold threshold that compaction runs
-    pub compaction_memory_limit: f64,
 }
 impl TunableConfig {
     pub fn default() -> Self {
         Self {
             compaction_delay_sec: 300,
             compaction_interval_sec: 300,
-            compaction_memory_limit: 0.9,
         }
     }
 }
@@ -274,7 +271,6 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn init_cluster(self: &Arc<Self>, id: Id) {
         let snapshot = Entry {
-            append_time: self.log.since_boot_time(),
             prev_clock: (0, 0),
             this_clock: (0, 1),
             command: Command::Snapshot {
@@ -294,7 +290,6 @@ impl<A: RaftApp> RaftCore<A> {
         let mut prev_clock = (req.prev_log_term, req.prev_log_index);
         for e in req.entries {
             let entry = Entry {
-                append_time: self.log.since_boot_time(), // this is a temp value. will be overwritten
                 prev_clock,
                 this_clock: (e.term, e.index),
                 command: e.command,
@@ -762,8 +757,6 @@ impl<A: RaftApp> RaftCore<A> {
     }
 }
 struct Log {
-    boot_time: Instant,
-
     storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
@@ -785,8 +778,6 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         Self {
-            boot_time: Instant::now(),
-
             storage,
             ack_chans: RwLock::new(BTreeMap::new()),
 
@@ -806,9 +797,6 @@ impl Log {
             snapshot_queue: snapshot::SnapshotQueue::new(),
         }
     }
-    fn since_boot_time(&self) -> Duration {
-        Instant::now() - self.boot_time
-    }
     async fn get_last_log_index(&self) -> Index {
         self.storage.get_last_index().await
     }
@@ -823,7 +811,7 @@ impl Log {
             let tag = self.storage.get_tag(i).await.unwrap();
             let res = core.app.delete_resource(&tag).await;
             if res.is_ok() {
-                self.storage.delete_tag(i);
+                self.storage.delete_tag(i).await;
             }
         }
         // remove entries
@@ -842,7 +830,6 @@ impl Log {
         let new_index = cur_last_log_index + 1;
         let this_clock = (term, new_index);
         let e = Entry {
-            append_time: self.since_boot_time(),
             prev_clock,
             this_clock,
             command: command.into(),
@@ -853,7 +840,7 @@ impl Log {
         }
         self.append_news.lock().await.publish();
     }
-    async fn try_insert_entry<A: RaftApp>(&self, mut entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> bool {
+    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> bool {
         let _token = self.append_token.acquire().await;
 
         let (_, prev_index) = entry.prev_clock;
@@ -880,7 +867,6 @@ impl Log {
                     }
                 }
 
-                entry.append_time = self.since_boot_time();
                 self.insert_snapshot(entry).await;
                 self.commit_index.store(snapshot_index - 1, Ordering::SeqCst);
                 self.last_applied.store(snapshot_index - 1, Ordering::SeqCst);
@@ -905,11 +891,9 @@ impl Log {
                     self.ack_chans.write().await.remove(&idx);
                 }
 
-                entry.append_time = self.since_boot_time();
                 self.storage.insert_entry(new_index, entry).await;
             }
         } else {
-            entry.append_time = self.since_boot_time();
             self.storage.insert_entry(new_index, entry).await;
         }
 
@@ -1036,28 +1020,7 @@ impl Log {
             self.apply_news.lock().await.publish();
         }
     }
-    async fn find_compaction_point(&self, guard_period: Duration) -> Option<Index> {
-        let last_applied = self.last_applied.load(Ordering::SeqCst);
-        let now = self.since_boot_time();
-        let new_snapshot_index = {
-            let mut res = None;
-            // find a compaction point before last_applied but old enough so fresh entries
-            // will be replicated to slower nodes.
-            let cur_snapshot_index = self.storage.get_snapshot_index().await;
-            for i in (cur_snapshot_index + 1..=last_applied).rev() {
-                let append_time = self.storage.get_entry(i).await.unwrap().append_time;
-                if now - append_time < guard_period {
-                    // fresh entries will not be a target of compaction.
-                } else {
-                    res = Some(i);
-                    break;
-                }
-            }
-            res
-        };
-        new_snapshot_index
-    }
-    async fn advance_snapshot_index<A: RaftApp>(
+    async fn create_fold_snapshot<A: RaftApp>(
         &self,
         new_snapshot_index: Index,
         core: Arc<RaftCore<A>>,
@@ -1124,9 +1087,8 @@ impl Log {
                 }.into();
                 e
             };
-            let no_delay = Duration::from_secs(0);
-            log::info!("fold snapshot is made and will be inserted immediately");
-            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_snapshot }, no_delay).await;
+            let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
+            self.snapshot_queue.insert(snapshot::InsertSnapshot { e: new_snapshot }, delay).await;
         } else {
             unreachable!()
         }
@@ -1137,8 +1099,7 @@ pub async fn start_server<A: RaftApp>(
 ) -> Result<(), tonic::transport::Error> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
-    tokio::spawn(thread::compaction_l1::run(Arc::clone(&core)));
-    tokio::spawn(thread::compaction_l2::run(Arc::clone(&core)));
+    tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));
     tokio::spawn(thread::execution::run(Arc::clone(&core)));
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));

@@ -16,7 +16,6 @@ const CMP: &str = "index_asc";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct EntryB {
-    append_time: u64,
     prev_clock: (u64, u64),
     this_clock: (u64, u64),
     #[serde(with = "serde_bytes")]
@@ -34,7 +33,6 @@ impl From<Vec<u8>> for Entry {
     fn from(x: Vec<u8>) -> Self {
         let x: EntryB = rmp_serde::from_slice(&x).unwrap();
         Entry {
-            append_time: Duration::from_millis(x.append_time),
             prev_clock: x.prev_clock,
             this_clock: x.this_clock,
             command: x.command,
@@ -44,7 +42,6 @@ impl From<Vec<u8>> for Entry {
 impl Into<Vec<u8>> for Entry {
     fn into(self) -> Vec<u8> {
         let x = EntryB {
-            append_time: self.append_time.as_millis() as u64,
             prev_clock: self.prev_clock,
             this_clock: self.this_clock,
             command: self.command,
@@ -277,7 +274,6 @@ async fn test_rocksdb_persistency() {
     let s: Box<super::RaftStorage> = Box::new(builder.open());
 
     let e = Entry {
-        append_time: Duration::new(0,0),
         prev_clock: (0,0),
         this_clock: (0,0),
         command: vec![]

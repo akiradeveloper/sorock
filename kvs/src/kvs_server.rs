@@ -150,7 +150,7 @@ async fn main() {
         // this value is carefully chosen, the tests depends on this value.
         let v = opt.compaction_interval_sec.unwrap_or(5);
         tunable.compaction_interval_sec = v;
-        tunable.compaction_delay_sec = v;
+        tunable.compaction_delay_sec = 1;
     } else {
         tunable.compaction_interval_sec = 0;
         tunable.compaction_delay_sec = 1;
