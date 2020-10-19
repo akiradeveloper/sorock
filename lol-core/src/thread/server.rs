@@ -145,9 +145,10 @@ impl<A: RaftApp> Raft for Thread<A> {
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
         let candidate_clock = (req.last_log_term, req.last_log_index);
+        let force_vote = req.force_vote;
         let vote_granted = self
             .core
-            .receive_vote(candidate_term, candidate_id, candidate_clock)
+            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote)
             .await;
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))

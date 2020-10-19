@@ -599,10 +599,13 @@ impl<A: RaftApp> RaftCore<A> {
         candidate_term: Term,
         candidate_id: Id,
         candidate_last_log_clock: Clock,
+        force_vote: bool,
     ) -> bool {
-        let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
-        if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
-            return false
+        if !force_vote {
+            let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
+            if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
+                return false
+            }
         }
 
         let mut vote = self.load_vote().await;
@@ -712,6 +715,7 @@ impl<A: RaftApp> RaftCore<A> {
                     candidate_id: myid,
                     last_log_term,
                     last_log_index,
+                    force_vote: true,
                 };
                 let config = EndpointConfig::default().timeout(timeout);
                 let res = async {
