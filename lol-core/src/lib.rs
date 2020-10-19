@@ -811,7 +811,7 @@ impl Log {
             let tag = self.storage.get_tag(i).await.unwrap();
             let res = core.app.delete_resource(&tag).await;
             if res.is_ok() {
-                self.storage.delete_tag(i);
+                self.storage.delete_tag(i).await;
             }
         }
         // remove entries
@@ -840,7 +840,7 @@ impl Log {
         }
         self.append_news.lock().await.publish();
     }
-    async fn try_insert_entry<A: RaftApp>(&self, mut entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> bool {
+    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> bool {
         let _token = self.append_token.acquire().await;
 
         let (_, prev_index) = entry.prev_clock;
