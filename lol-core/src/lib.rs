@@ -28,6 +28,9 @@ use connection::{Endpoint, EndpointConfig};
 use thread::news;
 use storage::RaftStorage;
 
+// this is currently fixed but can be place in tunable if it is needed.
+const ELECTION_TIMEOUT_MS: u64 = 500;
+
 /// proto file compiled.
 pub mod protoimpl {
     tonic::include_proto!("lol_core");
