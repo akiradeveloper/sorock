@@ -259,7 +259,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         request: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
-            self.core.try_promote().await;
+            self.core.try_promote(true).await;
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))

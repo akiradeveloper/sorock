@@ -34,7 +34,7 @@ impl<A: RaftApp> Thread<A> {
                     let election_state = *core.election_state.read().await;
                     if std::matches!(election_state, ElectionState::Follower) {
                         log::info!("heartbeat is not received for {} ms", elapsed.as_millis());
-                        core.try_promote().await;
+                        core.try_promote(false).await;
                     }
                 };
             };

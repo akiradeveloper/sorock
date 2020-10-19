@@ -424,7 +424,7 @@ impl<A: RaftApp> RaftCore<A> {
             });
         }
     }
-    async fn try_promote(self: &Arc<Self>) {
+    async fn try_promote(self: &Arc<Self>, force_vote: bool) {
         let _token = self.election_token.acquire().await;
 
         // vote to self
@@ -443,7 +443,7 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("start election. try promote at term {}", aim_term);
 
         // try to promote at the term.
-        self.try_promote_at(aim_term).await;
+        self.try_promote_at(aim_term, force_vote).await;
     }
     async fn prepare_replication_request(
         &self,
@@ -678,7 +678,7 @@ impl<A: RaftApp> RaftCore<A> {
         };
         new_agreement
     }
-    async fn try_promote_at(self: &Arc<Self>, aim_term: Term) {
+    async fn try_promote_at(self: &Arc<Self>, aim_term: Term, force_vote: bool) {
         let (others, quorum) = {
             let cur_cluster = self.cluster.read().await.internal.clone();
             let n = cur_cluster.len();
@@ -715,7 +715,11 @@ impl<A: RaftApp> RaftCore<A> {
                     candidate_id: myid,
                     last_log_term,
                     last_log_index,
-                    force_vote: true,
+                    // $4.2.3
+                    // if force_vote is set, the receiver server accepts the vote request
+                    // regardless of the heartbeat timeout otherwise the vote request is
+                    // dropped when it's receiving heartbeat.
+                    force_vote,
                 };
                 let config = EndpointConfig::default().timeout(timeout);
                 let res = async {
