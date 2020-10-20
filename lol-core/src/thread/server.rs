@@ -3,10 +3,11 @@ use crate::{ack, core_message, protoimpl, Command, ElectionState, RaftApp, RaftC
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tokio::stream::StreamExt;
+use bytes::{Bytes, BytesMut};
 
 use protoimpl::{
     raft_server::{Raft, RaftServer},
-    AppendEntryRep, AppendEntryReq, AppendEntryReqS, GetSnapshotReq, GetSnapshotRep,
+    AppendEntryRep, AppendEntryReq, GetSnapshotReq, GetSnapshotRep,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
 };
@@ -155,20 +156,9 @@ impl<A: RaftApp> Raft for Thread<A> {
     }
     async fn send_append_entry(
         &self,
-        request: tonic::Request<AppendEntryReq>,
+        request: tonic::Request<tonic::Streaming<AppendEntryReq>>,
     ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        let success = self.core.queue_received_entry(request.into_inner()).await;
-        let res = AppendEntryRep {
-            success,
-            last_log_index: self.core.log.get_last_log_index().await,
-        };
-        Ok(tonic::Response::new(res))
-    }
-    async fn send_append_entry_s(
-        &self,
-        request: tonic::Request<tonic::Streaming<AppendEntryReqS>>,
-    ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        use protoimpl::append_entry_req_s::Elem;
+        use protoimpl::append_entry_req::Elem;
 
         // This code is expecting stream in a form
         // Header (Entry Frame+)+
@@ -176,13 +166,13 @@ impl<A: RaftApp> Raft for Thread<A> {
         let mut stream = request.into_inner();
         let mut req = if let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
-            if let Elem::Header(protoimpl::HeaderS {
+            if let Elem::Header(protoimpl::AppendStreamHeader {
                 sender_id,
                 prev_log_index,
                 prev_log_term,
             }) = e
             {
-                protoimpl::AppendEntryReq {
+                crate::AppendEntryBuffer {
                     sender_id,
                     prev_log_index,
                     prev_log_term,
@@ -194,27 +184,20 @@ impl<A: RaftApp> Raft for Thread<A> {
         } else {
             unreachable!()
         };
-        let mut cur = None;
         while let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
             match e {
-                Elem::Entry(protoimpl::EntryS { term, index }) => {
-                    if let Some(x) = cur.take() {
-                        req.entries.push(x);
-                    }
-                    cur = Some(protoimpl::Entry {
+                Elem::Entry(protoimpl::AppendStreamEntry { term, index, command }) => {
+                    let e = crate::AppendEntryElem {
                         term,
                         index,
-                        command: vec![],
-                    });
-                }
-                Elem::Frame(protoimpl::FrameS { mut frame }) => {
-                    cur.as_mut().unwrap().command.append(&mut frame);
-                }
+                        command: command.into(),
+                    };
+                    req.entries.push(e);
+                },
                 _ => unreachable!(),
             }
         }
-        req.entries.push(cur.unwrap());
 
         // TODO (optimization)
         // sadly, up to here, we put the entire received chunks on the heap.
