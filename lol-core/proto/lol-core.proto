@@ -35,15 +35,12 @@ message AppendStreamHeader {
 message AppendStreamEntry {
     uint64 term = 1;
     uint64 index = 2;
-}
-message AppendStreamFrame {
-    bytes frame = 1;
+    bytes command = 3;
 }
 message AppendEntryReq {
     oneof elem {
         AppendStreamHeader header = 1;
         AppendStreamEntry entry = 2;
-        AppendStreamFrame frame = 3;
     }
 }
 message AppendEntryRep {

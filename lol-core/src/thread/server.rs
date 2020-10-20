@@ -184,32 +184,20 @@ impl<A: RaftApp> Raft for Thread<A> {
         } else {
             unreachable!()
         };
-        let mut cur: Option<crate::AppendEntryElem> = None;
-        let mut cur_buf = BytesMut::new();
         while let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
             match e {
-                Elem::Entry(protoimpl::AppendStreamEntry { term, index }) => {
-                    if let Some(mut x) = cur.take() {
-                        x.command = cur_buf.freeze();
-                        req.entries.push(x);
-                    }
-                    cur = Some(crate::AppendEntryElem {
+                Elem::Entry(protoimpl::AppendStreamEntry { term, index, command }) => {
+                    let e = crate::AppendEntryElem {
                         term,
                         index,
-                        command: Bytes::new(),
-                    });
-                    cur_buf = BytesMut::new();
-                }
-                Elem::Frame(protoimpl::AppendStreamFrame { frame }) => {
-                    cur_buf.extend_from_slice(&frame);
-                }
+                        command: command.into(),
+                    };
+                    req.entries.push(e);
+                },
                 _ => unreachable!(),
             }
         }
-        let mut e = cur.unwrap();
-        e.command = cur_buf.freeze();
-        req.entries.push(e);
 
         // TODO (optimization)
         // sadly, up to here, we put the entire received chunks on the heap.

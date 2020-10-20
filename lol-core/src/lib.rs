@@ -377,7 +377,7 @@ struct AppendEntryBuffer {
 fn into_stream(
     req: AppendEntryBuffer,
 ) -> impl futures::stream::Stream<Item = crate::protoimpl::AppendEntryReq> {
-    use crate::protoimpl::{append_entry_req::Elem, AppendStreamEntry, AppendStreamFrame, AppendStreamHeader};
+    use crate::protoimpl::{append_entry_req::Elem, AppendStreamHeader, AppendStreamEntry};
     let mut elems = vec![];
 
     elems.push(Elem::Header(AppendStreamHeader {
@@ -390,18 +390,9 @@ fn into_stream(
         elems.push(Elem::Entry(AppendStreamEntry {
             term: e.term,
             index: e.index,
+            command: e.command.as_ref().into(),
         }));
-        let mut frames = vec![];
-        let command = e.command.clone();
-        // the chunk size of 16KB-64KB is known as best in gRPC streaming.
-        for chunk in command.chunks(32_000) {
-            frames.push(Elem::Frame(AppendStreamFrame {
-                frame: chunk.to_owned(),
-            }));
-        }
-        elems.append(&mut frames);
     }
-
     futures::stream::iter(
         elems
             .into_iter()
