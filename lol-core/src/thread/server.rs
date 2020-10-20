@@ -34,7 +34,7 @@ impl<A: RaftApp> Raft for Thread<A> {
             let req = request.into_inner();
             if req.mutation {
                 let command = Command::Req {
-                    message: req.message,
+                    message: req.message.into(),
                     core: req.core,
                 };
                 self.core.queue_entry(command, Some(ack)).await;
@@ -78,13 +78,13 @@ impl<A: RaftApp> Raft for Thread<A> {
                         Command::ClusterConfiguration { membership }
                     },
                     _ => Command::Req {
-                        message: req.message,
+                        message: req.message.into(),
                         core: req.core,
                     },
                 }
             } else {
                 Command::Req {
-                    message: req.message,
+                    message: req.message.into(),
                     core: req.core,
                 }
             };

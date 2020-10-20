@@ -86,8 +86,8 @@ type Clock = (Term, Index);
 /// id = ip:port
 pub type Id = String;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum Command {
+#[derive(serde::Serialize, serde::Deserialize)]
+enum CommandB<'a> {
     Noop,
     Snapshot {
         core_snapshot: HashSet<Id>,
@@ -98,17 +98,51 @@ enum Command {
     Req {
         core: bool,
         #[serde(with = "serde_bytes")]
-        message: Vec<u8>
+        message: &'a [u8]
+    }
+}
+impl <'a> CommandB<'a> {
+    fn serialize(x: &CommandB) -> Vec<u8> {
+        rmp_serde::to_vec(x).unwrap()
+    }
+    fn deserialize(x: &[u8]) -> CommandB {
+        rmp_serde::from_slice(x).unwrap()
+    }
+}
+#[derive(Clone, Debug)]
+enum Command {
+    Noop,
+    Snapshot {
+        core_snapshot: HashSet<Id>,
+    },
+    ClusterConfiguration {
+        membership: HashSet<Id>,
+    },
+    Req {
+        core: bool,
+        message: Bytes
     }
 }
 impl From<Bytes> for Command {
     fn from(x: Bytes) -> Self {
-        rmp_serde::from_slice(x.as_ref()).unwrap()
+        let y = CommandB::deserialize(x.as_ref());
+        match y {
+            CommandB::Noop => Command::Noop,
+            CommandB::Snapshot { core_snapshot } => Command::Snapshot { core_snapshot },
+            CommandB::ClusterConfiguration { membership } => Command::ClusterConfiguration { membership },
+            CommandB::Req { core, ref message } => Command::Req { core, message: Bytes::copy_from_slice(message) },
+        }
     }
 }
 impl Into<Bytes> for Command {
     fn into(self) -> Bytes {
-        rmp_serde::to_vec(&self).unwrap().into()
+        let y = match self {
+            Command::Noop => CommandB::Noop,
+            Command::Snapshot { core_snapshot } => CommandB::Snapshot { core_snapshot },
+            Command::ClusterConfiguration { membership } => CommandB::ClusterConfiguration { membership },
+            Command::Req { core, ref message } => CommandB::Req { core, message: &message }
+        };
+        CommandB::serialize(&y).into()
     }
 }
 #[derive(Clone, Copy)]
