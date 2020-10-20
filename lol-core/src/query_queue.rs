@@ -1,10 +1,11 @@
-use crate::{ack, Index, Message, RaftApp, RaftCore};
+use crate::{ack, Index, RaftApp, RaftCore};
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use bytes::Bytes;
 
 pub struct Query {
     pub core: bool,
-    pub message: Message,
+    pub message: Bytes,
     pub ack: ack::Ack,
 }
 pub struct QueryQueue {
@@ -36,9 +37,9 @@ impl QueryQueue {
             .into_iter()
             .map(|(Query { core, message, ack }, raft_core)| async move {
                 let res = if core {
-                    raft_core.process_message(message).await
+                    raft_core.process_message(&message).await
                 } else {
-                    raft_core.app.process_message(message).await
+                    raft_core.app.process_message(&message).await
                 };
                 if let ack::Ack::OnApply(tx) = ack {
                     if let Ok(msg) = res {

@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{BTreeSet, BTreeMap, HashSet};
+use std::collections::{HashMap, BTreeSet, BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -43,32 +43,32 @@ use storage::{Entry, Vote};
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// how state machine interacts with inputs from clients.
-    async fn process_message(&self, request: Message) -> anyhow::Result<Message>;
+    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
-    async fn apply_message(&self, request: Message, apply_index: Index) -> anyhow::Result<(Message, Option<SnapshotTag>)>;
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
-    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
     /// this function is called from compaction threads.
     /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&SnapshotTag>,
-        requests: Vec<Message>,
+        old_snapshot: Option<SnapshotTag>,
+        requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot stream from a snapshot resource bound to the tag.
-    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+    async fn to_snapshot_stream(&self, x: SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
-    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_resource(&self, x: SnapshotTag) -> anyhow::Result<()>;
 }
 
 /// snapshot tag is a tag that bound to some snapshot resource.
 /// if the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag(bytes::Bytes);
+pub struct SnapshotTag(pub bytes::Bytes);
 impl AsRef<[u8]> for SnapshotTag {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
@@ -80,15 +80,14 @@ impl From<Vec<u8>> for SnapshotTag {
     }
 }
 
-pub type Message = Vec<u8>;
 type Term = u64;
 pub type Index = u64;
 type Clock = (Term, Index);
 /// id = ip:port
 pub type Id = String;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum Command {
+#[derive(serde::Serialize, serde::Deserialize)]
+enum CommandB<'a> {
     Noop,
     Snapshot {
         core_snapshot: HashSet<Id>,
@@ -99,17 +98,51 @@ enum Command {
     Req {
         core: bool,
         #[serde(with = "serde_bytes")]
-        message: Vec<u8>
+        message: &'a [u8]
+    }
+}
+impl <'a> CommandB<'a> {
+    fn serialize(x: &CommandB) -> Vec<u8> {
+        rmp_serde::to_vec(x).unwrap()
+    }
+    fn deserialize(x: &[u8]) -> CommandB {
+        rmp_serde::from_slice(x).unwrap()
+    }
+}
+#[derive(Clone, Debug)]
+enum Command {
+    Noop,
+    Snapshot {
+        core_snapshot: HashSet<Id>,
+    },
+    ClusterConfiguration {
+        membership: HashSet<Id>,
+    },
+    Req {
+        core: bool,
+        message: Bytes
     }
 }
 impl From<Bytes> for Command {
     fn from(x: Bytes) -> Self {
-        rmp_serde::from_slice(x.as_ref()).unwrap()
+        let y = CommandB::deserialize(x.as_ref());
+        match y {
+            CommandB::Noop => Command::Noop,
+            CommandB::Snapshot { core_snapshot } => Command::Snapshot { core_snapshot },
+            CommandB::ClusterConfiguration { membership } => Command::ClusterConfiguration { membership },
+            CommandB::Req { core, ref message } => Command::Req { core, message: Bytes::copy_from_slice(message) },
+        }
     }
 }
 impl Into<Bytes> for Command {
     fn into(self) -> Bytes {
-        rmp_serde::to_vec(&self).unwrap().into()
+        let y = match self {
+            Command::Noop => CommandB::Noop,
+            Command::Snapshot { core_snapshot } => CommandB::Snapshot { core_snapshot },
+            Command::ClusterConfiguration { membership } => CommandB::ClusterConfiguration { membership },
+            Command::Req { core, ref message } => CommandB::Req { core, message: &message }
+        };
+        CommandB::serialize(&y).into()
     }
 }
 #[derive(Clone, Copy)]
@@ -229,11 +262,11 @@ impl<A: RaftApp> RaftCore<A> {
             return None
         }
         let snapshot = snapshot.unwrap();
-        let st = self.app.to_snapshot_stream(&snapshot).await;
+        let st = self.app.to_snapshot_stream(snapshot).await;
         Some(st)
     }
-    async fn process_message(self: &Arc<Self>, msg: Message) -> anyhow::Result<Message> {
-        let req = core_message::Req::deserialize(&msg).unwrap();
+    async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
+        let req = core_message::Req::deserialize(msg).unwrap();
         match req {
             core_message::Req::InitCluster => {
                 let res = if self.cluster.read().await.internal.len() == 0 {
@@ -344,7 +377,7 @@ impl<A: RaftApp> RaftCore<A> {
             .advance_commit_index(new_commit_index, Arc::clone(&self))
             .await;
     }
-    async fn register_query(self: &Arc<Self>, core: bool, message: Message, ack: Ack) {
+    async fn register_query(self: &Arc<Self>, core: bool, message: Bytes, ack: Ack) {
         let query = query_queue::Query { core, message, ack };
         self.query_queue
             .lock()
@@ -825,8 +858,8 @@ impl Log {
         // delete old snapshots
         let ls: Vec<Index> = self.storage.list_tags().await.range(..r).map(|x| *x).collect();
         for i in ls {
-            let tag = self.storage.get_tag(i).await.unwrap();
-            let res = core.app.delete_resource(&tag).await;
+            let tag = self.storage.get_tag(i).await.unwrap().clone();
+            let res = core.app.delete_resource(tag).await;
             if res.is_ok() {
                 self.storage.delete_tag(i).await;
             }
@@ -968,10 +1001,10 @@ impl Log {
             let command = std::mem::take(&mut e.command);
             (apply_index, e, command)
         };
-        let ok = match command.into() {
-            Command::Snapshot { core_snapshot } => {
+        let ok = match CommandB::deserialize(&command) {
+            CommandB::Snapshot { core_snapshot } => {
                 let app_snapshot = self.storage.get_tag(apply_index).await;
-                let app_snapshot: Option<&SnapshotTag> = app_snapshot.as_ref();
+                let app_snapshot: Option<SnapshotTag> = app_snapshot;
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(app_snapshot, apply_index).await;
                 log::info!("install app snapshot (complete)");
@@ -983,7 +1016,7 @@ impl Log {
                     false
                 }
             }
-            Command::Req { message, core } => {
+            CommandB::Req { ref message, core } => {
                 let res = if core {
                     let res = raft_core.process_message(message).await;
                     res.map(|x| (x, None))
@@ -1026,7 +1059,7 @@ impl Log {
                     }
                 }
             },
-            Command::ClusterConfiguration { membership } => {
+            CommandB::ClusterConfiguration { membership } => {
                 *self.applied_membership.lock().await = membership;
                 true
             },
@@ -1065,22 +1098,27 @@ impl Log {
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_core_snapshot = core_snapshot;
-            let mut app_messages = vec![];
+            let mut commands = HashMap::new();
             for i in cur_snapshot_index + 1..=new_snapshot_index {
-                match self.storage.get_entry(i).await.unwrap().command.into() {
-                    Command::ClusterConfiguration { membership } => {
+                let command = self.storage.get_entry(i).await.unwrap().command;
+                commands.insert(i, command);
+            }
+            let mut app_messages = vec![];
+            for (i, command) in &commands {
+                match CommandB::deserialize(&command) {
+                    CommandB::ClusterConfiguration { membership } => {
                         new_core_snapshot = membership;
                     }
-                    Command::Req {
-                        message,
+                    CommandB::Req {
                         core: false,
+                        message,
                     } => {
                         app_messages.push(message);
                     }
-                    Command::Snapshot {
+                    CommandB::Snapshot {
                         core_snapshot,
                     } => {
-                        base_snapshot_index = i;
+                        base_snapshot_index = *i;
                         new_core_snapshot = core_snapshot;
                         app_messages = vec![];
                     }
@@ -1088,7 +1126,7 @@ impl Log {
                 }
             }
             let base_app_snapshot = self.storage.get_tag(base_snapshot_index).await;
-            let base_app_snapshot: Option<&SnapshotTag> = base_app_snapshot.as_ref();
+            let base_app_snapshot: Option<SnapshotTag> = base_app_snapshot;
             let new_app_snapshot = match core.app.fold_snapshot(base_app_snapshot, app_messages).await {
                 Ok(x) => x,
                 Err(_) => {
