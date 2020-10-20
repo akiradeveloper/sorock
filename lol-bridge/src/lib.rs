@@ -27,14 +27,14 @@ pub struct RaftAppBridge {
 }
 #[async_trait]
 impl RaftApp for RaftAppBridge {
-    async fn process_message(&self, request: Bytes) -> anyhow::Result<Vec<u8>> {
+    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::ProcessMessageReq { message: request.to_vec() };
         let protoimpl::ProcessMessageRep { message } = cli.process_message(req).await?.into_inner();
         Ok(message)
     }
-    async fn apply_message(&self, request: Bytes, apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::ApplyMessageReq { message: request.to_vec(), apply_index, };
@@ -55,7 +55,7 @@ impl RaftApp for RaftAppBridge {
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<SnapshotTag>,
-        requests: Vec<Bytes>,
+        requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);

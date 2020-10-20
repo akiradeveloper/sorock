@@ -36,7 +36,7 @@ struct KVS {
 }
 #[async_trait]
 impl RaftApp for KVS {
-    async fn process_message(&self, x: Bytes) -> anyhow::Result<Vec<u8>> {
+    async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = kvs::Req::deserialize(&x);
         match msg {
             Some(x) => match x {
@@ -64,7 +64,7 @@ impl RaftApp for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: Bytes, _: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
+    async fn apply_message(&self, x: &[u8], _: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
@@ -91,7 +91,7 @@ impl RaftApp for KVS {
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<SnapshotTag>,
-        xs: Vec<Bytes>,
+        xs: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag> {
         let mut old = old_snapshot
             .map(|x| kvs::Snapshot::deserialize(x.as_ref()).unwrap())

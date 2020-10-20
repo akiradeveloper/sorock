@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{BTreeSet, BTreeMap, HashSet};
+use std::collections::{HashMap, BTreeSet, BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -43,10 +43,10 @@ use storage::{Entry, Vote};
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// how state machine interacts with inputs from clients.
-    async fn process_message(&self, request: Bytes) -> anyhow::Result<Vec<u8>>;
+    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
-    async fn apply_message(&self, request: Bytes, apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
     async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
@@ -55,7 +55,7 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<SnapshotTag>,
-        requests: Vec<Bytes>,
+        requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
@@ -265,8 +265,8 @@ impl<A: RaftApp> RaftCore<A> {
         let st = self.app.to_snapshot_stream(snapshot).await;
         Some(st)
     }
-    async fn process_message(self: &Arc<Self>, msg: Bytes) -> anyhow::Result<Vec<u8>> {
-        let req = core_message::Req::deserialize(&msg).unwrap();
+    async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
+        let req = core_message::Req::deserialize(msg).unwrap();
         match req {
             core_message::Req::InitCluster => {
                 let res = if self.cluster.read().await.internal.len() == 0 {
@@ -1001,8 +1001,8 @@ impl Log {
             let command = std::mem::take(&mut e.command);
             (apply_index, e, command)
         };
-        let ok = match command.into() {
-            Command::Snapshot { core_snapshot } => {
+        let ok = match CommandB::deserialize(&command) {
+            CommandB::Snapshot { core_snapshot } => {
                 let app_snapshot = self.storage.get_tag(apply_index).await;
                 let app_snapshot: Option<SnapshotTag> = app_snapshot;
                 log::info!("install app snapshot");
@@ -1016,12 +1016,12 @@ impl Log {
                     false
                 }
             }
-            Command::Req { message, core } => {
+            CommandB::Req { ref message, core } => {
                 let res = if core {
-                    let res = raft_core.process_message(message.into()).await;
+                    let res = raft_core.process_message(message).await;
                     res.map(|x| (x, None))
                 } else {
-                    raft_core.app.apply_message(message.into(), apply_index).await
+                    raft_core.app.apply_message(message, apply_index).await
                 };
                 match res {
                     Ok((msg, new_app_snapshot)) => {
@@ -1059,7 +1059,7 @@ impl Log {
                     }
                 }
             },
-            Command::ClusterConfiguration { membership } => {
+            CommandB::ClusterConfiguration { membership } => {
                 *self.applied_membership.lock().await = membership;
                 true
             },
@@ -1098,22 +1098,27 @@ impl Log {
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_core_snapshot = core_snapshot;
-            let mut app_messages = vec![];
+            let mut commands = HashMap::new();
             for i in cur_snapshot_index + 1..=new_snapshot_index {
-                match self.storage.get_entry(i).await.unwrap().command.into() {
-                    Command::ClusterConfiguration { membership } => {
+                let command = self.storage.get_entry(i).await.unwrap().command;
+                commands.insert(i, command);
+            }
+            let mut app_messages = vec![];
+            for (i, command) in &commands {
+                match CommandB::deserialize(&command) {
+                    CommandB::ClusterConfiguration { membership } => {
                         new_core_snapshot = membership;
                     }
-                    Command::Req {
-                        message,
+                    CommandB::Req {
                         core: false,
+                        message,
                     } => {
-                        app_messages.push(message.into());
+                        app_messages.push(message);
                     }
-                    Command::Snapshot {
+                    CommandB::Snapshot {
                         core_snapshot,
                     } => {
-                        base_snapshot_index = i;
+                        base_snapshot_index = *i;
                         new_core_snapshot = core_snapshot;
                         app_messages = vec![];
                     }
