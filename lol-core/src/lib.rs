@@ -43,32 +43,32 @@ use storage::{Entry, Vote};
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// how state machine interacts with inputs from clients.
-    async fn process_message(&self, request: Message) -> anyhow::Result<Message>;
+    async fn process_message(&self, request: Bytes) -> anyhow::Result<Vec<u8>>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
-    async fn apply_message(&self, request: Message, apply_index: Index) -> anyhow::Result<(Message, Option<SnapshotTag>)>;
+    async fn apply_message(&self, request: Bytes, apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
-    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
     /// this function is called from compaction threads.
     /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&SnapshotTag>,
-        requests: Vec<Message>,
+        old_snapshot: Option<SnapshotTag>,
+        requests: Vec<Bytes>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot stream from a snapshot resource bound to the tag.
-    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+    async fn to_snapshot_stream(&self, x: SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
-    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_resource(&self, x: SnapshotTag) -> anyhow::Result<()>;
 }
 
 /// snapshot tag is a tag that bound to some snapshot resource.
 /// if the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag(bytes::Bytes);
+pub struct SnapshotTag(pub bytes::Bytes);
 impl AsRef<[u8]> for SnapshotTag {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
@@ -80,7 +80,6 @@ impl From<Vec<u8>> for SnapshotTag {
     }
 }
 
-pub type Message = Vec<u8>;
 type Term = u64;
 pub type Index = u64;
 type Clock = (Term, Index);
@@ -229,10 +228,10 @@ impl<A: RaftApp> RaftCore<A> {
             return None
         }
         let snapshot = snapshot.unwrap();
-        let st = self.app.to_snapshot_stream(&snapshot).await;
+        let st = self.app.to_snapshot_stream(snapshot).await;
         Some(st)
     }
-    async fn process_message(self: &Arc<Self>, msg: Message) -> anyhow::Result<Message> {
+    async fn process_message(self: &Arc<Self>, msg: Bytes) -> anyhow::Result<Vec<u8>> {
         let req = core_message::Req::deserialize(&msg).unwrap();
         match req {
             core_message::Req::InitCluster => {
@@ -344,7 +343,7 @@ impl<A: RaftApp> RaftCore<A> {
             .advance_commit_index(new_commit_index, Arc::clone(&self))
             .await;
     }
-    async fn register_query(self: &Arc<Self>, core: bool, message: Message, ack: Ack) {
+    async fn register_query(self: &Arc<Self>, core: bool, message: Bytes, ack: Ack) {
         let query = query_queue::Query { core, message, ack };
         self.query_queue
             .lock()
@@ -825,8 +824,8 @@ impl Log {
         // delete old snapshots
         let ls: Vec<Index> = self.storage.list_tags().await.range(..r).map(|x| *x).collect();
         for i in ls {
-            let tag = self.storage.get_tag(i).await.unwrap();
-            let res = core.app.delete_resource(&tag).await;
+            let tag = self.storage.get_tag(i).await.unwrap().clone();
+            let res = core.app.delete_resource(tag).await;
             if res.is_ok() {
                 self.storage.delete_tag(i).await;
             }
@@ -971,7 +970,7 @@ impl Log {
         let ok = match command.into() {
             Command::Snapshot { core_snapshot } => {
                 let app_snapshot = self.storage.get_tag(apply_index).await;
-                let app_snapshot: Option<&SnapshotTag> = app_snapshot.as_ref();
+                let app_snapshot: Option<SnapshotTag> = app_snapshot;
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(app_snapshot, apply_index).await;
                 log::info!("install app snapshot (complete)");
@@ -985,10 +984,10 @@ impl Log {
             }
             Command::Req { message, core } => {
                 let res = if core {
-                    let res = raft_core.process_message(message).await;
+                    let res = raft_core.process_message(message.into()).await;
                     res.map(|x| (x, None))
                 } else {
-                    raft_core.app.apply_message(message, apply_index).await
+                    raft_core.app.apply_message(message.into(), apply_index).await
                 };
                 match res {
                     Ok((msg, new_app_snapshot)) => {
@@ -1075,7 +1074,7 @@ impl Log {
                         message,
                         core: false,
                     } => {
-                        app_messages.push(message);
+                        app_messages.push(message.into());
                     }
                     Command::Snapshot {
                         core_snapshot,
@@ -1088,7 +1087,7 @@ impl Log {
                 }
             }
             let base_app_snapshot = self.storage.get_tag(base_snapshot_index).await;
-            let base_app_snapshot: Option<&SnapshotTag> = base_app_snapshot.as_ref();
+            let base_app_snapshot: Option<SnapshotTag> = base_app_snapshot;
             let new_app_snapshot = match core.app.fold_snapshot(base_app_snapshot, app_messages).await {
                 Ok(x) => x,
                 Err(_) => {

@@ -1,10 +1,11 @@
-use crate::{ack, Index, Message, RaftApp, RaftCore};
+use crate::{ack, Index, RaftApp, RaftCore};
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use bytes::Bytes;
 
 pub struct Query {
     pub core: bool,
-    pub message: Message,
+    pub message: Bytes,
     pub ack: ack::Ack,
 }
 pub struct QueryQueue {

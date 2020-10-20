@@ -1,7 +1,7 @@
 use tokio::sync::oneshot;
 
 pub struct CommitOk;
-pub struct ApplyOk(pub crate::Message);
+pub struct ApplyOk(pub Vec<u8>);
 pub enum Ack {
     OnCommit(oneshot::Sender<CommitOk>),
     OnApply(oneshot::Sender<ApplyOk>),
