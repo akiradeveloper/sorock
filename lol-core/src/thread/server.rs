@@ -21,7 +21,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -37,7 +37,7 @@ impl<A: RaftApp> Raft for Thread<A> {
                     message: req.message.into(),
                     core: req.core,
                 };
-                self.core.queue_entry(command, Some(ack)).await;
+                self.core.queue_entry(command, Some(ack)).await.unwrap();
             } else {
                 self.core.register_query(req.core, req.message.into(), ack).await;
             }
@@ -54,7 +54,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<CommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -88,7 +88,7 @@ impl<A: RaftApp> Raft for Thread<A> {
                     core: req.core,
                 }
             };
-            self.core.queue_entry(command, Some(ack)).await;
+            self.core.queue_entry(command, Some(ack)).await.unwrap();
             let res = rx.await;
             res.map(|_| tonic::Response::new(protoimpl::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
@@ -102,7 +102,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ProcessReq>,
     ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -150,7 +150,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let vote_granted = self
             .core
             .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote)
-            .await;
+            .await.unwrap();
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))
     }
@@ -202,10 +202,10 @@ impl<A: RaftApp> Raft for Thread<A> {
         // TODO (optimization)
         // sadly, up to here, we put the entire received chunks on the heap.
         // we could make this lazy stream so the temporary allocation becomes less.
-        let success = self.core.queue_received_entry(req).await;
+        let success = self.core.queue_received_entry(req).await.unwrap();
         let res = AppendEntryRep {
             success,
-            last_log_index: self.core.log.get_last_log_index().await,
+            last_log_index: self.core.log.get_last_log_index().await.unwrap(),
         };
         Ok(tonic::Response::new(res))
     }
@@ -216,7 +216,7 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
         let snapshot_index = req.index;
-        let st = self.core.make_snapshot_stream(snapshot_index).await;
+        let st = self.core.make_snapshot_stream(snapshot_index).await.unwrap();
         if st.is_none() {
             return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
         }
@@ -233,16 +233,16 @@ impl<A: RaftApp> Raft for Thread<A> {
         let leader_commit = req.leader_commit;
         self.core
             .receive_heartbeat(leader_id, term, leader_commit)
-            .await;
+            .await.unwrap();
         let res = HeartbeatRep {};
         Ok(tonic::Response::new(res))
     }
     async fn timeout_now(
         &self,
-        request: tonic::Request<TimeoutNowReq>,
+        _: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
-            self.core.try_promote(true).await;
+            self.core.try_promote(true).await.unwrap();
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))

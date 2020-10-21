@@ -1,8 +1,7 @@
 use tokio::time::DelayQueue;
 use tokio::sync::{RwLock, Mutex};
 use std::sync::Arc;
-use crate::{RaftCore, RaftApp, Index};
-use std::collections::BTreeMap;
+use crate::{RaftCore, RaftApp};
 use crate::storage::Entry;
 use std::time::Duration;
 use futures::StreamExt;
@@ -25,7 +24,7 @@ impl SnapshotQueue {
     pub async fn run_once<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
         while let Some(Ok(expired)) = self.q.lock().await.next().await {
             let InsertSnapshot { e } = expired.into_inner();
-            raft_core.log.insert_snapshot(e).await;
+            let _ = raft_core.log.insert_snapshot(e);
         }
     }
 }

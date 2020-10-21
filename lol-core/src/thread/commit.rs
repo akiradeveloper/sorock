@@ -17,11 +17,11 @@ impl<A: RaftApp> Thread<A> {
                     let election_state = *core.election_state.read().await;
                     if std::matches!(election_state, ElectionState::Leader) {
                         let old_agreement = core.log.commit_index.load(Ordering::SeqCst);
-                        let new_agreement = core.find_new_agreement().await;
+                        let new_agreement = core.find_new_agreement().await.unwrap();
                         if new_agreement > old_agreement {
                             core.log
                                 .advance_commit_index(new_agreement, Arc::clone(&core))
-                                .await;
+                                .await.unwrap();
                             true
                         } else {
                             false
@@ -35,7 +35,7 @@ impl<A: RaftApp> Thread<A> {
             {}
             // we should timeout and go to next poll because in case of one node cluster,
             // there will be no replication happen and this thread will never wake up.
-            tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
+            let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
         }
     }
 }

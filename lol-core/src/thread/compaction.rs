@@ -25,9 +25,9 @@ impl<A: RaftApp> Thread<A> {
                 log::info!("new snapshot index: {:?}", new_snapshot_index);
                 core.log
                     .create_fold_snapshot(new_snapshot_index, Arc::clone(&core))
-                    .await;
+                    .await.unwrap();
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }

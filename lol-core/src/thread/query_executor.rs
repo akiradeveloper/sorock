@@ -24,7 +24,7 @@ impl<A: RaftApp> Thread<A> {
             })
             .await
             {}
-            tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
+            let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
         }
     }
 }

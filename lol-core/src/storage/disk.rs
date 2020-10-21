@@ -1,12 +1,10 @@
-use crate::{Clock, Term, Index, Id};
+use crate::Index;
 use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor, IteratorMode};
 use std::collections::BTreeSet;
 use super::{Entry, Vote};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use tokio::sync::Semaphore;
-use std::time::Duration;
-use bytes::Bytes;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -106,7 +104,7 @@ impl StorageBuilder {
         }
     }
     pub fn destory(&self) {
-        let mut opts = Options::default();
+        let opts = Options::default();
         DB::destroy(&opts, &self.path).unwrap();
     }
     pub fn create(&self) {
@@ -120,7 +118,7 @@ impl StorageBuilder {
             ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
             ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
         ];
-        let mut db = DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap();
+        let db = DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap();
 
         // let mut opts = Options::default();
         // opts.set_comparator("by_index_key", comparator_fn);
@@ -167,48 +165,53 @@ impl Storage {
         }
     }
 }
+use anyhow::Result;
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
-    async fn list_tags(&self) -> BTreeSet<Index> {
+    async fn list_tags(&self) -> Result<BTreeSet<Index>> {
         let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        let mut iter = self.db.iterator_cf(cf, IteratorMode::Start);
+        let iter = self.db.iterator_cf(cf, IteratorMode::Start);
         let mut r = BTreeSet::new();
-        for (k, v) in iter {
+        for (k, _) in iter {
             r.insert(decode_index(&k));
         }
-        r
+        Ok(r)
     }
-    async fn delete_tag(&self, i: Index) {
+    async fn delete_tag(&self, i: Index) -> Result<()> {
         let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        self.db.delete_cf(&cf, encode_index(i));
+        self.db.delete_cf(&cf, encode_index(i))?;
+        Ok(())
     }
-    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) {
+    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) -> Result<()> {
         let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        self.db.put_cf(&cf, encode_index(i), x).unwrap(); 
+        self.db.put_cf(&cf, encode_index(i), x)?;
+        Ok(())
     }
-    async fn get_tag(&self, i: Index) -> Option<crate::SnapshotTag> {
+    async fn get_tag(&self, i: Index) -> Result<Option<crate::SnapshotTag>> {
         let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i)).unwrap(); 
-        b.map(|x| x.into())
+        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
+        Ok(b.map(|x| x.into()))
     }
-    async fn delete_before(&self, r: Index) {
+    async fn delete_before(&self, r: Index) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        self.db.delete_range_cf(cf, encode_index(0), encode_index(r)).unwrap();
+        self.db.delete_range_cf(cf, encode_index(0), encode_index(r))?;
+        Ok(())
     }
-    async fn get_last_index(&self) -> Index {
+    async fn get_last_index(&self) -> Result<Index> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let mut iter = self.db.raw_iterator_cf(cf);
         iter.seek_to_last();
         // the iterator is empty
         if !iter.valid() {
-            return 0
+            return Ok(0)
         }
         let key = iter.key().unwrap();
-        decode_index(key)
+        let v = decode_index(key);
+        Ok(v)
     }
-    async fn insert_snapshot(&self, i: Index, e: Entry) {
+    async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
         let token = self.snapshot_lock.acquire().await;
-        let cur_snapshot_index = self.get_snapshot_index().await;
+        let cur_snapshot_index = self.get_snapshot_index().await?;
         if i > cur_snapshot_index {
             let cf1 = self.db.cf_handle(CF_ENTRIES).unwrap();
             let cf2 = self.db.cf_handle(CF_CTRL).unwrap();
@@ -218,61 +221,66 @@ impl super::RaftStorage for Storage {
             let b: Vec<u8> = SnapshotIndexB(i).into();
             batch.put_cf(&cf2, SNAPSHOT_INDEX, b);
             // should we set_sync true here? or WAL saves our data on crash?
-            self.db.write(batch).unwrap();
+            self.db.write(batch)?;
         }
+        Ok(())
     }
-    async fn insert_entry(&self, i: Index, e: Entry) {
+    async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let b: Vec<u8> = e.into();
-        self.db.put_cf(&cf, encode_index(i), b).unwrap(); 
+        self.db.put_cf(&cf, encode_index(i), b)?;
+        Ok(())
     }
-    async fn get_entry(&self, i: Index) -> Option<Entry> {
+    async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i)).unwrap();
-        b.map(|x| x.into())
+        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
+        Ok(b.map(|x| x.into()))
     }
-    async fn get_snapshot_index(&self) -> Index {
+    async fn get_snapshot_index(&self) -> Result<Index> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
-        let b = self.db.get_cf(&cf, SNAPSHOT_INDEX).unwrap().unwrap();
+        let b = self.db.get_cf(&cf, SNAPSHOT_INDEX)?.unwrap();
         let x: SnapshotIndexB = b.into();
-        x.0
+        Ok(x.0)
     }
-    async fn store_vote(&self, v: Vote) {
+    async fn store_vote(&self, v: Vote) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = v.into();
-        self.db.put_cf(&cf, VOTE, b);
+        self.db.put_cf(&cf, VOTE, b)?;
+        Ok(())
     }
-    async fn load_vote(&self) -> Vote {
+    async fn load_vote(&self) -> Result<Vote> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
-        let b = self.db.get_cf(&cf, VOTE).unwrap().unwrap();
-        b.into()
+        let b = self.db.get_cf(&cf, VOTE)?.unwrap();
+        let v = b.into();
+        Ok(v)
     }
 }
 
 #[tokio::test]
-async fn test_rocksdb_storage() {
-    std::fs::create_dir("/tmp/lol");
+async fn test_rocksdb_storage() -> Result<()> {
+    let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk1.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
     let s = builder.open();
 
-    super::test_storage(s).await;
+    super::test_storage(s).await?;
 
     builder.destory();
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_rocksdb_persistency() {
-    use std::time::Instant;
+async fn test_rocksdb_persistency() -> Result<()> {
+    use bytes::Bytes;
 
-    std::fs::create_dir("/tmp/lol");
+    let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
-    let s: Box<super::RaftStorage> = Box::new(builder.open());
+    let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
 
     let e = Entry {
         prev_clock: (0,0),
@@ -281,25 +289,26 @@ async fn test_rocksdb_persistency() {
     };
     let tag: crate::SnapshotTag = vec![].into();
 
-    s.put_tag(1, tag.clone()).await;
-    s.insert_snapshot(1, e.clone()).await;
-    s.insert_entry(2, e.clone()).await;
-    s.insert_entry(3, e.clone()).await;
-    s.insert_entry(4, e.clone()).await;
-    s.put_tag(3, tag.clone()).await;
-    s.insert_snapshot(3, e.clone()).await;
+    s.put_tag(1, tag.clone()).await?;
+    s.insert_snapshot(1, e.clone()).await?;
+    s.insert_entry(2, e.clone()).await?;
+    s.insert_entry(3, e.clone()).await?;
+    s.insert_entry(4, e.clone()).await?;
+    s.put_tag(3, tag.clone()).await?;
+    s.insert_snapshot(3, e.clone()).await?;
 
     drop(s);
 
     let s: Box<super::RaftStorage> = Box::new(builder.open());
-    assert_eq!(s.load_vote().await, Vote { cur_term: 0, voted_for: None });
-    assert!(s.get_tag(1).await.is_some());
-    assert!(s.get_tag(2).await.is_none());
-    assert!(s.get_tag(3).await.is_some());
-    assert_eq!(s.get_snapshot_index().await, 3);
-    assert_eq!(s.get_last_index().await, 4);
+    assert_eq!(s.load_vote().await?, Vote { cur_term: 0, voted_for: None });
+    assert!(s.get_tag(1).await?.is_some());
+    assert!(s.get_tag(2).await?.is_none());
+    assert!(s.get_tag(3).await?.is_some());
+    assert_eq!(s.get_snapshot_index().await?, 3);
+    assert_eq!(s.get_last_index().await?, 4);
 
     drop(s);
 
     builder.destory();
+    Ok(())
 }

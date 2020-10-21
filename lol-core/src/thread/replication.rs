@@ -20,12 +20,12 @@ impl<A: RaftApp> Thread<A> {
                     if !std::matches!(election_state, ElectionState::Leader) {
                         return false;
                     }
-                    core.advance_replication(follower_id).await
+                    core.advance_replication(follower_id).await.unwrap()
                 }
             })
             .await
             {}
-            tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
+            let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
         }
     }
 }
