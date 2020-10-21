@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 
+/// simple and backward-compatible RaftApp trait.
+pub mod compat;
 /// the abstraction for the backing storage and some implementations.
 pub mod storage;
 mod ack;
