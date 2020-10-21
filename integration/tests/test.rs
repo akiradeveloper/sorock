@@ -269,6 +269,21 @@ fn test_reelection_after_leader_crash() {
     );
 }
 #[test]
+fn test_two_nodes_up_after_down() {
+    let env = init_cluster(3);
+
+    Client::to(0, env.clone()).set("k", "1");
+    env.stop(0);
+    env.stop(1);
+
+    env.start(0, vec![]);
+    env.start(1, vec![]);
+    thread::sleep(Duration::from_secs(5));
+
+    let v = Client::to(2, env.clone()).get("k").unwrap().0;
+    assert_eq!(v, Some("1".to_owned()));
+}
+#[test]
 fn test_reelection_after_leader_stepdown() {
     let env = init_cluster(3);
 
