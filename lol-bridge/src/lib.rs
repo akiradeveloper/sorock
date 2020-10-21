@@ -1,11 +1,9 @@
 use async_trait::async_trait;
-use lol_core::{SnapshotTag, RaftApp, Index};
-use lol_core::snapshot::{SnapshotStream, BytesSnapshot};
+use lol_core::Index;
+use lol_core::compat::RaftAppCompat;
 use std::convert::TryFrom;
 use tonic::transport::{Channel, Endpoint, Uri};
-use bytes::Bytes;
 
-use std::error::Error;
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tower::service_fn;
@@ -26,7 +24,7 @@ pub struct RaftAppBridge {
     config: BridgeConfig,
 }
 #[async_trait]
-impl RaftApp for RaftAppBridge {
+impl RaftAppCompat for RaftAppBridge {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
@@ -34,15 +32,14 @@ impl RaftApp for RaftAppBridge {
         let protoimpl::ProcessMessageRep { message } = cli.process_message(req).await?.into_inner();
         Ok(message)
     }
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::ApplyMessageReq { message: request.to_vec(), apply_index, };
         let protoimpl::ApplyMessageRep { message, snapshot } = cli.apply_message(req).await?.into_inner();
-        let snapshot = snapshot.map(|x| x.into());
         Ok((message, snapshot))
     }
-    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, snapshot: Option<&[u8]>, apply_index: Index) -> anyhow::Result<()> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::InstallSnapshotReq {
@@ -54,9 +51,9 @@ impl RaftApp for RaftAppBridge {
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<SnapshotTag>,
+        old_snapshot: Option<&[u8]>,
         requests: Vec<&[u8]>,
-    ) -> anyhow::Result<SnapshotTag> {
+    ) -> anyhow::Result<Vec<u8>> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = protoimpl::FoldSnapshotReq {
@@ -64,19 +61,7 @@ impl RaftApp for RaftAppBridge {
             messages: requests.into_iter().map(|x| x.to_vec()).collect(),
         };
         let protoimpl::FoldSnapshotRep { snapshot } = cli.fold_snapshot(req).await?.into_inner();
-        Ok(snapshot.into())
-    }
-    async fn from_snapshot_stream(&self, st: SnapshotStream) -> anyhow::Result<SnapshotTag> {
-        let b = BytesSnapshot::from_snapshot_stream(st).await?;
-        let b = b.as_ref().to_vec();
-        Ok(b.into())
-    }
-    async fn to_snapshot_stream(&self, x: SnapshotTag) -> SnapshotStream {
-        let b: BytesSnapshot = x.as_ref().to_vec().into();
-        b.to_snapshot_stream().await
-    }
-    async fn delete_resource(&self, _: SnapshotTag) -> anyhow::Result<()> {
-        Ok(())
+        Ok(snapshot)
     }
 }
 impl RaftAppBridge {
