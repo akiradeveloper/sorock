@@ -13,7 +13,7 @@ impl<A: RaftApp> Thread<A> {
             let f = async move {
                 core.log.snapshot_queue.run_once(Arc::clone(&core)).await
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }

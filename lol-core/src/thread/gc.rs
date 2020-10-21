@@ -11,9 +11,9 @@ impl<A: RaftApp> Thread<A> {
             tokio::time::delay_for(Duration::from_secs(1)).await;
             let core = Arc::clone(&self.core);
             let f = async move {
-                core.log.run_gc(Arc::clone(&core)).await;
+                core.log.run_gc(Arc::clone(&core)).await.unwrap();
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }
