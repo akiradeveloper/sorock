@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lol_core::connection;
-use lol_core::{Index, Config, RaftApp, RaftCore, TunableConfig, SnapshotTag, storage::RaftStorage};
-use lol_core::snapshot::{SnapshotStream, BytesSnapshot};
+use lol_core::{Index, Config, RaftCore, TunableConfig};
+use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -35,7 +35,7 @@ struct KVS {
     copy_snapshot_mode: bool,
 }
 #[async_trait]
-impl RaftApp for KVS {
+impl RaftAppCompat for KVS {
     async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = kvs::Req::deserialize(&x);
         match msg {
@@ -64,18 +64,18 @@ impl RaftApp for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: &[u8], _: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
+    async fn apply_message(&self, x: &[u8], _: Index) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
             let b = kvs::Snapshot::serialize(&new_snapshot);
-            Some(b.into())
+            Some(b)
         } else {
             None
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<SnapshotTag>, _: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             // emulate heavy install_snapshot
             tokio::time::delay_for(Duration::from_secs(10)).await;
@@ -90,9 +90,9 @@ impl RaftApp for KVS {
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<SnapshotTag>,
+        old_snapshot: Option<&[u8]>,
         xs: Vec<&[u8]>,
-    ) -> anyhow::Result<SnapshotTag> {
+    ) -> anyhow::Result<Vec<u8>> {
         let mut old = old_snapshot
             .map(|x| kvs::Snapshot::deserialize(x.as_ref()).unwrap())
             .unwrap_or(kvs::Snapshot { h: BTreeMap::new() });
@@ -110,19 +110,7 @@ impl RaftApp for KVS {
             }
         }
         let b = kvs::Snapshot::serialize(&old);
-        Ok(b.into())
-    }
-    async fn from_snapshot_stream(&self, st: SnapshotStream) -> anyhow::Result<SnapshotTag> {
-        let b = BytesSnapshot::from_snapshot_stream(st).await?;
-        let b = b.as_ref().to_vec();
-        Ok(b.into())
-    }
-    async fn to_snapshot_stream(&self, x: SnapshotTag) -> SnapshotStream {
-        let b: BytesSnapshot = x.as_ref().to_vec().into();
-        b.to_snapshot_stream().await
-    }
-    async fn delete_resource(&self, _: SnapshotTag) -> anyhow::Result<()> {
-        Ok(())
+        Ok(b)
     }
 }
 impl KVS {
@@ -165,6 +153,7 @@ async fn main() {
         })
         .init();
 
+    let app = ToRaftApp::new(app);
     let core = if let Some(id) = opt.use_persistency {
         std::fs::create_dir("/tmp/lol");
         let path = format!("/tmp/lol/{}.db", id);
