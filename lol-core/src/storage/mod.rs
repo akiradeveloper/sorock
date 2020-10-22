@@ -3,8 +3,10 @@ use std::time::Duration;
 use std::collections::BTreeSet;
 use bytes::Bytes;
 
+/// in-memory implementation backed by BTreeMap.
 pub mod memory;
 
+/// persistent implementation backed by RocksDB.
 #[cfg(feature = "persistency")]
 #[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
 pub mod disk;
