@@ -32,6 +32,7 @@ use ack::Ack;
 use connection::{Endpoint, EndpointConfig};
 use thread::notification::Notification;
 use storage::RaftStorage;
+use snapshot::SnapshotTag;
 
 // this is currently fixed but can be place in tunable if it is needed.
 const ELECTION_TIMEOUT_MS: u64 = 500;
@@ -69,24 +70,7 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
-/// snapshot tag is a tag that bound to some snapshot resource.
-/// if the resource is a file the tag is the path to the file, for example.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag {
-    pub contents: bytes::Bytes
-}
-impl AsRef<[u8]> for SnapshotTag {
-    fn as_ref(&self) -> &[u8] {
-        self.contents.as_ref()
-    }
-}
-impl From<Vec<u8>> for SnapshotTag {
-    fn from(x: Vec<u8>) -> SnapshotTag {
-        SnapshotTag {
-            contents: x.into()
-        }
-    }
-}
+
 
 type Term = u64;
 pub type Index = u64;

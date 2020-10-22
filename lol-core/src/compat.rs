@@ -1,5 +1,5 @@
-use crate::{RaftApp, Index, SnapshotTag};
-use crate::snapshot::{BytesSnapshot, SnapshotStream};
+use crate::{RaftApp, Index};
+use crate::snapshot::{SnapshotTag, BytesSnapshot, SnapshotStream};
 use async_trait::async_trait;
 
 /// similar to full-featured RaftApp but restricted:
