@@ -53,34 +53,38 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
-    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
     /// this function is called from compaction threads.
     /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<SnapshotTag>,
+        old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot stream from a snapshot resource bound to the tag.
-    async fn to_snapshot_stream(&self, x: SnapshotTag) -> snapshot::SnapshotStream;
+    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
-    async fn delete_resource(&self, x: SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 /// snapshot tag is a tag that bound to some snapshot resource.
 /// if the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag(pub bytes::Bytes);
+pub struct SnapshotTag {
+    pub contents: bytes::Bytes
+}
 impl AsRef<[u8]> for SnapshotTag {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
+        self.contents.as_ref()
     }
 }
 impl From<Vec<u8>> for SnapshotTag {
     fn from(x: Vec<u8>) -> SnapshotTag {
-        SnapshotTag(x.into())
+        SnapshotTag {
+            contents: x.into()
+        }
     }
 }
 
@@ -268,7 +272,7 @@ impl<A: RaftApp> RaftCore<A> {
             return Ok(None)
         }
         let snapshot = snapshot.unwrap();
-        let st = self.app.to_snapshot_stream(snapshot).await;
+        let st = self.app.to_snapshot_stream(&snapshot).await;
         Ok(Some(st))
     }
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -873,7 +877,7 @@ impl Log {
         let ls: Vec<Index> = self.storage.list_tags().await?.range(..r).map(|x| *x).collect();
         for i in ls {
             if let Some(tag) = self.storage.get_tag(i).await?.clone() {
-                core.app.delete_resource(tag).await?;
+                core.app.delete_resource(&tag).await?;
                 self.storage.delete_tag(i).await?;
             }
         }
@@ -1021,9 +1025,8 @@ impl Log {
         let ok = match CommandB::deserialize(&command) {
             CommandB::Snapshot { core_snapshot } => {
                 let app_snapshot = self.storage.get_tag(apply_index).await?;
-                let app_snapshot: Option<SnapshotTag> = app_snapshot;
                 log::info!("install app snapshot");
-                let res = raft_core.app.install_snapshot(app_snapshot, apply_index).await;
+                let res = raft_core.app.install_snapshot(app_snapshot.as_ref(), apply_index).await;
                 log::info!("install app snapshot (complete)");
                 let success = res.is_ok();
                 if success {
@@ -1147,8 +1150,7 @@ impl Log {
                 }
             }
             let base_app_snapshot = self.storage.get_tag(base_snapshot_index).await?;
-            let base_app_snapshot: Option<SnapshotTag> = base_app_snapshot;
-            let new_app_snapshot = core.app.fold_snapshot(base_app_snapshot, app_messages).await?;
+            let new_app_snapshot = core.app.fold_snapshot(base_app_snapshot.as_ref(), app_messages).await?;
             self.storage.put_tag(new_snapshot_index, new_app_snapshot).await?;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();

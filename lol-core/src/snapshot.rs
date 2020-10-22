@@ -43,7 +43,7 @@ pub(crate) fn map_in(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status
     st.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
 /// basic snapshot type which is just a byte sequence.
-pub struct BytesSnapshot(Bytes);
+pub struct BytesSnapshot(pub (crate) Bytes);
 impl AsRef<[u8]> for BytesSnapshot {
     fn as_ref(&self) -> &[u8] {
         &self.0

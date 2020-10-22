@@ -31,29 +31,29 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
         let (res, new_snapshot) = self.compat_app.apply_message(request, apply_index).await?;
         Ok((res, new_snapshot.map(|x| x.into())))
     }
-    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()> {
-        let y = snapshot.map(|x| x.0);
+    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()> {
+        let y = snapshot.map(|x| x.contents.clone());
         self.compat_app.install_snapshot(y.as_deref(), apply_index).await
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<SnapshotTag>,
+        old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag> {
-        let y = old_snapshot.map(|x| x.0);
+        let y = old_snapshot.map(|x| x.contents.clone());
         let new_snapshot = self.compat_app.fold_snapshot(y.as_deref(), requests).await?;
         Ok(new_snapshot.into())
     }
     async fn from_snapshot_stream(&self, st: SnapshotStream) -> anyhow::Result<SnapshotTag> {
         let b = BytesSnapshot::from_snapshot_stream(st).await?;
-        let b = b.as_ref().to_vec();
-        Ok(b.into())
+        let tag = SnapshotTag { contents: b.0 };
+        Ok(tag)
     }
-    async fn to_snapshot_stream(&self, x: SnapshotTag) -> SnapshotStream {
-        let b: BytesSnapshot = x.as_ref().to_vec().into();
+    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> SnapshotStream {
+        let b: BytesSnapshot = BytesSnapshot(x.contents.clone());
         b.to_snapshot_stream().await
     }
-    async fn delete_resource(&self, _: SnapshotTag) -> anyhow::Result<()> {
+    async fn delete_resource(&self, _: &SnapshotTag) -> anyhow::Result<()> {
         Ok(())
     }
 }
