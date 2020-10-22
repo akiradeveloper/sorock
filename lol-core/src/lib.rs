@@ -62,7 +62,7 @@ pub trait RaftApp: Sync + Send + 'static {
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
-    async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
+    async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot stream from a snapshot resource bound to the tag.
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
@@ -262,7 +262,7 @@ impl<A: RaftApp> RaftCore<A> {
         let res = conn.get_snapshot(req).await?;
         let st = res.into_inner();
         let st = Box::pin(snapshot::map_in(st));
-        let snapshot = self.app.from_snapshot_stream(st).await?;
+        let snapshot = self.app.from_snapshot_stream(st, snapshot_index).await?;
         self.log.storage.put_tag(snapshot_index, snapshot).await?;
         Ok(())
     }

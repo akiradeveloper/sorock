@@ -44,7 +44,7 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
         let new_snapshot = self.compat_app.fold_snapshot(y.as_deref(), requests).await?;
         Ok(new_snapshot.into())
     }
-    async fn from_snapshot_stream(&self, st: SnapshotStream) -> anyhow::Result<SnapshotTag> {
+    async fn from_snapshot_stream(&self, st: SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag> {
         let b = BytesSnapshot::from_snapshot_stream(st).await?;
         let tag = SnapshotTag { contents: b.0 };
         Ok(tag)
