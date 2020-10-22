@@ -39,7 +39,7 @@ impl Cluster {
             thread_drop: HashMap::new(),
         }
     }
-    pub fn id_list(&self) -> HashSet<Id> {
+    pub fn get_membership(&self) -> HashSet<Id> {
         self.internal.keys().cloned().collect()
     }
     async fn add_server<A: RaftApp>(&mut self, id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
@@ -78,7 +78,7 @@ impl Cluster {
         self.thread_drop.remove(&id);
     }
     pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
-        let cur = self.id_list();
+        let cur = self.get_membership();
         let mut to_add = HashSet::new();
         for x in goal {
             if !cur.contains(x) {

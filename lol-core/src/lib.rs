@@ -4,7 +4,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{HashMap, BTreeSet, BTreeMap, HashSet};
+use std::collections::{HashMap, BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -30,14 +30,14 @@ pub mod snapshot;
 
 use ack::Ack;
 use connection::{Endpoint, EndpointConfig};
-use thread::news;
+use thread::notification::Notification;
 use storage::RaftStorage;
 
 // this is currently fixed but can be place in tunable if it is needed.
 const ELECTION_TIMEOUT_MS: u64 = 500;
 
 /// proto file compiled.
-pub mod protoimpl {
+pub mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
 
@@ -53,48 +53,52 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
-    async fn install_snapshot(&self, snapshot: Option<SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
     /// this function is called from compaction threads.
     /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<SnapshotTag>,
+        old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot resource and returns the tag.
-    async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream) -> anyhow::Result<SnapshotTag>;
+    async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag>;
     /// make a snapshot stream from a snapshot resource bound to the tag.
-    async fn to_snapshot_stream(&self, x: SnapshotTag) -> snapshot::SnapshotStream;
+    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
     /// delete a snapshot resource bound to the tag.
-    async fn delete_resource(&self, x: SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 /// snapshot tag is a tag that bound to some snapshot resource.
 /// if the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag(pub bytes::Bytes);
+pub struct SnapshotTag {
+    pub contents: bytes::Bytes
+}
 impl AsRef<[u8]> for SnapshotTag {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
+        self.contents.as_ref()
     }
 }
 impl From<Vec<u8>> for SnapshotTag {
     fn from(x: Vec<u8>) -> SnapshotTag {
-        SnapshotTag(x.into())
+        SnapshotTag {
+            contents: x.into()
+        }
     }
 }
 
 type Term = u64;
 pub type Index = u64;
 type Clock = (Term, Index);
-/// id = ip:port
+/// each node is identified by a pair of ip and port
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum CommandB<'a> {
     Noop,
     Snapshot {
-        core_snapshot: HashSet<Id>,
+        membership: HashSet<Id>,
     },
     ClusterConfiguration {
         membership: HashSet<Id>,
@@ -117,7 +121,7 @@ impl <'a> CommandB<'a> {
 enum Command {
     Noop,
     Snapshot {
-        core_snapshot: HashSet<Id>,
+        membership: HashSet<Id>,
     },
     ClusterConfiguration {
         membership: HashSet<Id>,
@@ -132,7 +136,7 @@ impl From<Bytes> for Command {
         let y = CommandB::deserialize(x.as_ref());
         match y {
             CommandB::Noop => Command::Noop,
-            CommandB::Snapshot { core_snapshot } => Command::Snapshot { core_snapshot },
+            CommandB::Snapshot { membership } => Command::Snapshot { membership },
             CommandB::ClusterConfiguration { membership } => Command::ClusterConfiguration { membership },
             CommandB::Req { core, ref message } => Command::Req { core, message: Bytes::copy_from_slice(message) },
         }
@@ -142,7 +146,7 @@ impl Into<Bytes> for Command {
     fn into(self) -> Bytes {
         let y = match self {
             Command::Noop => CommandB::Noop,
-            Command::Snapshot { core_snapshot } => CommandB::Snapshot { core_snapshot },
+            Command::Snapshot { membership } => CommandB::Snapshot { membership },
             Command::ClusterConfiguration { membership } => CommandB::ClusterConfiguration { membership },
             Command::Req { core, ref message } => CommandB::Req { core, message: &message }
         };
@@ -164,13 +168,14 @@ pub struct TunableConfig {
     /// copy snapshot will be inserted into the log after this delay
     /// and in fold snapshot log entries older than this period will be counted in compaction.
     pub compaction_delay_sec: u64,
-    /// the interval that compaction runs
+    /// the interval that compaction runs.
+    /// you can set this to 0 and fold snapshot will never be created.
     pub compaction_interval_sec: u64,
 }
 impl TunableConfig {
     pub fn default() -> Self {
         Self {
-            compaction_delay_sec: 300,
+            compaction_delay_sec: 150,
             compaction_interval_sec: 300,
         }
     }
@@ -221,8 +226,8 @@ impl<A: RaftApp> RaftCore<A> {
         for i in from ..= to {
             let e = storage.get_entry(i).await?.unwrap();
             match e.command.into() {
-                Command::Snapshot { core_snapshot } => {
-                    ret = core_snapshot;
+                Command::Snapshot { membership } => {
+                    ret = membership;
                 },
                 Command::ClusterConfiguration { membership } => {
                     ret = membership;
@@ -232,44 +237,28 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(ret)
     }
-    async fn do_change_membership(self: &Arc<Self>, membership: &HashSet<Id>) -> anyhow::Result<()> {
+    async fn init_cluster(self: &Arc<Self>, id: Id) -> anyhow::Result<()> {
+        let snapshot = Entry {
+            prev_clock: (0, 0),
+            this_clock: (0, 1),
+            command: Command::Snapshot {
+                membership: HashSet::new(),
+            }.into(),
+        };
+        self.log.try_insert_entry(snapshot, self.id.clone(), Arc::clone(&self)).await?;
+        let mut membership = HashSet::new();
+        membership.insert(id);
+        let add_server = Command::ClusterConfiguration { membership: membership.clone() };
+        self.log.append_new_entry(add_server, None, 0).await?;
+        self.set_membership(&membership).await?;
+
+        self.log.advance_commit_index(2, Arc::clone(&self)).await?;
+        Ok(())
+    }
+    async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>) -> anyhow::Result<()> {
         log::info!("change membership to {:?}", membership);
         self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await?;
         Ok(())
-    }
-    async fn change_membership(self: &Arc<Self>, command: Command) -> anyhow::Result<()> {
-        match command {
-            Command::Snapshot { core_snapshot } => {
-                self.do_change_membership(&core_snapshot).await?
-            },
-            Command::ClusterConfiguration { membership } => {
-                self.do_change_membership(&membership).await?
-            },
-            _ => {},
-        }
-        Ok(())
-    }
-    async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
-        let mut conn = Endpoint::new(to).connect_with(config).await?;
-        let req = protoimpl::GetSnapshotReq {
-            index: snapshot_index,
-        };
-        let res = conn.get_snapshot(req).await?;
-        let st = res.into_inner();
-        let st = Box::pin(snapshot::map_in(st));
-        let snapshot = self.app.from_snapshot_stream(st).await?;
-        self.log.storage.put_tag(snapshot_index, snapshot).await?;
-        Ok(())
-    }
-    async fn make_snapshot_stream(&self, snapshot_index: Index) -> anyhow::Result<Option<snapshot::SnapshotStream>> {
-        let snapshot = self.log.storage.get_tag(snapshot_index).await?;
-        if snapshot.is_none() {
-            return Ok(None)
-        }
-        let snapshot = snapshot.unwrap();
-        let st = self.app.to_snapshot_stream(snapshot).await;
-        Ok(Some(st))
     }
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
         let req = core_message::Req::deserialize(msg).unwrap();
@@ -289,7 +278,7 @@ impl<A: RaftApp> RaftCore<A> {
                     leader_id: self.load_vote().await?.voted_for,
                     membership: {
                         let mut xs: Vec<_> =
-                            self.cluster.read().await.id_list().into_iter().collect();
+                            self.cluster.read().await.get_membership().into_iter().collect();
                         xs.sort();
                         xs
                     },
@@ -311,80 +300,6 @@ impl<A: RaftApp> RaftCore<A> {
             }
             _ => Err(anyhow!("the message not supported")),
         }
-    }
-    async fn init_cluster(self: &Arc<Self>, id: Id) -> anyhow::Result<()> {
-        let snapshot = Entry {
-            prev_clock: (0, 0),
-            this_clock: (0, 1),
-            command: Command::Snapshot {
-                core_snapshot: HashSet::new(),
-            }.into(),
-        };
-        self.log.try_insert_entry(snapshot, self.id.clone(), Arc::clone(&self)).await?;
-        let mut membership = HashSet::new();
-        membership.insert(id);
-        let add_server = Command::ClusterConfiguration { membership: membership.clone() };
-        self.log.append_new_entry(add_server, None, 0).await?;
-        self.do_change_membership(&membership).await?;
-
-        self.log.advance_commit_index(2, Arc::clone(&self)).await?;
-        Ok(())
-    }
-    async fn queue_received_entry(self: &Arc<Self>, req: AppendEntryBuffer) -> anyhow::Result<bool> {
-        let mut prev_clock = (req.prev_log_term, req.prev_log_index);
-        for e in req.entries {
-            let entry = Entry {
-                prev_clock,
-                this_clock: (e.term, e.index),
-                command: e.command,
-            };
-            let command = entry.command.clone();
-            if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
-                log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
-                return Ok(false);
-            }
-            self.change_membership(command.into()).await?;
-
-            prev_clock = (e.term, e.index);
-        }
-        Ok(true)
-    }
-    async fn receive_heartbeat(
-        self: &Arc<Self>,
-        leader_id: Id,
-        leader_term: Term,
-        leader_commit: Index,
-    ) -> anyhow::Result<()> {
-        let mut vote = self.load_vote().await?;
-        if leader_term < vote.cur_term {
-            log::warn!("heartbeat is stale. rejected");
-            return Ok(());
-        }
-
-        if leader_term > vote.cur_term {
-            log::warn!("received heartbeat with newer term. reset vote");
-            vote.cur_term = leader_term;
-            vote.voted_for = None;
-            *self.election_state.write().await = ElectionState::Follower;
-        }
-
-        if vote.voted_for != Some(leader_id.clone()) {
-            log::info!("learn the current leader ({})", leader_id);
-            vote.voted_for = Some(leader_id);
-        }
-
-        self.store_vote(vote).await?;
-        *self.last_heartbeat_received.lock().await = Instant::now();
-
-        let new_commit_index = std::cmp::min(
-            leader_commit,
-            self.log.get_last_log_index().await?,
-        );
-        self.log
-            .advance_commit_index(new_commit_index, Arc::clone(&self))
-            .await?;
-
-        Ok(()) 
     }
     async fn register_query(self: &Arc<Self>, core: bool, message: Bytes, ack: Ack) {
         let query = query_queue::Query { core, message, ack };
@@ -418,8 +333,8 @@ struct AppendEntryBuffer {
 }
 fn into_stream(
     req: AppendEntryBuffer,
-) -> impl futures::stream::Stream<Item = crate::protoimpl::AppendEntryReq> {
-    use crate::protoimpl::{append_entry_req::Elem, AppendStreamHeader, AppendStreamEntry};
+) -> impl futures::stream::Stream<Item = crate::proto_compiled::AppendEntryReq> {
+    use crate::proto_compiled::{append_entry_req::Elem, AppendStreamHeader, AppendStreamEntry};
     let mut elems = vec![];
 
     elems.push(Elem::Header(AppendStreamHeader {
@@ -438,59 +353,51 @@ fn into_stream(
     futures::stream::iter(
         elems
             .into_iter()
-            .map(|x| crate::protoimpl::AppendEntryReq { elem: Some(x) }),
+            .map(|x| crate::proto_compiled::AppendEntryReq { elem: Some(x) }),
     )
 }
+// replication
 impl<A: RaftApp> RaftCore<A> {
-    async fn store_vote(&self, v: Vote) -> anyhow::Result<()> {
-        self.log.storage.store_vote(v).await
-    }
-    async fn load_vote(&self) -> anyhow::Result<Vote> {
-        self.log.storage.load_vote().await
-    }
-    async fn transfer_leadership(&self) {
-        let mut xs = vec![];
-        let cluster = self.cluster.read().await.internal.clone();
-        for (id, member) in cluster {
-            if id != self.id {
-                let prog = member.progress.unwrap();
-                xs.push((prog.match_index, member));
-            }
+    async fn change_membership(self: &Arc<Self>, command: Command) -> anyhow::Result<()> {
+        match command {
+            Command::Snapshot { membership } => {
+                self.set_membership(&membership).await?
+            },
+            Command::ClusterConfiguration { membership } => {
+                self.set_membership(&membership).await?
+            },
+            _ => {},
         }
-        xs.sort_by_key(|x| x.0);
-
-        // choose the one with the higher match_index as the next leader.
-        if let Some((_, member)) = xs.pop() {
-            tokio::spawn(async move {
-                if let Ok(mut conn) = member.endpoint.connect().await {
-                    let req = protoimpl::TimeoutNowReq {};
-                    let _ = conn.timeout_now(req).await;
-                }
-            });
-        }
-    }
-    async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
-        let _token = self.election_token.acquire().await;
-
-        // vote to self
-        let aim_term = {
-            let mut new_vote = self.load_vote().await?;
-            let cur_term = new_vote.cur_term;
-            let aim_term = cur_term + 1;
-            new_vote.cur_term = aim_term;
-            new_vote.voted_for = Some(self.id.clone());
-
-            self.store_vote(new_vote).await?;
-            *self.election_state.write().await = ElectionState::Candidate;
-            aim_term
-        };
-
-        log::info!("start election. try promote at term {}", aim_term);
-
-        // try to promote at the term.
-        self.try_promote_at(aim_term, force_vote).await?;
-
         Ok(())
+    }
+    // leader calls this fucntion to append new entry to its log.
+    async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
+        let term = self.load_vote().await?.cur_term;
+        // command.clone() is cheap because the message buffer is Bytes.
+        self.log.append_new_entry(command.clone(), ack, term).await?;
+        // change membership when cluster configuration is appended.
+        self.change_membership(command).await?;
+        Ok(())
+    }
+    // follower calls this function when it receives entries from the leader.
+    async fn queue_received_entry(self: &Arc<Self>, req: AppendEntryBuffer) -> anyhow::Result<bool> {
+        let mut prev_clock = (req.prev_log_term, req.prev_log_index);
+        for e in req.entries {
+            let entry = Entry {
+                prev_clock,
+                this_clock: (e.term, e.index),
+                command: e.command,
+            };
+            let command = entry.command.clone();
+            if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
+                log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
+                return Ok(false);
+            }
+            self.change_membership(command.into()).await?;
+
+            prev_clock = (e.term, e.index);
+        }
+        Ok(true)
     }
     async fn prepare_replication_request(
         &self,
@@ -580,7 +487,7 @@ impl<A: RaftApp> RaftCore<A> {
         let new_progress = if res.is_ok() {
             let res = res.unwrap();
             match res.into_inner() {
-                crate::protoimpl::AppendEntryRep { success: true, .. } => {
+                crate::proto_compiled::AppendEntryRep { success: true, .. } => {
                     incremented = true;
                     membership::ReplicationProgress {
                         match_index: old_progress.next_index + n - 1,
@@ -588,7 +495,7 @@ impl<A: RaftApp> RaftCore<A> {
                         next_max_cnt: n * 2,
                     }
                 }
-                crate::protoimpl::AppendEntryRep {
+                crate::proto_compiled::AppendEntryRep {
                     success: false,
                     last_log_index,
                 } => membership::ReplicationProgress {
@@ -606,39 +513,64 @@ impl<A: RaftApp> RaftCore<A> {
             cluster.internal.get_mut(&follower_id).unwrap().progress = Some(new_progress);
         }
         if incremented {
-            self.log.replication_news.lock().await.publish();
+            self.log.replication_notification.lock().await.publish();
         }
 
         Ok(true)
     }
-    async fn broadcast_heartbeat(&self) -> anyhow::Result<()> {
+    async fn find_new_agreement(&self) -> anyhow::Result<Index> {
         let cluster = self.cluster.read().await.internal.clone();
-        let mut futs = vec![];
-        for (id, member) in cluster {
-            if id == self.id {
-                continue;
+        let new_agreement = {
+            let n = cluster.len();
+            let mid = n / 2;
+            let mut match_indices = vec![];
+            for (id, member) in cluster {
+                if id == self.id {
+                    let last_log_index = self.log.get_last_log_index().await?;
+                    match_indices.push(last_log_index);
+                } else {
+                    match_indices.push(member.progress.unwrap().match_index);
+                }
             }
-            let endpoint = member.endpoint;
-            let config = EndpointConfig::default().timeout(Duration::from_millis(100));
-            let req = {
-                let term = self.load_vote().await?.cur_term;
-                protoimpl::HeartbeatReq {
-                    term,
-                    leader_id: self.id.clone(),
-                    leader_commit: self.log.commit_index.load(Ordering::SeqCst),
-                }
-            };
-            futs.push(async move {
-                if let Ok(mut conn) = endpoint.connect_with(config).await {
-                    let res = conn.send_heartbeat(req).await;
-                    if res.is_err() {
-                        log::warn!("heartbeat to {} failed", id);
-                    }
-                }
-            })
-        }
-        futures::future::join_all(futs).await;
+            match_indices.sort();
+            match_indices.reverse();
+            match_indices[mid]
+        };
+        Ok(new_agreement)
+    }
+}
+// snapshot
+impl<A: RaftApp> RaftCore<A> {
+    async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
+        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+        let mut conn = Endpoint::new(to).connect_with(config).await?;
+        let req = proto_compiled::GetSnapshotReq {
+            index: snapshot_index,
+        };
+        let res = conn.get_snapshot(req).await?;
+        let st = res.into_inner();
+        let st = Box::pin(snapshot::map_in(st));
+        let tag = self.app.from_snapshot_stream(st, snapshot_index).await?;
+        self.log.storage.put_tag(snapshot_index, tag).await?;
         Ok(())
+    }
+    async fn make_snapshot_stream(&self, snapshot_index: Index) -> anyhow::Result<Option<snapshot::SnapshotStream>> {
+        let tag = self.log.storage.get_tag(snapshot_index).await?;
+        if tag.is_none() {
+            return Ok(None)
+        }
+        let tag = tag.unwrap();
+        let st = self.app.to_snapshot_stream(&tag).await;
+        Ok(Some(st))
+    }
+}
+// election
+impl<A: RaftApp> RaftCore<A> {
+    async fn store_vote(&self, v: Vote) -> anyhow::Result<()> {
+        self.log.storage.store_vote(v).await
+    }
+    async fn load_vote(&self) -> anyhow::Result<Vote> {
+        self.log.storage.load_vote().await
     }
     async fn receive_vote(
         &self,
@@ -704,26 +636,6 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
-    async fn find_new_agreement(&self) -> anyhow::Result<Index> {
-        let cluster = self.cluster.read().await.internal.clone();
-        let new_agreement = {
-            let n = cluster.len();
-            let mid = n / 2;
-            let mut match_indices = vec![];
-            for (id, member) in cluster {
-                if id == self.id {
-                    let last_log_index = self.log.get_last_log_index().await?;
-                    match_indices.push(last_log_index);
-                } else {
-                    match_indices.push(member.progress.unwrap().match_index);
-                }
-            }
-            match_indices.sort();
-            match_indices.reverse();
-            match_indices[mid]
-        };
-        Ok(new_agreement)
-    }
     async fn try_promote_at(self: &Arc<Self>, aim_term: Term, force_vote: bool) -> anyhow::Result<()> {
         let (others, quorum) = {
             let cur_cluster = self.cluster.read().await.internal.clone();
@@ -756,7 +668,7 @@ impl<A: RaftApp> RaftCore<A> {
             let myid = self.id.clone();
             vote_requests.push(async move {
                 let (last_log_term, last_log_index) = last_log_clock;
-                let req = crate::protoimpl::RequestVoteReq {
+                let req = crate::proto_compiled::RequestVoteReq {
                     term: aim_term,
                     candidate_id: myid,
                     last_log_term,
@@ -813,11 +725,115 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(())
     }
-    async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
-        let term = self.load_vote().await?.cur_term;
-        self.log.append_new_entry(command.clone(), ack, term).await?;
-        self.change_membership(command).await?;
+    async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
+        let _token = self.election_token.acquire().await;
+
+        // vote to self
+        let aim_term = {
+            let mut new_vote = self.load_vote().await?;
+            let cur_term = new_vote.cur_term;
+            let aim_term = cur_term + 1;
+            new_vote.cur_term = aim_term;
+            new_vote.voted_for = Some(self.id.clone());
+
+            self.store_vote(new_vote).await?;
+            *self.election_state.write().await = ElectionState::Candidate;
+            aim_term
+        };
+
+        log::info!("start election. try promote at term {}", aim_term);
+
+        // try to promote at the term.
+        self.try_promote_at(aim_term, force_vote).await?;
+
         Ok(())
+    }
+    async fn broadcast_heartbeat(&self) -> anyhow::Result<()> {
+        let cluster = self.cluster.read().await.internal.clone();
+        let mut futs = vec![];
+        for (id, member) in cluster {
+            if id == self.id {
+                continue;
+            }
+            let endpoint = member.endpoint;
+            let config = EndpointConfig::default().timeout(Duration::from_millis(100));
+            let req = {
+                let term = self.load_vote().await?.cur_term;
+                proto_compiled::HeartbeatReq {
+                    term,
+                    leader_id: self.id.clone(),
+                    leader_commit: self.log.commit_index.load(Ordering::SeqCst),
+                }
+            };
+            futs.push(async move {
+                if let Ok(mut conn) = endpoint.connect_with(config).await {
+                    let res = conn.send_heartbeat(req).await;
+                    if res.is_err() {
+                        log::warn!("heartbeat to {} failed", id);
+                    }
+                }
+            })
+        }
+        futures::future::join_all(futs).await;
+        Ok(())
+    }
+    async fn receive_heartbeat(
+        self: &Arc<Self>,
+        leader_id: Id,
+        leader_term: Term,
+        leader_commit: Index,
+    ) -> anyhow::Result<()> {
+        let mut vote = self.load_vote().await?;
+        if leader_term < vote.cur_term {
+            log::warn!("heartbeat is stale. rejected");
+            return Ok(());
+        }
+
+        if leader_term > vote.cur_term {
+            log::warn!("received heartbeat with newer term. reset vote");
+            vote.cur_term = leader_term;
+            vote.voted_for = None;
+            *self.election_state.write().await = ElectionState::Follower;
+        }
+
+        if vote.voted_for != Some(leader_id.clone()) {
+            log::info!("learn the current leader ({})", leader_id);
+            vote.voted_for = Some(leader_id);
+        }
+
+        self.store_vote(vote).await?;
+        *self.last_heartbeat_received.lock().await = Instant::now();
+
+        let new_commit_index = std::cmp::min(
+            leader_commit,
+            self.log.get_last_log_index().await?,
+        );
+        self.log
+            .advance_commit_index(new_commit_index, Arc::clone(&self))
+            .await?;
+
+        Ok(()) 
+    }
+    async fn transfer_leadership(&self) {
+        let mut xs = vec![];
+        let cluster = self.cluster.read().await.internal.clone();
+        for (id, member) in cluster {
+            if id != self.id {
+                let prog = member.progress.unwrap();
+                xs.push((prog.match_index, member));
+            }
+        }
+        xs.sort_by_key(|x| x.0);
+
+        // choose the one with the higher match_index as the next leader.
+        if let Some((_, member)) = xs.pop() {
+            tokio::spawn(async move {
+                if let Ok(mut conn) = member.endpoint.connect().await {
+                    let req = proto_compiled::TimeoutNowReq {};
+                    let _ = conn.timeout_now(req).await;
+                }
+            });
+        }
     }
 }
 struct Log {
@@ -831,10 +847,10 @@ struct Log {
     commit_token: Semaphore,
     compaction_token: Semaphore,
 
-    append_news: Mutex<news::News>,
-    replication_news: Mutex<news::News>,
-    commit_news: Mutex<news::News>,
-    apply_news: Mutex<news::News>,
+    append_notification: Mutex<Notification>,
+    replication_notification: Mutex<Notification>,
+    commit_notification: Mutex<Notification>,
+    apply_notification: Mutex<Notification>,
 
     applied_membership: Mutex<HashSet<Id>>,
     snapshot_queue: snapshot::SnapshotQueue,
@@ -852,10 +868,10 @@ impl Log {
             commit_token: Semaphore::new(1),
             compaction_token: Semaphore::new(1),
 
-            append_news: Mutex::new(news::News::new()),
-            replication_news: Mutex::new(news::News::new()),
-            commit_news: Mutex::new(news::News::new()),
-            apply_news: Mutex::new(news::News::new()),
+            append_notification: Mutex::new(Notification::new()),
+            replication_notification: Mutex::new(Notification::new()),
+            commit_notification: Mutex::new(Notification::new()),
+            apply_notification: Mutex::new(Notification::new()),
 
             applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
@@ -866,25 +882,6 @@ impl Log {
     }
     async fn get_snapshot_index(&self) -> anyhow::Result<Index> {
         self.storage.get_snapshot_index().await
-    }
-    async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
-        let r = self.storage.get_snapshot_index().await?;
-        // delete old snapshots
-        let ls: Vec<Index> = self.storage.list_tags().await?.range(..r).map(|x| *x).collect();
-        for i in ls {
-            if let Some(tag) = self.storage.get_tag(i).await?.clone() {
-                core.app.delete_resource(tag).await?;
-                self.storage.delete_tag(i).await?;
-            }
-        }
-        // remove entries
-        self.storage.delete_before(r).await?;
-        // remove acks
-        let ls: Vec<u64> = self.ack_chans.read().await.range(..r).map(|x| *x.0).collect();
-        for i in ls {
-            self.ack_chans.write().await.remove(&i);
-        }
-        Ok(())
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<()> {
         let _token = self.append_token.acquire().await;
@@ -902,7 +899,7 @@ impl Log {
         if let Some(x) = ack {
             self.ack_chans.write().await.insert(new_index, x);
         }
-        self.append_news.lock().await.publish();
+        self.append_notification.lock().await.publish();
         Ok(())
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<bool> {
@@ -1008,7 +1005,7 @@ impl Log {
         }
 
         self.commit_index.store(new_agreement, Ordering::SeqCst);
-        self.commit_news.lock().await.publish();
+        self.commit_notification.lock().await.publish();
         Ok(())
     }
     async fn advance_last_applied<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
@@ -1019,21 +1016,20 @@ impl Log {
             (apply_index, e, command)
         };
         let ok = match CommandB::deserialize(&command) {
-            CommandB::Snapshot { core_snapshot } => {
-                let app_snapshot = self.storage.get_tag(apply_index).await?;
-                let app_snapshot: Option<SnapshotTag> = app_snapshot;
+            CommandB::Snapshot { membership } => {
+                let tag = self.storage.get_tag(apply_index).await?;
                 log::info!("install app snapshot");
-                let res = raft_core.app.install_snapshot(app_snapshot, apply_index).await;
+                let res = raft_core.app.install_snapshot(tag.as_ref(), apply_index).await;
                 log::info!("install app snapshot (complete)");
                 let success = res.is_ok();
                 if success {
-                    *self.applied_membership.lock().await = core_snapshot;
+                    *self.applied_membership.lock().await = membership;
                     true
                 } else {
                     false
                 }
             }
-            CommandB::Req { ref message, core } => {
+            CommandB::Req { core, ref message } => {
                 let res = if core {
                     let res = raft_core.process_message(message).await;
                     res.map(|x| (x, None))
@@ -1041,7 +1037,7 @@ impl Log {
                     raft_core.app.apply_message(message, apply_index).await
                 };
                 match res {
-                    Ok((msg, new_app_snapshot)) => {
+                    Ok((msg, new_tag)) => {
                         let mut ack_chans = self.ack_chans.write().await;
                         if ack_chans.contains_key(&apply_index) {
                             let ack = ack_chans.get(&apply_index).unwrap();
@@ -1052,13 +1048,13 @@ impl Log {
                             }
                         }
 
-                        if let Some(new_app_snapshot) = new_app_snapshot {
+                        if let Some(new_tag) = new_tag {
                             // allows orphan snapshot resource to exist.
-                            self.storage.put_tag(apply_index, new_app_snapshot).await?;
+                            self.storage.put_tag(apply_index, new_tag).await?;
 
                             let snapshot_entry = Entry {
                                 command: Command::Snapshot {
-                                    core_snapshot: self.applied_membership.lock().await.clone(),
+                                    membership: self.applied_membership.lock().await.clone(),
                                 }.into(),
                                 .. apply_entry
                             };
@@ -1087,7 +1083,7 @@ impl Log {
         };
         if ok {
             self.last_applied.store(apply_index, Ordering::SeqCst);
-            self.apply_news.lock().await.publish();
+            self.apply_notification.lock().await.publish();
         }
         Ok(())
     }
@@ -1112,13 +1108,12 @@ impl Log {
             new_snapshot_index
         );
         let cur_snapshot_entry = self.storage.get_entry(cur_snapshot_index).await?.unwrap();
-        let cur_snapshot = cur_snapshot_entry.command;
         if let Command::Snapshot {
-            core_snapshot,
-        } = cur_snapshot.into()
+            membership,
+        } = cur_snapshot_entry.command.into()
         {
             let mut base_snapshot_index = cur_snapshot_index; 
-            let mut new_core_snapshot = core_snapshot;
+            let mut new_membership = membership;
             let mut commands = HashMap::new();
             for i in cur_snapshot_index + 1..=new_snapshot_index {
                 let command = self.storage.get_entry(i).await?.unwrap().command;
@@ -1128,7 +1123,7 @@ impl Log {
             for (i, command) in &commands {
                 match CommandB::deserialize(&command) {
                     CommandB::ClusterConfiguration { membership } => {
-                        new_core_snapshot = membership;
+                        new_membership = membership;
                     }
                     CommandB::Req {
                         core: false,
@@ -1137,23 +1132,22 @@ impl Log {
                         app_messages.push(message);
                     }
                     CommandB::Snapshot {
-                        core_snapshot,
+                        membership,
                     } => {
                         base_snapshot_index = *i;
-                        new_core_snapshot = core_snapshot;
+                        new_membership = membership;
                         app_messages = vec![];
                     }
                     _ => {}
                 }
             }
-            let base_app_snapshot = self.storage.get_tag(base_snapshot_index).await?;
-            let base_app_snapshot: Option<SnapshotTag> = base_app_snapshot;
-            let new_app_snapshot = core.app.fold_snapshot(base_app_snapshot, app_messages).await?;
-            self.storage.put_tag(new_snapshot_index, new_app_snapshot).await?;
+            let base_tag = self.storage.get_tag(base_snapshot_index).await?;
+            let new_tag = core.app.fold_snapshot(base_tag.as_ref(), app_messages).await?;
+            self.storage.put_tag(new_snapshot_index, new_tag).await?;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();
                 e.command = Command::Snapshot {
-                    core_snapshot: new_core_snapshot,
+                    membership: new_membership,
                 }.into();
                 e
             };
@@ -1163,6 +1157,25 @@ impl Log {
         } else {
             unreachable!()
         }
+    }
+    async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
+        let r = self.storage.get_snapshot_index().await?;
+        // delete old snapshots
+        let ls: Vec<Index> = self.storage.list_tags().await?.range(..r).map(|x| *x).collect();
+        for i in ls {
+            if let Some(tag) = self.storage.get_tag(i).await?.clone() {
+                core.app.delete_resource(&tag).await?;
+                self.storage.delete_tag(i).await?;
+            }
+        }
+        // remove entries
+        self.storage.delete_before(r).await?;
+        // remove acks
+        let ls: Vec<u64> = self.ack_chans.read().await.range(..r).map(|x| *x.0).collect();
+        for i in ls {
+            self.ack_chans.write().await.remove(&i);
+        }
+        Ok(())
     }
 }
 pub async fn start_server<A: RaftApp>(

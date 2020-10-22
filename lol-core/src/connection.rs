@@ -1,8 +1,8 @@
-use crate::protoimpl;
+use crate::proto_compiled;
 use crate::Id;
 use std::time::Duration;
 
-pub type Connection = protoimpl::raft_client::RaftClient<tonic::transport::Channel>;
+pub type Connection = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
 
 #[derive(Clone)]
 pub struct EndpointConfig {
@@ -37,7 +37,7 @@ impl Endpoint {
         if let Some(x) = config.timeout {
             endpoint = endpoint.timeout(x);
         }
-        protoimpl::raft_client::RaftClient::connect(endpoint)
+        proto_compiled::raft_client::RaftClient::connect(endpoint)
             .await
             .map_err(|_| {
                 tonic::Status::new(
@@ -155,7 +155,7 @@ pub mod gateway {
             let config = EndpointConfig::default();
             exec(&config, &endpoints, |mut conn: Connection| async move {
                 let req = core_message::Req::ClusterInfo;
-                let req = protoimpl::ProcessReq {
+                let req = proto_compiled::ProcessReq {
                     core: true,
                     message: core_message::Req::serialize(&req),
                 };

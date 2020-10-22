@@ -30,7 +30,7 @@ impl SnapshotQueue {
 }
 
 use futures::stream::Stream;
-use crate::protoimpl::GetSnapshotRep;
+use crate::proto_compiled::GetSnapshotRep;
 use bytes::Bytes;
 /// the stream type that is used internally. it is considered as just a stream of bytes.
 /// the length of each bytes may vary.
@@ -43,20 +43,22 @@ pub(crate) fn map_in(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status
     st.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
 /// basic snapshot type which is just a byte sequence.
-pub struct BytesSnapshot(Bytes);
+pub struct BytesSnapshot {
+    pub (crate) contents: Bytes,
+}
 impl AsRef<[u8]> for BytesSnapshot {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        &self.contents
     }
 }
 impl From<Vec<u8>> for BytesSnapshot {
     fn from(x: Vec<u8>) -> Self {
-        BytesSnapshot(x.into())
+        BytesSnapshot { contents: x.into() }
     }
 }
 impl BytesSnapshot {
     pub async fn to_snapshot_stream(&self) -> SnapshotStream {
-        let cursor = std::io::Cursor::new(self.0.clone());
+        let cursor = std::io::Cursor::new(self.contents.clone());
         Box::pin(util::into_snapshot_stream(cursor))
     }
 }
@@ -65,16 +67,18 @@ impl BytesSnapshot {
         let mut v: Vec<u8> = vec![];
         let cursor = std::io::Cursor::new(&mut v);
         util::read_snapshot_stream(cursor, st).await?;
-        Ok(BytesSnapshot(v.into()))
+        Ok(BytesSnapshot { contents: v.into() })
     }
 }
 /// a snapshot saved in a file.
 /// instead of bytes snapshot you may choose this to deal with
 /// gigantic snapshot beyond system memory.
-struct FileSnapshot(pub std::path::PathBuf);
+struct FileSnapshot {
+    pub path: std::path::PathBuf,
+}
 impl FileSnapshot {
     pub async fn to_snapshot_stream(&self) -> SnapshotStream {
-        let f = tokio::fs::File::open(&self.0).await.unwrap();
+        let f = tokio::fs::File::open(&self.path).await.unwrap();
         Box::pin(util::into_snapshot_stream(f))
     }
 }
@@ -83,7 +87,7 @@ impl FileSnapshot {
         let path = std::path::Path::new("tmp"); // TODO make the file in unique path
         let f = tokio::fs::File::create(&path).await?;
         util::read_snapshot_stream(f, st).await?;
-        Ok(FileSnapshot(path.to_owned()))
+        Ok(FileSnapshot { path: path.to_owned() })
     }
 }
 mod util {

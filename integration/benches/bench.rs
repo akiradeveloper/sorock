@@ -20,7 +20,7 @@ fn do_bench_commit(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
             let mut conn = endpoint.connect().await.unwrap();
-            conn.request_commit(lol_core::protoimpl::CommitReq {
+            conn.request_commit(lol_core::proto_compiled::CommitReq {
                 core: false,
                 message: msg,
             })
@@ -61,7 +61,7 @@ fn do_bench_apply(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
             let mut conn = endpoint.connect().await.unwrap();
-            conn.request_apply(lol_core::protoimpl::ApplyReq {
+            conn.request_apply(lol_core::proto_compiled::ApplyReq {
                 core: false,
                 mutation: true,
                 message: msg,
@@ -103,7 +103,7 @@ fn do_bench_query(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
             let mut conn = endpoint.connect().await.unwrap();
-            conn.request_apply(lol_core::protoimpl::ApplyReq {
+            conn.request_apply(lol_core::proto_compiled::ApplyReq {
                 core: false,
                 mutation: false,
                 message: msg,
@@ -148,7 +148,7 @@ fn do_bench_commit_huge(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
             let mut conn = endpoint.connect().await.unwrap();
-            conn.request_commit(lol_core::protoimpl::CommitReq {
+            conn.request_commit(lol_core::proto_compiled::CommitReq {
                 core: false,
                 message: msg,
             })

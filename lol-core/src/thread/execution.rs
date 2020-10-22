@@ -1,4 +1,4 @@
-use super::news;
+use super::notification;
 use crate::{RaftApp, RaftCore};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -6,7 +6,7 @@ use std::time::Duration;
 
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
-    subscriber: news::Subscriber,
+    subscriber: notification::Subscriber,
 }
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
@@ -29,7 +29,7 @@ impl<A: RaftApp> Thread<A> {
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) {
-    let subscriber = core.log.commit_news.lock().await.subscribe();
+    let subscriber = core.log.commit_notification.lock().await.subscribe();
     let x = Thread { core, subscriber };
     x.run().await
 }
