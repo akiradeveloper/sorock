@@ -1,6 +1,9 @@
 use crate::{RaftApp, Index, SnapshotTag};
 use crate::snapshot::{BytesSnapshot, SnapshotStream};
 use async_trait::async_trait;
+
+/// similar to full-featured RaftApp but restricted:
+/// the snapshot is not a snapshot tag but a snapshot resource serialized into bytes.
 #[async_trait]
 pub trait RaftAppCompat: Sync + Send + 'static {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
@@ -44,13 +47,13 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
         let new_snapshot = self.compat_app.fold_snapshot(y.as_deref(), requests).await?;
         Ok(new_snapshot.into())
     }
-    async fn from_snapshot_stream(&self, st: SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag> {
+    async fn from_snapshot_stream(&self, st: SnapshotStream, _: Index) -> anyhow::Result<SnapshotTag> {
         let b = BytesSnapshot::from_snapshot_stream(st).await?;
-        let tag = SnapshotTag { contents: b.0 };
+        let tag = SnapshotTag { contents: b.contents };
         Ok(tag)
     }
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> SnapshotStream {
-        let b: BytesSnapshot = BytesSnapshot(x.contents.clone());
+        let b: BytesSnapshot = BytesSnapshot { contents: x.contents.clone() };
         b.to_snapshot_stream().await
     }
     async fn delete_resource(&self, _: &SnapshotTag) -> anyhow::Result<()> {

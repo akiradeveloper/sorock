@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 use tokio::sync::Notify;
 
-pub struct News {
+pub struct Notification {
     id_alloc: u64,
     subscribers: HashMap<u64, Weak<Notify>>,
 }
-impl News {
+impl Notification {
     pub fn new() -> Self {
         Self {
             id_alloc: 0,

@@ -210,7 +210,7 @@ impl super::RaftStorage for Storage {
         Ok(v)
     }
     async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        let token = self.snapshot_lock.acquire().await;
+        let _token = self.snapshot_lock.acquire().await;
         let cur_snapshot_index = self.get_snapshot_index().await?;
         if i > cur_snapshot_index {
             let cf1 = self.db.cf_handle(CF_ENTRIES).unwrap();

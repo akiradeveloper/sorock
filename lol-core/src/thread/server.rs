@@ -1,13 +1,11 @@
 use crate::connection::Endpoint;
-use crate::{ack, core_message, protoimpl, Command, ElectionState, RaftApp, RaftCore};
-use std::sync::atomic::Ordering;
+use crate::{ack, core_message, proto_compiled, Command, ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use tokio::stream::StreamExt;
-use bytes::{Bytes, BytesMut};
 
-use protoimpl::{
+use proto_compiled::{
     raft_server::{Raft, RaftServer},
-    AppendEntryRep, AppendEntryReq, GetSnapshotReq, GetSnapshotRep,
+    AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
 };
@@ -34,15 +32,15 @@ impl<A: RaftApp> Raft for Thread<A> {
             let req = request.into_inner();
             if req.mutation {
                 let command = Command::Req {
-                    message: req.message.into(),
                     core: req.core,
+                    message: req.message.into(),
                 };
                 self.core.queue_entry(command, Some(ack)).await.unwrap();
             } else {
                 self.core.register_query(req.core, req.message.into(), ack).await;
             }
             let res = rx.await;
-            res.map(|x| tonic::Response::new(protoimpl::ApplyRep { message: x.0 }))
+            res.map(|x| tonic::Response::new(proto_compiled::ApplyRep { message: x.0 }))
                 .map_err(|_| tonic::Status::cancelled("failed to apply the request"))
         } else {
             let endpoint = Endpoint::new(leader_id);
@@ -68,12 +66,12 @@ impl<A: RaftApp> Raft for Thread<A> {
             let command = if req.core {
                 match core_message::Req::deserialize(&req.message).unwrap() {
                     core_message::Req::AddServer(id) => {
-                        let mut membership = self.core.cluster.read().await.id_list();
+                        let mut membership = self.core.cluster.read().await.get_membership();
                         membership.insert(id);
                         Command::ClusterConfiguration { membership }
                     },
                     core_message::Req::RemoveServer(id) => {
-                        let mut membership = self.core.cluster.read().await.id_list();
+                        let mut membership = self.core.cluster.read().await.get_membership();
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
                     },
@@ -90,7 +88,7 @@ impl<A: RaftApp> Raft for Thread<A> {
             };
             self.core.queue_entry(command, Some(ack)).await.unwrap();
             let res = rx.await;
-            res.map(|_| tonic::Response::new(protoimpl::CommitRep {}))
+            res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
         } else {
             let endpoint = Endpoint::new(leader_id);
@@ -158,7 +156,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<tonic::Streaming<AppendEntryReq>>,
     ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        use protoimpl::append_entry_req::Elem;
+        use proto_compiled::append_entry_req::Elem;
 
         // This code is expecting stream in a form
         // Header (Entry Frame+)+
@@ -166,7 +164,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let mut stream = request.into_inner();
         let mut req = if let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
-            if let Elem::Header(protoimpl::AppendStreamHeader {
+            if let Elem::Header(proto_compiled::AppendStreamHeader {
                 sender_id,
                 prev_log_index,
                 prev_log_term,
@@ -187,7 +185,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         while let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
             match e {
-                Elem::Entry(protoimpl::AppendStreamEntry { term, index, command }) => {
+                Elem::Entry(proto_compiled::AppendStreamEntry { term, index, command }) => {
                     let e = crate::AppendEntryElem {
                         term,
                         index,

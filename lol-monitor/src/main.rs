@@ -10,7 +10,7 @@ use app::App;
 use futures::stream;
 use futures::StreamExt;
 use lol_core::connection::{gateway, gateway::Gateway, Connection, EndpointConfig};
-use lol_core::{core_message, protoimpl};
+use lol_core::{core_message, proto_compiled};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::exec(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::ClusterInfo;
-            let req = protoimpl::ProcessReq {
+            let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::LogInfo;
-            let req = protoimpl::ProcessReq {
+            let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -151,7 +151,7 @@ async fn main() -> anyhow::Result<()> {
         let config = EndpointConfig::default().timeout(Duration::from_secs(1));
         let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
             let msg = core_message::Req::HealthCheck;
-            let req = protoimpl::ProcessReq {
+            let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
