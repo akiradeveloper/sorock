@@ -990,6 +990,7 @@ impl Log {
             }
         }
 
+        log::debug!("commit_index {} -> {}", old_agreement, new_agreement);
         self.commit_index.store(new_agreement, Ordering::SeqCst);
         self.commit_notification.lock().await.publish();
         Ok(())
@@ -1068,6 +1069,7 @@ impl Log {
             _ => true,
         };
         if ok {
+            log::debug!("last_applied -> {}", apply_index);
             self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_notification.lock().await.publish();
         }
@@ -1088,11 +1090,7 @@ impl Log {
             return Ok(());
         }
 
-        log::info!(
-            "advance snapshot index {} -> {}",
-            cur_snapshot_index,
-            new_snapshot_index
-        );
+        log::info!("create new fold snapshot at index {}", new_snapshot_index);
         let cur_snapshot_entry = self.storage.get_entry(cur_snapshot_index).await?.unwrap();
         if let Command::Snapshot {
             membership,
@@ -1146,6 +1144,8 @@ impl Log {
     }
     async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
         let r = self.storage.get_snapshot_index().await?;
+        log::debug!("gc .. {}", r);
+
         // delete old snapshots
         let ls: Vec<Index> = self.storage.list_tags().await?.range(..r).map(|x| *x).collect();
         for i in ls {

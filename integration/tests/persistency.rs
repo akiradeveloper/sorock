@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::thread;
 
 #[test]
-fn test_persistency_reboot() {
+fn test_persistency_membership() {
     let env = Environment::new(0, vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=0"]);
     for id in 1..=2 {
         let s = format!("--use-persistency={}", id);
@@ -31,4 +31,22 @@ fn test_persistency_reboot() {
 
     let v = Client::to(2, env.clone()).get("k").unwrap().0.unwrap();
     assert_eq!(v, "3");
+}
+
+#[test]
+fn test_persistency_reboot() {
+    let env = Environment::new(0, vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=1"]);
+    for _ in 0..10 {
+        Client::to(0, env.clone()).set("k", "1");
+    }
+    // wait for compaction and gc
+    thread::sleep(Duration::from_secs(5));
+
+    env.stop(0);
+    env.start(0, vec!["--use-persistency=0", "--compaction-interval-sec=0"]);
+    // wait for boot, calculating commit_index
+    thread::sleep(Duration::from_secs(5));
+
+    let r = Client::to(0, env.clone()).set("k", "1");
+    assert!(r.is_ok());
 }
