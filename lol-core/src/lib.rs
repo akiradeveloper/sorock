@@ -70,12 +70,11 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
-
-
 type Term = u64;
+/// log index.
 pub type Index = u64;
 type Clock = (Term, Index);
-/// each node is identified by a pair of ip and port
+/// each node is identified by a pair of ip and port.
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -147,10 +146,9 @@ enum ElectionState {
 pub struct Config {
     pub id: Id,
 }
-/// dynamic configurations
+/// dynamic configurations.
 pub struct TunableConfig {
-    /// copy snapshot will be inserted into the log after this delay
-    /// and in fold snapshot log entries older than this period will be counted in compaction.
+    /// snapshot will be inserted into log after this delay.
     pub compaction_delay_sec: u64,
     /// the interval that compaction runs.
     /// you can set this to 0 and fold snapshot will never be created.

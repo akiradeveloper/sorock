@@ -20,9 +20,7 @@ impl<A: RaftApp> Thread<A> {
 
             let core = Arc::clone(&self.core);
             let f = async move {
-                log::info!("create fold snapshot");
                 let new_snapshot_index = core.log.last_applied.load(Ordering::SeqCst);
-                log::info!("new snapshot index: {:?}", new_snapshot_index);
                 core.log
                     .create_fold_snapshot(new_snapshot_index, Arc::clone(&core))
                     .await.unwrap();
