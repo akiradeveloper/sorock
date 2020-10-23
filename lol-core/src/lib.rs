@@ -620,7 +620,7 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
-    async fn try_promote_at(self: &Arc<Self>, aim_term: Term, force_vote: bool) -> anyhow::Result<()> {
+    async fn request_votes(self: &Arc<Self>, aim_term: Term, force_vote: bool) -> anyhow::Result<bool> {
         let (others, quorum) = {
             let cur_cluster = self.cluster.read().await.internal.clone();
             let n = cur_cluster.len();
@@ -676,8 +676,14 @@ impl<A: RaftApp> RaftCore<A> {
             });
         }
         let ok = quorum_join::quorum_join(timeout, quorum, vote_requests).await;
+        Ok(ok)
+    }
+    async fn after_votes(self: &Arc<Self>, ok: bool) -> anyhow::Result<()> {
         if ok {
             log::info!("got enough votes from the cluster. promoted to leader");
+
+            // as soon as the node becomes the leader, replicate noop entries with term
+            self.queue_entry(Command::Noop, None).await?;
 
             // initialize replication progress
             {
@@ -692,15 +698,7 @@ impl<A: RaftApp> RaftCore<A> {
                 }
             }
 
-            // become the leader of the aim term because the vote was done for the term.
-            self.store_vote(Vote {
-                cur_term: aim_term,
-                voted_for: Some(self.id.clone()),
-            }).await?;
             *self.election_state.write().await = ElectionState::Leader;
-
-            // as soon as the node becomes the leader, replicate noop entries with term
-            self.queue_entry(Command::Noop, None).await?;
 
             let _ = self.broadcast_heartbeat().await;
         } else {
@@ -728,7 +726,9 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("start election. try promote at term {}", aim_term);
 
         // try to promote at the term.
-        self.try_promote_at(aim_term, force_vote).await?;
+        // failing some I/O operations during election will be considered as election failure.
+        let ok = self.request_votes(aim_term, force_vote).await.unwrap_or(false);
+        self.after_votes(ok).await?;
 
         Ok(())
     }
