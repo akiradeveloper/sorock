@@ -1,3 +1,11 @@
+# 0.5.0 (2020-10-23)
+
+- RaftApp abstraction update: Notion of Snapshot Tag.
+- Performance optimization: Command in log entry is now Bytes and it's applied to RaftApp in zero-copy.
+- Error handling improved: RaftStorage now returns Result so callers can handle failures.
+- Many fixes especially with persistent backend.
+- Rename protoimpl to proto_compiled because it is ambiguous.
+
 # 0.4.0 (2020-10-11)
 
 - Introduce snapshot inventory: Application snapshot is now put in snapshot inventory and sent to other servers in stream.
