@@ -1,4 +1,4 @@
-use lol_core::protoimpl;
+use lol_core::proto_compiled;
 use std::time::Duration;
 use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
@@ -40,7 +40,7 @@ async fn main() {
             let msg = kvs::Req::Get { key };
             let msg = kvs::Req::serialize(&msg);
             let res = conn
-                .request_apply(protoimpl::ApplyReq {
+                .request_apply(proto_compiled::ApplyReq {
                     core: false,
                     message: msg,
                     mutation: false,
@@ -71,7 +71,7 @@ async fn main() {
                 value: value_rep,
             };
             let msg = kvs::Req::serialize(&msg);
-            conn.request_commit(protoimpl::CommitReq {
+            conn.request_commit(proto_compiled::CommitReq {
                 core: false,
                 message: msg,
             })
@@ -83,7 +83,7 @@ async fn main() {
             let msg = kvs::Req::List;
             let msg = kvs::Req::serialize(&msg);
             let res = conn
-                .request_apply(protoimpl::ApplyReq {
+                .request_apply(proto_compiled::ApplyReq {
                     core: false,
                     message: msg,
                     mutation: false,

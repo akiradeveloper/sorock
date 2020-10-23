@@ -1,4 +1,4 @@
-use lol_core::{core_message, protoimpl};
+use lol_core::{core_message, proto_compiled};
 use std::time::Duration;
 use structopt::StructOpt;
 
@@ -41,7 +41,7 @@ async fn main() {
         Sub::AddServer { id } => {
             let id = lol_core::connection::resolve(&id).unwrap();
             let msg = core_message::Req::AddServer(id);
-            let req = protoimpl::CommitReq {
+            let req = proto_compiled::CommitReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -51,7 +51,7 @@ async fn main() {
         Sub::RemoveServer { id } => {
             let id = lol_core::connection::resolve(&id).unwrap();
             let msg = core_message::Req::RemoveServer(id);
-            let req = protoimpl::CommitReq {
+            let req = proto_compiled::CommitReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -60,7 +60,7 @@ async fn main() {
         // core locally
         Sub::InitCluster => {
             let msg = core_message::Req::InitCluster;
-            let req = protoimpl::ProcessReq {
+            let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -77,7 +77,7 @@ async fn main() {
         // core locally
         Sub::ClusterInfo => {
             let msg = core_message::Req::ClusterInfo;
-            let req = protoimpl::ProcessReq {
+            let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
@@ -99,7 +99,7 @@ async fn main() {
             println!("{}", json);
         }
         Sub::TimeoutNow => {
-            let req = protoimpl::TimeoutNowReq {};
+            let req = proto_compiled::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
     }

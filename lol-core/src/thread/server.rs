@@ -1,12 +1,11 @@
 use crate::connection::Endpoint;
-use crate::{ack, core_message, protoimpl, Command, ElectionState, RaftApp, RaftCore};
-use std::sync::atomic::Ordering;
+use crate::{ack, core_message, proto_compiled, Command, ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use tokio::stream::StreamExt;
 
-use protoimpl::{
+use proto_compiled::{
     raft_server::{Raft, RaftServer},
-    AppendEntryRep, AppendEntryReq, AppendEntryReqS, GetSnapshotReq, GetSnapshotRep,
+    AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
 };
@@ -20,7 +19,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -33,15 +32,15 @@ impl<A: RaftApp> Raft for Thread<A> {
             let req = request.into_inner();
             if req.mutation {
                 let command = Command::Req {
-                    message: req.message,
                     core: req.core,
+                    message: req.message.into(),
                 };
-                self.core.queue_entry(command, Some(ack)).await;
+                self.core.queue_entry(command, Some(ack)).await.unwrap();
             } else {
-                self.core.register_query(req.core, req.message, ack).await;
+                self.core.register_query(req.core, req.message.into(), ack).await;
             }
             let res = rx.await;
-            res.map(|x| tonic::Response::new(protoimpl::ApplyRep { message: x.0 }))
+            res.map(|x| tonic::Response::new(proto_compiled::ApplyRep { message: x.0 }))
                 .map_err(|_| tonic::Status::cancelled("failed to apply the request"))
         } else {
             let endpoint = Endpoint::new(leader_id);
@@ -53,7 +52,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<CommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -66,22 +65,30 @@ impl<A: RaftApp> Raft for Thread<A> {
             let req = request.into_inner();
             let command = if req.core {
                 match core_message::Req::deserialize(&req.message).unwrap() {
-                    core_message::Req::AddServer(id) => Command::AddServer { id },
-                    core_message::Req::RemoveServer(id) => Command::RemoveServer { id },
+                    core_message::Req::AddServer(id) => {
+                        let mut membership = self.core.cluster.read().await.get_membership();
+                        membership.insert(id);
+                        Command::ClusterConfiguration { membership }
+                    },
+                    core_message::Req::RemoveServer(id) => {
+                        let mut membership = self.core.cluster.read().await.get_membership();
+                        membership.remove(&id);
+                        Command::ClusterConfiguration { membership }
+                    },
                     _ => Command::Req {
-                        message: req.message,
+                        message: req.message.into(),
                         core: req.core,
                     },
                 }
             } else {
                 Command::Req {
-                    message: req.message,
+                    message: req.message.into(),
                     core: req.core,
                 }
             };
-            self.core.queue_entry(command, Some(ack)).await;
+            self.core.queue_entry(command, Some(ack)).await.unwrap();
             let res = rx.await;
-            res.map(|_| tonic::Response::new(protoimpl::CommitRep {}))
+            res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
         } else {
             let endpoint = Endpoint::new(leader_id);
@@ -93,7 +100,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<ProcessReq>,
     ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let vote = self.core.load_vote().await;
+        let vote = self.core.load_vote().await.unwrap();
         if vote.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
@@ -104,9 +111,9 @@ impl<A: RaftApp> Raft for Thread<A> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let req = request.into_inner();
             let res = if req.core {
-                self.core.process_message(req.message).await
+                self.core.process_message(&req.message).await
             } else {
-                self.core.app.process_message(req.message).await
+                self.core.app.process_message(&req.message).await
             };
             res.map(|x| tonic::Response::new(ProcessRep { message: x }))
                 .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
@@ -122,9 +129,9 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
         let req = request.into_inner();
         let res = if req.core {
-            self.core.process_message(req.message).await
+            self.core.process_message(&req.message).await
         } else {
-            self.core.app.process_message(req.message).await
+            self.core.app.process_message(&req.message).await
         };
         res.map(|x| tonic::Response::new(ProcessRep { message: x }))
             .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
@@ -137,29 +144,19 @@ impl<A: RaftApp> Raft for Thread<A> {
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
         let candidate_clock = (req.last_log_term, req.last_log_index);
+        let force_vote = req.force_vote;
         let vote_granted = self
             .core
-            .receive_vote(candidate_term, candidate_id, candidate_clock)
-            .await;
+            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote)
+            .await.unwrap();
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))
     }
     async fn send_append_entry(
         &self,
-        request: tonic::Request<AppendEntryReq>,
+        request: tonic::Request<tonic::Streaming<AppendEntryReq>>,
     ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        let success = self.core.queue_received_entry(request.into_inner()).await;
-        let res = AppendEntryRep {
-            success,
-            last_log_index: self.core.log.get_last_log_index().await,
-        };
-        Ok(tonic::Response::new(res))
-    }
-    async fn send_append_entry_s(
-        &self,
-        request: tonic::Request<tonic::Streaming<AppendEntryReqS>>,
-    ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        use protoimpl::append_entry_req_s::Elem;
+        use proto_compiled::append_entry_req::Elem;
 
         // This code is expecting stream in a form
         // Header (Entry Frame+)+
@@ -167,13 +164,13 @@ impl<A: RaftApp> Raft for Thread<A> {
         let mut stream = request.into_inner();
         let mut req = if let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
-            if let Elem::Header(protoimpl::HeaderS {
+            if let Elem::Header(proto_compiled::AppendStreamHeader {
                 sender_id,
                 prev_log_index,
                 prev_log_term,
             }) = e
             {
-                protoimpl::AppendEntryReq {
+                crate::AppendEntryBuffer {
                     sender_id,
                     prev_log_index,
                     prev_log_term,
@@ -185,35 +182,28 @@ impl<A: RaftApp> Raft for Thread<A> {
         } else {
             unreachable!()
         };
-        let mut cur = None;
         while let Some(Ok(chunk)) = stream.next().await {
             let e = chunk.elem.unwrap();
             match e {
-                Elem::Entry(protoimpl::EntryS { term, index }) => {
-                    if let Some(x) = cur.take() {
-                        req.entries.push(x);
-                    }
-                    cur = Some(protoimpl::Entry {
+                Elem::Entry(proto_compiled::AppendStreamEntry { term, index, command }) => {
+                    let e = crate::AppendEntryElem {
                         term,
                         index,
-                        command: vec![],
-                    });
-                }
-                Elem::Frame(protoimpl::FrameS { mut frame }) => {
-                    cur.as_mut().unwrap().command.append(&mut frame);
-                }
+                        command: command.into(),
+                    };
+                    req.entries.push(e);
+                },
                 _ => unreachable!(),
             }
         }
-        req.entries.push(cur.unwrap());
 
         // TODO (optimization)
         // sadly, up to here, we put the entire received chunks on the heap.
         // we could make this lazy stream so the temporary allocation becomes less.
-        let success = self.core.queue_received_entry(req).await;
+        let success = self.core.queue_received_entry(req).await.unwrap();
         let res = AppendEntryRep {
             success,
-            last_log_index: self.core.log.get_last_log_index().await,
+            last_log_index: self.core.log.get_last_log_index().await.unwrap(),
         };
         Ok(tonic::Response::new(res))
     }
@@ -224,12 +214,12 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
         let snapshot_index = req.index;
-        let snapshot = self.core.snapshot_inventory.get(snapshot_index).await;
-        if snapshot.is_none() {
+        let st = self.core.make_snapshot_stream(snapshot_index).await.unwrap();
+        if st.is_none() {
             return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
         }
-        let snapshot: Arc<dyn crate::snapshot::ToSnapshotStream> = snapshot.unwrap();
-        Ok(tonic::Response::new(crate::snapshot::map_out(snapshot.to_snapshot_stream().await)))
+        let st = st.unwrap();
+        Ok(tonic::Response::new(crate::snapshot::map_out(st)))
     }
     async fn send_heartbeat(
         &self,
@@ -241,16 +231,16 @@ impl<A: RaftApp> Raft for Thread<A> {
         let leader_commit = req.leader_commit;
         self.core
             .receive_heartbeat(leader_id, term, leader_commit)
-            .await;
+            .await.unwrap();
         let res = HeartbeatRep {};
         Ok(tonic::Response::new(res))
     }
     async fn timeout_now(
         &self,
-        request: tonic::Request<TimeoutNowReq>,
+        _: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
         if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
-            self.core.try_promote().await;
+            self.core.try_promote(true).await.unwrap();
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))

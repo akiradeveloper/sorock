@@ -1,4 +1,4 @@
-use crate::{ElectionState, RaftApp, RaftCore};
+use crate::{ElectionState, RaftApp, RaftCore, ELECTION_TIMEOUT_MS};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::delay_for;
@@ -10,9 +10,9 @@ impl<A: RaftApp> Thread<A> {
     async fn run(self) {
         loop {
             // randomly timeout to avoid two nodes become candidate at the same time.
-            let rand_wait = rand::random::<u64>() % 500;
-            let election_timeout: Duration = Duration::from_millis(500 + rand_wait);
-            delay_for(election_timeout).await;
+            let rand_part = rand::random::<u64>() % ELECTION_TIMEOUT_MS;
+            let rand_timeout = Duration::from_millis(ELECTION_TIMEOUT_MS + rand_part);
+            delay_for(rand_timeout).await;
 
             if !self
                 .core
@@ -30,15 +30,15 @@ impl<A: RaftApp> Thread<A> {
                 let last_time = *core.last_heartbeat_received.lock().await;
                 let now = Instant::now();
                 let elapsed = now - last_time;
-                if elapsed > election_timeout {
+                if elapsed > Duration::from_millis(ELECTION_TIMEOUT_MS) {
                     let election_state = *core.election_state.read().await;
                     if std::matches!(election_state, ElectionState::Follower) {
                         log::info!("heartbeat is not received for {} ms", elapsed.as_millis());
-                        core.try_promote().await;
+                        core.try_promote(false).await.unwrap();
                     }
                 };
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }

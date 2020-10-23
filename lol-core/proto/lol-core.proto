@@ -27,29 +27,20 @@ message Entry {
     uint64 index = 2;
     bytes command = 3;
 }
-message AppendEntryReq {
-    string sender_id = 1;
-    uint64 prev_log_term = 2;
-    uint64 prev_log_index = 3;
-    repeated Entry entries = 4;
-}
-message HeaderS {
+message AppendStreamHeader {
     string sender_id = 1;
     uint64 prev_log_term = 2;
     uint64 prev_log_index = 3;
 }
-message EntryS {
+message AppendStreamEntry {
     uint64 term = 1;
     uint64 index = 2;
+    bytes command = 3;
 }
-message FrameS {
-    bytes frame = 1;
-}
-message AppendEntryReqS {
+message AppendEntryReq {
     oneof elem {
-        HeaderS header = 1;
-        EntryS entry = 2;
-        FrameS frame = 3;
+        AppendStreamHeader header = 1;
+        AppendStreamEntry entry = 2;
     }
 }
 message AppendEntryRep {
@@ -67,6 +58,7 @@ message RequestVoteReq {
     string candidate_id = 2;
     uint64 last_log_term = 3;
     uint64 last_log_index = 4;
+    bool force_vote = 5;
 }
 message RequestVoteRep {
     bool vote_granted = 1;
@@ -82,8 +74,7 @@ message TimeoutNowRep {}
 
 service Raft {
     rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
-    rpc SendAppendEntry (AppendEntryReq) returns (AppendEntryRep);
-    rpc SendAppendEntryS (stream AppendEntryReqS) returns (AppendEntryRep);
+    rpc SendAppendEntry (stream AppendEntryReq) returns (AppendEntryRep);
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);

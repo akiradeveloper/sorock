@@ -1,7 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lol_core::connection;
-use lol_core::{Index, Config, Message, RaftApp, RaftCore, TunableConfig};
+use lol_core::{Index, Config, RaftCore, TunableConfig};
+use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,8 +13,19 @@ use std::path::Path;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
 struct Opt {
+    // use persistent storage with is identified by the given id.
+    #[structopt(long)]
+    use_persistency: Option<u8>,
+    // if this is set, the persistent storage is reset.
+    #[structopt(long)]
+    reset_persistency: bool,
+    // if copy_snapshot_mode is chosen, fold snapshot is disabled and
+    // copy snapshot is made on every apply.
     #[structopt(long)]
     copy_snapshot_mode: bool,
+    // the interval of the fold snapshot
+    #[structopt(long)]
+    compaction_interval_sec: Option<u64>,
     #[structopt(name = "ID")]
     id: String,
 }
@@ -22,9 +34,8 @@ struct KVS {
     copy_snapshot_mode: bool,
 }
 #[async_trait]
-impl RaftApp for KVS {
-    type Snapshot = lol_core::snapshot::BytesSnapshot;
-    async fn process_message(&self, x: Message) -> anyhow::Result<Message> {
+impl RaftAppCompat for KVS {
+    async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = kvs::Req::deserialize(&x);
         match msg {
             Some(x) => match x {
@@ -52,18 +63,18 @@ impl RaftApp for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: Message, _: Index) -> anyhow::Result<(Message, Option<Self::Snapshot>)> {
+    async fn apply_message(&self, x: &[u8], _: Index) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
             let b = kvs::Snapshot::serialize(&new_snapshot);
-            Some(b.into())
+            Some(b)
         } else {
             None
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<&Self::Snapshot>, _: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             // emulate heavy install_snapshot
             tokio::time::delay_for(Duration::from_secs(10)).await;
@@ -78,9 +89,9 @@ impl RaftApp for KVS {
     }
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&Self::Snapshot>,
-        xs: Vec<Message>,
-    ) -> anyhow::Result<Self::Snapshot> {
+        old_snapshot: Option<&[u8]>,
+        xs: Vec<&[u8]>,
+    ) -> anyhow::Result<Vec<u8>> {
         let mut old = old_snapshot
             .map(|x| kvs::Snapshot::deserialize(x.as_ref()).unwrap())
             .unwrap_or(kvs::Snapshot { h: BTreeMap::new() });
@@ -98,7 +109,7 @@ impl RaftApp for KVS {
             }
         }
         let b = kvs::Snapshot::serialize(&old);
-        Ok(b.into())
+        Ok(b)
     }
 }
 impl KVS {
@@ -123,10 +134,11 @@ async fn main() {
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {
-        // compactions runs every 5 secs.
-        // be careful, the tests depends on this value.
-        tunable.compaction_interval_sec = 5;
-        tunable.compaction_delay_sec = 5;
+        // by default, compactions runs every 5 secs.
+        // this value is carefully chosen, the tests depends on this value.
+        let v = opt.compaction_interval_sec.unwrap_or(5);
+        tunable.compaction_interval_sec = v;
+        tunable.compaction_delay_sec = 1;
     } else {
         tunable.compaction_interval_sec = 0;
         tunable.compaction_delay_sec = 1;
@@ -140,18 +152,23 @@ async fn main() {
         })
         .init();
 
-    let storage = lol_core::storage::memory::Storage::new();
+    let app = ToRaftApp::new(app);
+    let core = if let Some(id) = opt.use_persistency {
+        std::fs::create_dir("/tmp/lol");
+        let path = format!("/tmp/lol/{}.db", id);
+        let path = Path::new(&path);
+        let builder = lol_core::storage::disk::StorageBuilder::new(&path);
+        if opt.reset_persistency {
+            builder.destory();
+            builder.create();
+        }
+        let storage = builder.open();
+        RaftCore::new(app, storage, config, tunable).await
+    } else {
+        let storage = lol_core::storage::memory::Storage::new();
+        RaftCore::new(app, storage, config, tunable).await
+    };
 
-    // std::fs::create_dir("/tmp/lol");
-    // let path = format!("/tmp/lol/{}.db", id);
-    // let path = Path::new(&path);
-    // let builder = lol_core::storage::disk::StorageBuilder::new(&path);
-    // builder.destory();
-    // builder.create();
-    // let storage = builder.open();
-
-    let core = RaftCore::new(app, storage, config, tunable).await;
-    let core = Arc::new(core);
     let res = lol_core::start_server(core).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);

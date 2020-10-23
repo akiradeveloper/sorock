@@ -3,7 +3,6 @@ use crate::{connection, Id, Index};
 use crate::{RaftApp, RaftCore};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug)]
@@ -40,12 +39,12 @@ impl Cluster {
             thread_drop: HashMap::new(),
         }
     }
-    pub fn id_list(&self) -> HashSet<Id> {
+    pub fn get_membership(&self) -> HashSet<Id> {
         self.internal.keys().cloned().collect()
     }
-    pub async fn add_server<A: RaftApp>(&mut self, id: Id, core: Arc<RaftCore<A>>) {
+    async fn add_server<A: RaftApp>(&mut self, id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
         if self.internal.contains_key(&id) {
-            return;
+            return Ok(());
         }
         let endpoint = connection::Endpoint::new(id.clone());
         let member = if id == self.selfid {
@@ -62,23 +61,24 @@ impl Cluster {
             tokio::spawn(g);
             self.thread_drop.insert(id.clone(), dropper);
 
-            let last_log_index = core.log.get_last_log_index().await;
+            let last_log_index = core.log.get_last_log_index().await?;
             ClusterMember {
                 endpoint,
                 progress: Some(ReplicationProgress::new(last_log_index)),
             }
         };
         self.internal.insert(id, member);
+        Ok(())
     }
-    pub fn remove_server(&mut self, id: Id) {
+    fn remove_server(&mut self, id: Id) {
         if !self.internal.contains_key(&id) {
             return;
         }
         self.internal.remove(&id);
         self.thread_drop.remove(&id);
     }
-    pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) {
-        let cur = self.id_list();
+    pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
+        let cur = self.get_membership();
         let mut to_add = HashSet::new();
         for x in goal {
             if !cur.contains(x) {
@@ -92,10 +92,11 @@ impl Cluster {
             }
         }
         for id in to_add {
-            self.add_server(id, Arc::clone(&core)).await;
+            self.add_server(id, Arc::clone(&core)).await?;
         }
         for id in to_remove {
             self.remove_server(id);
         }
+        Ok(())
     }
 }

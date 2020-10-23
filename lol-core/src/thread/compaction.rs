@@ -1,6 +1,7 @@
 use crate::{RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
+use std::sync::atomic::Ordering;
 
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
@@ -17,19 +18,14 @@ impl<A: RaftApp> Thread<A> {
             let interval = Duration::from_secs(v);
             tokio::time::delay_for(interval).await;
 
-            let delay = Duration::from_secs(self.core.tunable.read().await.compaction_delay_sec);
             let core = Arc::clone(&self.core);
             let f = async move {
-                log::info!("start compaction L1");
-                let new_snapshot_index = core.log.find_compaction_point(delay).await;
-                log::info!("new compaction point: {:?}", new_snapshot_index);
-                if let Some(new_snapshot_index) = new_snapshot_index {
-                    core.log
-                        .advance_snapshot_index(new_snapshot_index, Arc::clone(&core))
-                        .await;
-                }
+                let new_snapshot_index = core.log.last_applied.load(Ordering::SeqCst);
+                core.log
+                    .create_fold_snapshot(new_snapshot_index, Arc::clone(&core))
+                    .await.unwrap();
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }

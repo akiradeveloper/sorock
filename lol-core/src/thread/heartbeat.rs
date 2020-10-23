@@ -25,10 +25,10 @@ impl<A: RaftApp> Thread<A> {
             let f = async move {
                 let election_state = *core.election_state.read().await;
                 if std::matches!(election_state, ElectionState::Leader) {
-                    core.broadcast_heartbeat().await;
+                    core.broadcast_heartbeat().await.unwrap();
                 };
             };
-            tokio::spawn(f).await;
+            let _ = tokio::spawn(f).await;
         }
     }
 }

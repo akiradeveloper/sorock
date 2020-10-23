@@ -1,12 +1,11 @@
 pub mod commit;
-pub mod compaction_l1;
-pub mod compaction_l2;
+pub mod compaction;
 pub mod election;
 pub mod execution;
 pub mod heartbeat;
-pub mod news;
 pub mod query_executor;
 pub mod replication;
 pub mod server;
 pub mod gc;
 pub mod snapshot_installer;
+pub mod notification;
