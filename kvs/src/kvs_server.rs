@@ -9,7 +9,6 @@ use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
 use std::path::Path;
-use bytes::Bytes;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
