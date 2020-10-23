@@ -843,12 +843,18 @@ struct Log {
 }
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
+        let snapshot_index = storage.get_snapshot_index().await.unwrap();
+        let start_index = if snapshot_index == 0 {
+            0
+        } else {
+            snapshot_index - 1
+        };
         Self {
             storage,
             ack_chans: RwLock::new(BTreeMap::new()),
 
-            last_applied: 0.into(),
-            commit_index: 0.into(),
+            last_applied: start_index.into(),
+            commit_index: start_index.into(),
 
             append_token: Semaphore::new(1),
             commit_token: Semaphore::new(1),
