@@ -773,6 +773,9 @@ impl<A: RaftApp> RaftCore<A> {
             return Ok(());
         }
 
+        // now the heartbeat is valid and record the time
+        *self.last_heartbeat_received.lock().await = Instant::now();
+
         if leader_term > vote.cur_term {
             log::warn!("received heartbeat with newer term. reset vote");
             vote.cur_term = leader_term;
@@ -786,7 +789,6 @@ impl<A: RaftApp> RaftCore<A> {
         }
 
         self.store_vote(vote).await?;
-        *self.last_heartbeat_received.lock().await = Instant::now();
 
         let new_commit_index = std::cmp::min(
             leader_commit,
