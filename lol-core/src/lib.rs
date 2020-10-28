@@ -175,6 +175,7 @@ pub struct RaftCore<A: RaftApp> {
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
+    safe_term: AtomicU64,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
@@ -192,6 +193,7 @@ impl<A: RaftApp> RaftCore<A> {
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
+            safe_term: 0.into(),
         });
         log::info!("initial membership is {:?}", init_membership);
         r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await.unwrap();
@@ -352,9 +354,17 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(())
     }
+    fn commit_safe_term(&self, term: Term) {
+        log::info!("noop entry of term {} is successfully committed", term);
+        self.safe_term.fetch_max(term, Ordering::SeqCst);
+    }
     // leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
         let term = self.load_vote().await?.cur_term;
+        // safe term is a term that noop entry is successfully committed.
+        if self.safe_term.load(Ordering::SeqCst) < term {
+            return Err(anyhow!("noop entry for term {} isn't committed yet."));
+        }
         // command.clone() is cheap because the message buffer is Bytes.
         self.log.append_new_entry(command.clone(), ack, term).await?;
         // change membership when cluster configuration is appended.
@@ -676,12 +686,12 @@ impl<A: RaftApp> RaftCore<A> {
         let ok = quorum_join::quorum_join(timeout, quorum, vote_requests).await;
         Ok(ok)
     }
-    async fn after_votes(self: &Arc<Self>, ok: bool) -> anyhow::Result<()> {
+    async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> anyhow::Result<()> {
         if ok {
             log::info!("got enough votes from the cluster. promoted to leader");
 
-            // as soon as the node becomes the leader, replicate noop entries with term
-            self.queue_entry(Command::Noop, None).await?;
+            // as soon as the node becomes the leader, replicate noop entries with term.
+            self.log.append_new_entry(Command::Noop, None, aim_term).await?;
 
             // initialize replication progress
             {
@@ -726,7 +736,7 @@ impl<A: RaftApp> RaftCore<A> {
         // try to promote at the term.
         // failing some I/O operations during election will be considered as election failure.
         let ok = self.request_votes(aim_term, force_vote).await.unwrap_or(false);
-        self.after_votes(ok).await?;
+        self.after_votes(aim_term, ok).await?;
 
         Ok(())
     }
@@ -965,8 +975,9 @@ impl Log {
         }
 
         for i in old_agreement + 1..=new_agreement {
-            let command = self.storage.get_entry(i).await?.unwrap().command.into();
-            match command {
+            let e = self.storage.get_entry(i).await?.unwrap();
+            let term = e.this_clock.0;
+            match e.command.into() {
                 Command::ClusterConfiguration { membership } => {
                     let remove_this_node = !membership.contains(&core.id);
                     let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
@@ -978,7 +989,10 @@ impl Log {
                         core.transfer_leadership().await;
                     } 
                 },
-                _ => {}
+                Command::Noop => {
+                    core.commit_safe_term(term);
+                },
+                _ => {},
             }
 
             let mut ack_chans = self.ack_chans.write().await;
