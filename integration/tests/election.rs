@@ -20,7 +20,7 @@ fn test_reelection_after_leader_crash() {
 
     // FIXME for what reason?
     // restart the server
-    env.start(0, vec![]);
+    env.start(0, kvs_server(vec![]));
     assert_cluster(
         Duration::from_secs(5),
         vec![0, 1, 2],
@@ -36,8 +36,8 @@ fn test_two_nodes_up_after_down() {
     env.stop(0);
     env.stop(1);
 
-    env.start(0, vec![]);
-    env.start(1, vec![]);
+    env.start(0, kvs_server(vec![]));
+    env.start(1, kvs_server(vec![]));
     thread::sleep(Duration::from_secs(5));
 
     let v = Client::to(2, env.clone()).get("k").unwrap().0;
@@ -47,11 +47,11 @@ fn test_two_nodes_up_after_down() {
 fn test_reelection_after_leader_stepdown() {
     let env = init_cluster(3);
 
-    Admin::to(0, env.clone()).remove_server(0, env.clone());
+    Admin::to(0, env.clone()).remove_server(0);
     thread::sleep(Duration::from_secs(5));
     assert_cluster(Duration::from_secs(5), vec![1, 2], vec![1, 2], env.clone());
 
-    Admin::to(1, env.clone()).add_server(0, env.clone());
+    Admin::to(1, env.clone()).add_server(0);
     assert_cluster(
         Duration::from_secs(5),
         vec![0, 1, 2],
@@ -63,24 +63,24 @@ fn test_reelection_after_leader_stepdown() {
 fn test_timeout_now() {
     let env = init_cluster(3);
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();
-    assert_eq!(cluster_info.leader_id, Some(env.node_id(0)));
+    assert_eq!(cluster_info.leader_id, Some(env.get_node_id(0)));
 
     Admin::to(2, env.clone()).timeout_now().unwrap();
     thread::sleep(Duration::from_secs(2));
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();
-    assert_eq!(cluster_info.leader_id, Some(env.node_id(2)));
+    assert_eq!(cluster_info.leader_id, Some(env.get_node_id(2)));
 }
 #[test]
 fn test_yield_leadership() {
     let env = init_cluster(3);
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();
-    assert_eq!(cluster_info.leader_id, Some(env.node_id(0)));
+    assert_eq!(cluster_info.leader_id, Some(env.get_node_id(0)));
 
     Admin::to(0, env.clone())
-        .remove_server(0, env.clone())
+        .remove_server(0)
         .unwrap();
     thread::sleep(Duration::from_millis(100));
     let cluster_info = Admin::to(1, env.clone()).cluster_info().unwrap();
     assert!(cluster_info.leader_id.is_some());
-    assert_ne!(cluster_info.leader_id, Some(env.node_id(0)));
+    assert_ne!(cluster_info.leader_id, Some(env.get_node_id(0)));
 }
