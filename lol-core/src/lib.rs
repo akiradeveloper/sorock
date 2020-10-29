@@ -176,6 +176,7 @@ pub struct RaftCore<A: RaftApp> {
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
     safe_term: AtomicU64,
+    lastest_membership_index: AtomicU64,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
@@ -194,9 +195,11 @@ impl<A: RaftApp> RaftCore<A> {
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
             safe_term: 0.into(),
+            lastest_membership_index: 0.into(),
         });
-        log::info!("initial membership is {:?}", init_membership);
+        log::info!("initial membership is {:?} at {}", init_membership, membership_index);
         r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await.unwrap();
+        r.lastest_membership_index.store(membership_index, Ordering::SeqCst);
         r
     }
     async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<(Index, HashSet<Id>)> {
@@ -241,6 +244,7 @@ impl<A: RaftApp> RaftCore<A> {
         };
         self.log.insert_entry(add_server).await?;
         self.set_membership(&membership).await?;
+        self.lastest_membership_index.store(2, Ordering::SeqCst);
 
         // after this function is called
         // this server becomes the leader by self-vote and advance commit index in usual manner.
@@ -356,13 +360,15 @@ fn into_stream(
 }
 // replication
 impl<A: RaftApp> RaftCore<A> {
-    async fn change_membership(self: &Arc<Self>, command: Command) -> anyhow::Result<()> {
+    async fn change_membership(self: &Arc<Self>, command: Command, index: Index) -> anyhow::Result<()> {
         match command {
             Command::Snapshot { membership } => {
-                self.set_membership(&membership).await?
+                self.set_membership(&membership).await?;
+                self.lastest_membership_index.store(index, Ordering::SeqCst);
             },
             Command::ClusterConfiguration { membership } => {
-                self.set_membership(&membership).await?
+                self.set_membership(&membership).await?;
+                self.lastest_membership_index.store(index, Ordering::SeqCst);
             },
             _ => {},
         }
@@ -380,9 +386,9 @@ impl<A: RaftApp> RaftCore<A> {
             return Err(anyhow!("noop entry for term {} isn't committed yet."));
         }
         // command.clone() is cheap because the message buffer is Bytes.
-        self.log.append_new_entry(command.clone(), ack, term).await?;
+        let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
         // change membership when cluster configuration is appended.
-        self.change_membership(command).await?;
+        self.change_membership(command, append_index).await?;
         Ok(())
     }
     // follower calls this function when it receives entries from the leader.
@@ -394,10 +400,11 @@ impl<A: RaftApp> RaftCore<A> {
                 this_clock: (e.term, e.index),
                 command: e.command,
             };
+            let insert_index = entry.this_clock.1;
             let command = entry.command.clone();
             match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
                 TryInsertResult::Inserted => {
-                    self.change_membership(command.into()).await?;
+                    self.change_membership(command.into(), insert_index).await?;
                 },
                 TryInsertResult::Skipped => {},
                 TryInsertResult::Rejected => {
