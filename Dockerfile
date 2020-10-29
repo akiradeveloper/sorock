@@ -20,5 +20,4 @@ RUN echo $PATH
 
 RUN rustup install nightly
 
-# https://www.reddit.com/r/rust/comments/iingya/compiler_regression_on_1460/
-RUN rustup default 1.45.2
+RUN rustup default 1.47.0
