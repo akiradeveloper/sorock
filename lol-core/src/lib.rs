@@ -870,6 +870,8 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         let snapshot_index = storage.get_snapshot_index().await.unwrap();
+        // when the storage is persistent commit_index and last_applied
+        // should be set just before the snapshot index.
         let start_index = if snapshot_index == 0 {
             0
         } else {
