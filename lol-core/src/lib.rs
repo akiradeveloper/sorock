@@ -889,7 +889,7 @@ impl Log {
     async fn get_snapshot_index(&self) -> anyhow::Result<Index> {
         self.storage.get_snapshot_index().await
     }
-    async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<()> {
+    async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -906,7 +906,7 @@ impl Log {
             self.ack_chans.write().await.insert(new_index, x);
         }
         self.append_notification.lock().await.publish();
-        Ok(())
+        Ok(new_index)
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<bool> {
         let _token = self.append_token.acquire().await;
