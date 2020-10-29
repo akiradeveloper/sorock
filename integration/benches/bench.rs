@@ -130,9 +130,9 @@ fn bench_query_64(b: &mut test::Bencher) {
     do_bench_query(64, b);
 }
 
-fn do_bench_commit_huge(n: u8, b: &mut test::Bencher) {
+fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
-    let env = init_cluster(n);
+    let env = make_cluster(n, command);
     let id = env.get_node_id(0);
     // 100KB
     let mut v = String::new();
@@ -157,19 +157,42 @@ fn do_bench_commit_huge(n: u8, b: &mut test::Bencher) {
         assert!(r.is_ok());
     })
 }
-#[bench]
-fn test_commit_huge_1(b: &mut test::Bencher) {
-    do_bench_commit_huge(1, b)
+fn command_mem(i: u8) -> NodeCommand {
+    NodeCommand::new("kvs-server")
+}
+fn command_rocks(i: u8) -> NodeCommand {
+    let s = format!("--use-persistency={}", i);
+    NodeCommand::new("kvs-server").with_args(vec![s.as_str(), "--reset-persistency"])
 }
 #[bench]
-fn test_commit_huge_4(b: &mut test::Bencher) {
-    do_bench_commit_huge(4, b)
+fn test_commit_huge_1_mem(b: &mut test::Bencher) {
+    do_bench_commit_huge(1, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_16(b: &mut test::Bencher) {
-    do_bench_commit_huge(16, b)
+fn test_commit_huge_4_mem(b: &mut test::Bencher) {
+    do_bench_commit_huge(4, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_64(b: &mut test::Bencher) {
-    do_bench_commit_huge(64, b)
+fn test_commit_huge_16_mem(b: &mut test::Bencher) {
+    do_bench_commit_huge(16, command_mem, b)
+}
+#[bench]
+fn test_commit_huge_64_mem(b: &mut test::Bencher) {
+    do_bench_commit_huge(64, command_mem, b)
+}
+#[bench]
+fn test_commit_huge_1_rocks(b: &mut test::Bencher) {
+    do_bench_commit_huge(1, command_rocks, b)
+}
+#[bench]
+fn test_commit_huge_4_rocks(b: &mut test::Bencher) {
+    do_bench_commit_huge(4, command_rocks, b)
+}
+#[bench]
+fn test_commit_huge_16_rocks(b: &mut test::Bencher) {
+    do_bench_commit_huge(16, command_rocks, b)
+}
+#[bench]
+fn test_commit_huge_64_rocks(b: &mut test::Bencher) {
+    do_bench_commit_huge(64, command_rocks, b)
 }
