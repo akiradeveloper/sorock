@@ -313,6 +313,11 @@ impl<A: RaftApp> RaftCore<A> {
             .await;
     }
 }
+enum TryInsertResult {
+    Inserted,
+    Skipped,
+    Rejected,
+}
 struct AppendEntryElem {
     term: Term,
     index: Index,
@@ -390,12 +395,16 @@ impl<A: RaftApp> RaftCore<A> {
                 command: e.command,
             };
             let command = entry.command.clone();
-            if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
-                log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
-                return Ok(false);
+            match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
+                TryInsertResult::Inserted => {
+                    self.change_membership(command.into()).await?;
+                },
+                TryInsertResult::Skipped => {},
+                TryInsertResult::Rejected => {
+                    log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
+                    return Ok(false);
+                },
             }
-            self.change_membership(command.into()).await?;
-
             prev_clock = (e.term, e.index);
         }
         Ok(true)
@@ -911,13 +920,13 @@ impl Log {
         self.append_notification.lock().await.publish();
         Ok(new_index)
     }
-    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<bool> {
+    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
         let _token = self.append_token.acquire().await;
 
         let (_, prev_index) = entry.prev_clock;
         if let Some(prev_clock) = self.storage.get_entry(prev_index).await?.map(|x| x.this_clock) {
             if prev_clock != entry.prev_clock {
-                return Ok(false);
+                return Ok(TryInsertResult::Rejected);
             }
         } else {
             // if the entry is snapshot then we should insert this entry without consistency checks.
@@ -934,7 +943,7 @@ impl Log {
                     let res = core.fetch_snapshot(snapshot_index, sender_id.clone()).await;
                     if res.is_err() {
                         log::error!("could not fetch app snapshot (idx={}) from sender {}", snapshot_index, sender_id);
-                        return Ok(false);
+                        return Ok(TryInsertResult::Rejected);
                     }
                 }
 
@@ -942,9 +951,9 @@ impl Log {
                 self.commit_index.store(snapshot_index - 1, Ordering::SeqCst);
                 self.last_applied.store(snapshot_index - 1, Ordering::SeqCst);
 
-                return Ok(true);
+                return Ok(TryInsertResult::Inserted);
             } else {
-                return Ok(false);
+                return Ok(TryInsertResult::Rejected);
             }
         }
 
@@ -954,6 +963,7 @@ impl Log {
             if old_clock == entry.this_clock {
                 // if there is a entry with the same term and index
                 // then the entry should be the same so skip insertion.
+                Ok(TryInsertResult::Skipped)
             } else {
                 log::warn!("log conflicted at idx: {}", new_index);
 
@@ -963,12 +973,12 @@ impl Log {
                 }
 
                 self.insert_entry(entry).await?;
+                Ok(TryInsertResult::Inserted)
             }
         } else {
             self.insert_entry(entry).await?;
+            Ok(TryInsertResult::Inserted)
         }
-
-        Ok(true)
     }
     async fn insert_entry(&self, e: Entry) -> anyhow::Result<()> {
         let (_, idx) = e.this_clock;
