@@ -354,10 +354,10 @@ pub fn eventually<T: Eq>(timeout: Duration, should_be: T, f: impl Fn() -> T) -> 
     }
 }
 /// make a cluster with the same command.
-pub fn make_cluster(n: u8, command: NodeCommand) -> EnvRef {
-    let env = Environment::new(0, command.clone());
+pub fn make_cluster(n: u8, command: impl Fn(u8) -> NodeCommand) -> EnvRef {
+    let env = Environment::new(0, command(0).clone());
     for k in 1..n {
-        env.start(k, command.clone());
+        env.start(k, command(k).clone());
         Admin::to(0, env.clone()).add_server(k);
         let mut nodes = vec![];
         for i in 0..=k {

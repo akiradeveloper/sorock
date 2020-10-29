@@ -85,5 +85,5 @@ impl Client {
     }
 }
 pub fn init_cluster(n: u8) -> EnvRef {
-    make_cluster(n, kvs_server(vec![]))
+    make_cluster(n, |_| kvs_server(vec![]))
 }
