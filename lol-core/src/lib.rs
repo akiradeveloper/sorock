@@ -181,7 +181,7 @@ impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
         let id = config.id;
         let init_cluster = membership::Cluster::empty(id.clone()).await;
-        let init_membership = Self::find_last_membership(&storage).await.unwrap();
+        let (membership_index, init_membership) = Self::find_last_membership(&storage).await.unwrap();
         let init_log = Log::new(Box::new(storage)).await;
         let r = Arc::new(Self {
             app,
@@ -199,22 +199,22 @@ impl<A: RaftApp> RaftCore<A> {
         r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await.unwrap();
         r
     }
-    async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<HashSet<Id>> {
+    async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<(Index, HashSet<Id>)> {
         let from = storage.get_snapshot_index().await?;
         if from == 0 {
-            return Ok(HashSet::new())
+            return Ok((0, HashSet::new()))
         }
         let to = storage.get_last_index().await?;
         assert!(from <= to);
-        let mut ret = HashSet::new();
+        let mut ret = (0, HashSet::new());
         for i in from ..= to {
             let e = storage.get_entry(i).await?.unwrap();
-            match e.command.into() {
-                Command::Snapshot { membership } => {
-                    ret = membership;
+            match CommandB::deserialize(&e.command) {
+                CommandB::Snapshot { membership } => {
+                    ret = (i, membership);
                 },
-                Command::ClusterConfiguration { membership } => {
-                    ret = membership;
+                CommandB::ClusterConfiguration { membership } => {
+                    ret = (i, membership);
                 },
                 _ => {}
             }
