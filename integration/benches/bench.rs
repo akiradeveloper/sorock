@@ -10,7 +10,7 @@ extern crate test;
 fn do_bench_commit(n: u8, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = init_cluster(n);
-    let id = env.node_id(0);
+    let id = env.get_node_id(0);
     b.iter(|| {
         let endpoint = lol_core::connection::Endpoint::new(id.clone());
         let msg = kvs::Req::Set {
@@ -52,7 +52,7 @@ fn do_bench_apply(n: u8, b: &mut test::Bencher) {
     Client::to(0, env.clone()).set("k", "v");
     thread::sleep(Duration::from_secs(1));
 
-    let id = env.node_id(0);
+    let id = env.get_node_id(0);
     b.iter(|| {
         let endpoint = lol_core::connection::Endpoint::new(id.clone());
         let msg = kvs::Req::Get {
@@ -94,7 +94,7 @@ fn do_bench_query(n: u8, b: &mut test::Bencher) {
     Client::to(0, env.clone()).set("k", "v");
     thread::sleep(Duration::from_secs(1));
 
-    let id = env.node_id(0);
+    let id = env.get_node_id(0);
     b.iter(|| {
         let endpoint = lol_core::connection::Endpoint::new(id.clone());
         let msg = kvs::Req::Get {
@@ -133,7 +133,7 @@ fn bench_query_64(b: &mut test::Bencher) {
 fn do_bench_commit_huge(n: u8, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = init_cluster(n);
-    let id = env.node_id(0);
+    let id = env.get_node_id(0);
     // 100KB
     let mut v = String::new();
     for _ in 0..100_000 {
