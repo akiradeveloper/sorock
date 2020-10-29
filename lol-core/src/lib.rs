@@ -242,7 +242,10 @@ impl<A: RaftApp> RaftCore<A> {
         self.log.insert_entry(add_server).await?;
         self.set_membership(&membership).await?;
 
-        self.log.advance_commit_index(2, Arc::clone(&self)).await?;
+        // after this function is called
+        // this server becomes the leader by self-vote and advance commit index in usual manner.
+        // consequently when initial install_snapshot is called this server is already the leader.
+
         Ok(())
     }
     async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>) -> anyhow::Result<()> {
