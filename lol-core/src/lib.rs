@@ -988,8 +988,8 @@ impl Log {
         for i in old_agreement + 1..=new_agreement {
             let e = self.storage.get_entry(i).await?.unwrap();
             let term = e.this_clock.0;
-            match e.command.into() {
-                Command::ClusterConfiguration { membership } => {
+            match CommandB::deserialize(&e.command) {
+                CommandB::ClusterConfiguration { membership } => {
                     let remove_this_node = !membership.contains(&core.id);
                     let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
                     if remove_this_node && is_leader {
@@ -1000,7 +1000,7 @@ impl Log {
                         core.transfer_leadership().await;
                     } 
                 },
-                Command::Noop => {
+                CommandB::Noop => {
                     core.commit_safe_term(term);
                 },
                 _ => {},
