@@ -221,7 +221,7 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(ret)
     }
-    async fn init_cluster(self: &Arc<Self>, id: Id) -> anyhow::Result<()> {
+    async fn init_cluster(self: &Arc<Self>) -> anyhow::Result<()> {
         let snapshot = Entry {
             prev_clock: (0, 0),
             this_clock: (0, 1),
@@ -229,11 +229,17 @@ impl<A: RaftApp> RaftCore<A> {
                 membership: HashSet::new(),
             }.into(),
         };
-        self.log.try_insert_entry(snapshot, self.id.clone(), Arc::clone(&self)).await?;
+        self.log.insert_snapshot(snapshot).await?;
         let mut membership = HashSet::new();
-        membership.insert(id);
-        let add_server = Command::ClusterConfiguration { membership: membership.clone() };
-        self.log.append_new_entry(add_server, None, 0).await?;
+        membership.insert(self.id.clone());
+        let add_server = Entry {
+            prev_clock: (0, 1),
+            this_clock: (0, 2),
+            command: Command::ClusterConfiguration {
+                membership: membership.clone(),
+            }.into(),
+        };
+        self.log.insert_entry(add_server).await?;
         self.set_membership(&membership).await?;
 
         self.log.advance_commit_index(2, Arc::clone(&self)).await?;
@@ -250,7 +256,7 @@ impl<A: RaftApp> RaftCore<A> {
             core_message::Req::InitCluster => {
                 let res = if self.cluster.read().await.internal.len() == 0 {
                     log::info!("init cluster");
-                    self.init_cluster(self.id.clone()).await?;
+                    self.init_cluster().await?;
                     core_message::Rep::InitCluster { ok: true }
                 } else {
                     core_message::Rep::InitCluster { ok: false }
@@ -895,7 +901,7 @@ impl Log {
             this_clock,
             command: command.into(),
         };
-        self.storage.insert_entry(new_index, e).await?;
+        self.insert_entry(e).await?;
         if let Some(x) = ack {
             self.ack_chans.write().await.insert(new_index, x);
         }
@@ -953,13 +959,18 @@ impl Log {
                     self.ack_chans.write().await.remove(&idx);
                 }
 
-                self.storage.insert_entry(new_index, entry).await?;
+                self.insert_entry(entry).await?;
             }
         } else {
-            self.storage.insert_entry(new_index, entry).await?;
+            self.insert_entry(entry).await?;
         }
 
         Ok(true)
+    }
+    async fn insert_entry(&self, e: Entry) -> anyhow::Result<()> {
+        let (_, idx) = e.this_clock;
+        self.storage.insert_entry(idx, e).await?;
+        Ok(())
     }
     async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
         let (_, idx) = e.this_clock;
