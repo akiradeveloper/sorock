@@ -1,3 +1,9 @@
+# 0.5.1 (2020-10-30)
+
+- Ractor out lol-test as a crate.
+- Wait for noop entry to be committed before appending new entries in the new term.
+- Add AddServer/RemoveServer APIs to proto file. Deprecate InitCluster API.
+
 # 0.5.0 (2020-10-23)
 
 - RaftApp abstraction update: Notion of Snapshot Tag.
