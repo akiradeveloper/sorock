@@ -1,6 +1,7 @@
-use crate::connection::Endpoint;
+use crate::connection::{Endpoint, EndpointConfig};
 use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::stream::StreamExt;
 
 use proto_compiled::{
@@ -8,6 +9,7 @@ use proto_compiled::{
     AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
+    AddServerReq, AddServerRep, RemoveServerReq, RemoveServerRep,
 };
 
 struct Thread<A: RaftApp> {
@@ -255,6 +257,51 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))
+    }
+    async fn add_server(
+        &self,
+        request: tonic::Request<AddServerReq>,
+    ) -> Result<tonic::Response<AddServerRep>, tonic::Status> {
+        let req = request.into_inner();
+        let membership = self.core.cluster.read().await.get_membership();
+        let ok = if membership.is_empty() && req.id == self.core.id {
+            self.core.init_cluster().await.is_ok()
+        } else {
+            let msg = core_message::Req::AddServer(req.id);
+            let req = proto_compiled::CommitReq {
+                message: core_message::Req::serialize(&msg),
+                core: true,
+            };
+            let endpoint = Endpoint::new(self.core.id.clone());
+            let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+            let mut conn = endpoint.connect_with(config).await?;
+            conn.request_commit(req).await.is_ok()
+        };
+        if ok {
+            Ok(tonic::Response::new(AddServerRep {}))
+        } else {
+            Err(tonic::Status::aborted("couldn't add server"))
+        }
+    }
+    async fn remove_server(
+        &self,
+        request: tonic::Request<RemoveServerReq>,
+    ) -> Result<tonic::Response<RemoveServerRep>, tonic::Status> {
+        let req = request.into_inner();
+        let msg = core_message::Req::RemoveServer(req.id);
+        let req = proto_compiled::CommitReq {
+            message: core_message::Req::serialize(&msg),
+            core: true,
+        };
+        let endpoint = Endpoint::new(self.core.id.clone());
+        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+        let mut conn = endpoint.connect_with(config).await?;
+        let ok = conn.request_commit(req).await.is_ok();
+        if ok {
+            Ok(tonic::Response::new(RemoveServerRep {}))
+        } else {
+            Err(tonic::Status::aborted("couldn't remove server"))
+        }
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) -> Result<(), tonic::transport::Error> {

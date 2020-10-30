@@ -44,6 +44,7 @@ impl Admin {
             rt.block_on(fut)
         }).join().unwrap()
     }
+    #[deprecated]
     fn init_cluster(&self) -> Result<admin::InitCluster> {
         let msg = core_message::Req::InitCluster;
         let req = proto_compiled::ProcessReq {
@@ -66,31 +67,23 @@ impl Admin {
     }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let msg = core_message::Req::AddServer(id);
-        let req = proto_compiled::CommitReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
+        let req = proto_compiled::AddServerReq { id, };
         let endpoint = connection::Endpoint::new(self.to.clone());
         let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = endpoint.connect_with(config).await?;
-            conn.request_commit(req).await
+            conn.add_server(req).await
         })?;
         Ok(())
     }
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let msg = core_message::Req::RemoveServer(id);
-        let req = proto_compiled::CommitReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
+        let req = proto_compiled::RemoveServerReq { id, };
         let endpoint = connection::Endpoint::new(self.to.clone());
         let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = endpoint.connect_with(config).await?;
-            conn.request_commit(req).await
+            conn.remove_server(req).await
         })?;
         Ok(())
     }
@@ -196,7 +189,7 @@ impl Environment {
         x.start(id, command);
         thread::sleep(Duration::from_millis(1000));
         let env = Arc::new(x);
-        Admin::to(id, env.clone()).init_cluster().unwrap();
+        Admin::to(id, env.clone()).add_server(id).unwrap();
         thread::sleep(Duration::from_millis(2000));
         env
     }
