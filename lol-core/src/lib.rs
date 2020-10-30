@@ -198,8 +198,7 @@ impl<A: RaftApp> RaftCore<A> {
             lastest_membership_index: 0.into(),
         });
         log::info!("initial membership is {:?} at {}", init_membership, membership_index);
-        r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await.unwrap();
-        r.lastest_membership_index.store(membership_index, Ordering::SeqCst);
+        r.set_membership(&init_membership, membership_index).await.unwrap();
         r
     }
     async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<(Index, HashSet<Id>)> {
@@ -243,8 +242,7 @@ impl<A: RaftApp> RaftCore<A> {
             }.into(),
         };
         self.log.insert_entry(add_server).await?;
-        self.set_membership(&membership).await?;
-        self.lastest_membership_index.store(2, Ordering::SeqCst);
+        self.set_membership(&membership, 2).await?;
 
         // after this function is called
         // this server becomes the leader by self-vote and advance commit index in usual manner.
@@ -252,9 +250,10 @@ impl<A: RaftApp> RaftCore<A> {
 
         Ok(())
     }
-    async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>) -> anyhow::Result<()> {
+    async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>, index: Index) -> anyhow::Result<()> {
         log::info!("change membership to {:?}", membership);
         self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await?;
+        self.lastest_membership_index.store(index, Ordering::SeqCst);
         Ok(())
     }
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -363,12 +362,10 @@ impl<A: RaftApp> RaftCore<A> {
     async fn change_membership(self: &Arc<Self>, command: Command, index: Index) -> anyhow::Result<()> {
         match command {
             Command::Snapshot { membership } => {
-                self.set_membership(&membership).await?;
-                self.lastest_membership_index.store(index, Ordering::SeqCst);
+                self.set_membership(&membership, index).await?;
             },
             Command::ClusterConfiguration { membership } => {
-                self.set_membership(&membership).await?;
-                self.lastest_membership_index.store(index, Ordering::SeqCst);
+                self.set_membership(&membership, index).await?;
             },
             _ => {},
         }
