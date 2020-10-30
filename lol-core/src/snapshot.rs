@@ -24,7 +24,7 @@ impl SnapshotQueue {
     pub async fn run_once<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
         while let Some(Ok(expired)) = self.q.lock().await.next().await {
             let InsertSnapshot { e } = expired.into_inner();
-            log::info!("insert new snapshot index = {}", e.this_clock.1);
+            log::info!("insert new snapshot index = {}", e.this_clock.index);
             let _ = raft_core.log.insert_snapshot(e).await;
         }
     }

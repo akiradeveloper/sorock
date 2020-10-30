@@ -1,5 +1,5 @@
 use crate::connection::Endpoint;
-use crate::{ack, core_message, proto_compiled, Command, ElectionState, RaftApp, RaftCore};
+use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
 use tokio::stream::StreamExt;
 
@@ -143,7 +143,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let req = request.into_inner();
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
-        let candidate_clock = (req.last_log_term, req.last_log_index);
+        let candidate_clock = Clock { term: req.last_log_term, index: req.last_log_index };
         let force_vote = req.force_vote;
         let vote_granted = self
             .core

@@ -54,8 +54,8 @@ pub trait RaftStorage: Sync + Send + 'static {
 
 async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     let e = Entry {
-        prev_clock: (0,0),
-        this_clock: (0,0),
+        prev_clock: Clock { term: 0, index: 0 },
+        this_clock: Clock { term: 0, index: 0 },
         command: Bytes::new(),
     };
 
