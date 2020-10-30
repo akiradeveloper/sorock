@@ -5,6 +5,7 @@ use super::{Entry, Vote};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use tokio::sync::Semaphore;
+use crate::Clock;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -32,8 +33,8 @@ impl From<Vec<u8>> for Entry {
     fn from(x: Vec<u8>) -> Self {
         let x: EntryB = rmp_serde::from_slice(&x).unwrap();
         Entry {
-            prev_clock: x.prev_clock,
-            this_clock: x.this_clock,
+            prev_clock: Clock { term: x.prev_clock.0, index: x.prev_clock.1 },
+            this_clock: Clock { term: x.this_clock.0, index: x.this_clock.1 },
             command: x.command.into(),
         }
     }
@@ -41,8 +42,8 @@ impl From<Vec<u8>> for Entry {
 impl Into<Vec<u8>> for Entry {
     fn into(self) -> Vec<u8> {
         let x = EntryB {
-            prev_clock: self.prev_clock,
-            this_clock: self.this_clock,
+            prev_clock: (self.prev_clock.term, self.prev_clock.index),
+            this_clock: (self.this_clock.term, self.this_clock.index),
             command: self.command.as_ref().into(),
         };
         rmp_serde::to_vec(&x).unwrap()
@@ -283,8 +284,8 @@ async fn test_rocksdb_persistency() -> Result<()> {
     let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
 
     let e = Entry {
-        prev_clock: (0,0),
-        this_clock: (0,0),
+        prev_clock: Clock { term: 0, index: 0 },
+        this_clock: Clock { term: 0, index: 0 },
         command: Bytes::new(),
     };
     let tag: crate::SnapshotTag = vec![].into();

@@ -1,6 +1,7 @@
-use crate::connection::Endpoint;
-use crate::{ack, core_message, proto_compiled, Command, ElectionState, RaftApp, RaftCore};
+use crate::connection::{Endpoint, EndpointConfig};
+use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::stream::StreamExt;
 
 use proto_compiled::{
@@ -8,6 +9,7 @@ use proto_compiled::{
     AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
+    AddServerReq, AddServerRep, RemoveServerReq, RemoveServerRep,
 };
 
 struct Thread<A: RaftApp> {
@@ -66,11 +68,22 @@ impl<A: RaftApp> Raft for Thread<A> {
             let command = if req.core {
                 match core_message::Req::deserialize(&req.message).unwrap() {
                     core_message::Req::AddServer(id) => {
+                        // I know this isn't correct in a real sense.
+                        // As there is a gap between this guard and setting new barrier
+                        // concurrent requests "can be" accepted but this is ok in practice.
+                        if !self.core.allow_new_membership_change() {
+                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                        }
+
                         let mut membership = self.core.cluster.read().await.get_membership();
                         membership.insert(id);
                         Command::ClusterConfiguration { membership }
                     },
                     core_message::Req::RemoveServer(id) => {
+                        if !self.core.allow_new_membership_change() {
+                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                        }
+
                         let mut membership = self.core.cluster.read().await.get_membership();
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
@@ -143,7 +156,7 @@ impl<A: RaftApp> Raft for Thread<A> {
         let req = request.into_inner();
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
-        let candidate_clock = (req.last_log_term, req.last_log_index);
+        let candidate_clock = Clock { term: req.last_log_term, index: req.last_log_index };
         let force_vote = req.force_vote;
         let vote_granted = self
             .core
@@ -244,6 +257,51 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
         let res = TimeoutNowRep {};
         Ok(tonic::Response::new(res))
+    }
+    async fn add_server(
+        &self,
+        request: tonic::Request<AddServerReq>,
+    ) -> Result<tonic::Response<AddServerRep>, tonic::Status> {
+        let req = request.into_inner();
+        let membership = self.core.cluster.read().await.get_membership();
+        let ok = if membership.is_empty() && req.id == self.core.id {
+            self.core.init_cluster().await.is_ok()
+        } else {
+            let msg = core_message::Req::AddServer(req.id);
+            let req = proto_compiled::CommitReq {
+                message: core_message::Req::serialize(&msg),
+                core: true,
+            };
+            let endpoint = Endpoint::new(self.core.id.clone());
+            let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+            let mut conn = endpoint.connect_with(config).await?;
+            conn.request_commit(req).await.is_ok()
+        };
+        if ok {
+            Ok(tonic::Response::new(AddServerRep {}))
+        } else {
+            Err(tonic::Status::aborted("couldn't add server"))
+        }
+    }
+    async fn remove_server(
+        &self,
+        request: tonic::Request<RemoveServerReq>,
+    ) -> Result<tonic::Response<RemoveServerRep>, tonic::Status> {
+        let req = request.into_inner();
+        let msg = core_message::Req::RemoveServer(req.id);
+        let req = proto_compiled::CommitReq {
+            message: core_message::Req::serialize(&msg),
+            core: true,
+        };
+        let endpoint = Endpoint::new(self.core.id.clone());
+        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+        let mut conn = endpoint.connect_with(config).await?;
+        let ok = conn.request_commit(req).await.is_ok();
+        if ok {
+            Ok(tonic::Response::new(RemoveServerRep {}))
+        } else {
+            Err(tonic::Status::aborted("couldn't remove server"))
+        }
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) -> Result<(), tonic::transport::Error> {

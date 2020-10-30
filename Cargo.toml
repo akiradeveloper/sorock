@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "lol-core",
+    "lol-test",
     "lol-admin",
     "lol-bridge",
     "lol-monitor",

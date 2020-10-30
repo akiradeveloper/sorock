@@ -7,14 +7,14 @@ use std::time::Duration;
 async fn test_gateway() {
     let env = init_cluster(1);
     let mut initial = HashSet::new();
-    initial.insert(env.node_id(0).to_owned());
+    initial.insert(env.get_node_id(0).to_owned());
     let gateway = gateway::Gateway::new(initial).await;
     gateway::Gateway::start_companion_thread(&gateway).await;
 
-    env.start(1, vec![]);
-    env.start(2, vec![]);
-    Admin::to(0, env.clone()).add_server(1, env.clone());
-    Admin::to(0, env.clone()).add_server(2, env.clone());
+    env.start(1, kvs_server(vec![]));
+    env.start(2, kvs_server(vec![]));
+    Admin::to(0, env.clone()).add_server(1);
+    Admin::to(0, env.clone()).add_server(2);
     tokio::time::delay_for(Duration::from_secs(6)).await;
 
     let config = EndpointConfig::default();
