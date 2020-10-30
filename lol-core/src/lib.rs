@@ -176,12 +176,13 @@ pub struct RaftCore<A: RaftApp> {
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
     safe_term: AtomicU64,
+    lastest_membership_index: AtomicU64,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
         let id = config.id;
         let init_cluster = membership::Cluster::empty(id.clone()).await;
-        let init_membership = Self::find_last_membership(&storage).await.unwrap();
+        let (membership_index, init_membership) = Self::find_last_membership(&storage).await.unwrap();
         let init_log = Log::new(Box::new(storage)).await;
         let r = Arc::new(Self {
             app,
@@ -194,27 +195,28 @@ impl<A: RaftApp> RaftCore<A> {
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
             safe_term: 0.into(),
+            lastest_membership_index: 0.into(),
         });
-        log::info!("initial membership is {:?}", init_membership);
-        r.cluster.write().await.set_membership(&init_membership, Arc::clone(&r)).await.unwrap();
+        log::info!("initial membership is {:?} at {}", init_membership, membership_index);
+        r.set_membership(&init_membership, membership_index).await.unwrap();
         r
     }
-    async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<HashSet<Id>> {
+    async fn find_last_membership<S: RaftStorage>(storage: &S) -> anyhow::Result<(Index, HashSet<Id>)> {
         let from = storage.get_snapshot_index().await?;
         if from == 0 {
-            return Ok(HashSet::new())
+            return Ok((0, HashSet::new()))
         }
         let to = storage.get_last_index().await?;
         assert!(from <= to);
-        let mut ret = HashSet::new();
+        let mut ret = (0, HashSet::new());
         for i in from ..= to {
             let e = storage.get_entry(i).await?.unwrap();
-            match e.command.into() {
-                Command::Snapshot { membership } => {
-                    ret = membership;
+            match CommandB::deserialize(&e.command) {
+                CommandB::Snapshot { membership } => {
+                    ret = (i, membership);
                 },
-                Command::ClusterConfiguration { membership } => {
-                    ret = membership;
+                CommandB::ClusterConfiguration { membership } => {
+                    ret = (i, membership);
                 },
                 _ => {}
             }
@@ -240,7 +242,7 @@ impl<A: RaftApp> RaftCore<A> {
             }.into(),
         };
         self.log.insert_entry(add_server).await?;
-        self.set_membership(&membership).await?;
+        self.set_membership(&membership, 2).await?;
 
         // after this function is called
         // this server becomes the leader by self-vote and advance commit index in usual manner.
@@ -248,9 +250,10 @@ impl<A: RaftApp> RaftCore<A> {
 
         Ok(())
     }
-    async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>) -> anyhow::Result<()> {
+    async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>, index: Index) -> anyhow::Result<()> {
         log::info!("change membership to {:?}", membership);
         self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await?;
+        self.lastest_membership_index.store(index, Ordering::SeqCst);
         Ok(())
     }
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -313,6 +316,11 @@ impl<A: RaftApp> RaftCore<A> {
             .await;
     }
 }
+enum TryInsertResult {
+    Inserted,
+    Skipped,
+    Rejected,
+}
 struct AppendEntryElem {
     term: Term,
     index: Index,
@@ -351,13 +359,13 @@ fn into_stream(
 }
 // replication
 impl<A: RaftApp> RaftCore<A> {
-    async fn change_membership(self: &Arc<Self>, command: Command) -> anyhow::Result<()> {
+    async fn change_membership(self: &Arc<Self>, command: Command, index: Index) -> anyhow::Result<()> {
         match command {
             Command::Snapshot { membership } => {
-                self.set_membership(&membership).await?
+                self.set_membership(&membership, index).await?;
             },
             Command::ClusterConfiguration { membership } => {
-                self.set_membership(&membership).await?
+                self.set_membership(&membership, index).await?;
             },
             _ => {},
         }
@@ -375,9 +383,9 @@ impl<A: RaftApp> RaftCore<A> {
             return Err(anyhow!("noop entry for term {} isn't committed yet."));
         }
         // command.clone() is cheap because the message buffer is Bytes.
-        self.log.append_new_entry(command.clone(), ack, term).await?;
+        let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
         // change membership when cluster configuration is appended.
-        self.change_membership(command).await?;
+        self.change_membership(command, append_index).await?;
         Ok(())
     }
     // follower calls this function when it receives entries from the leader.
@@ -389,13 +397,18 @@ impl<A: RaftApp> RaftCore<A> {
                 this_clock: (e.term, e.index),
                 command: e.command,
             };
+            let insert_index = entry.this_clock.1;
             let command = entry.command.clone();
-            if !self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
-                log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
-                return Ok(false);
+            match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
+                TryInsertResult::Inserted => {
+                    self.change_membership(command.into(), insert_index).await?;
+                },
+                TryInsertResult::Skipped => {},
+                TryInsertResult::Rejected => {
+                    log::warn!("rejected append entry (clock={:?})", (e.term, e.index));
+                    return Ok(false);
+                },
             }
-            self.change_membership(command.into()).await?;
-
             prev_clock = (e.term, e.index);
         }
         Ok(true)
@@ -861,6 +874,8 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         let snapshot_index = storage.get_snapshot_index().await.unwrap();
+        // when the storage is persistent commit_index and last_applied
+        // should be set just before the snapshot index.
         let start_index = if snapshot_index == 0 {
             0
         } else {
@@ -911,13 +926,13 @@ impl Log {
         self.append_notification.lock().await.publish();
         Ok(new_index)
     }
-    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<bool> {
+    async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
         let _token = self.append_token.acquire().await;
 
         let (_, prev_index) = entry.prev_clock;
         if let Some(prev_clock) = self.storage.get_entry(prev_index).await?.map(|x| x.this_clock) {
             if prev_clock != entry.prev_clock {
-                return Ok(false);
+                return Ok(TryInsertResult::Rejected);
             }
         } else {
             // if the entry is snapshot then we should insert this entry without consistency checks.
@@ -934,7 +949,7 @@ impl Log {
                     let res = core.fetch_snapshot(snapshot_index, sender_id.clone()).await;
                     if res.is_err() {
                         log::error!("could not fetch app snapshot (idx={}) from sender {}", snapshot_index, sender_id);
-                        return Ok(false);
+                        return Ok(TryInsertResult::Rejected);
                     }
                 }
 
@@ -942,9 +957,9 @@ impl Log {
                 self.commit_index.store(snapshot_index - 1, Ordering::SeqCst);
                 self.last_applied.store(snapshot_index - 1, Ordering::SeqCst);
 
-                return Ok(true);
+                return Ok(TryInsertResult::Inserted);
             } else {
-                return Ok(false);
+                return Ok(TryInsertResult::Rejected);
             }
         }
 
@@ -954,6 +969,7 @@ impl Log {
             if old_clock == entry.this_clock {
                 // if there is a entry with the same term and index
                 // then the entry should be the same so skip insertion.
+                Ok(TryInsertResult::Skipped)
             } else {
                 log::warn!("log conflicted at idx: {}", new_index);
 
@@ -963,12 +979,12 @@ impl Log {
                 }
 
                 self.insert_entry(entry).await?;
+                Ok(TryInsertResult::Inserted)
             }
         } else {
             self.insert_entry(entry).await?;
+            Ok(TryInsertResult::Inserted)
         }
-
-        Ok(true)
     }
     async fn insert_entry(&self, e: Entry) -> anyhow::Result<()> {
         let (_, idx) = e.this_clock;
