@@ -44,6 +44,7 @@ impl Admin {
             rt.block_on(fut)
         }).join().unwrap()
     }
+    #[deprecated]
     fn init_cluster(&self) -> Result<admin::InitCluster> {
         let msg = core_message::Req::InitCluster;
         let req = proto_compiled::ProcessReq {
@@ -196,7 +197,7 @@ impl Environment {
         x.start(id, command);
         thread::sleep(Duration::from_millis(1000));
         let env = Arc::new(x);
-        Admin::to(id, env.clone()).init_cluster().unwrap();
+        Admin::to(id, env.clone()).add_server(id).unwrap();
         thread::sleep(Duration::from_millis(2000));
         env
     }
