@@ -184,8 +184,11 @@ pub struct RaftCore<A: RaftApp> {
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
     election_token: Semaphore,
+    // until noop is committed and safe term is incrememted
+    // no new entry in the current term is appended to the log.
     safe_term: AtomicU64,
-    lastest_membership_index: AtomicU64,
+    // membership should not be appended until commit_index passes this line.
+    membership_barrier: AtomicU64,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
@@ -204,7 +207,7 @@ impl<A: RaftApp> RaftCore<A> {
             tunable: RwLock::new(tunable),
             election_token: Semaphore::new(1),
             safe_term: 0.into(),
-            lastest_membership_index: 0.into(),
+            membership_barrier: 0.into(),
         });
         log::info!("initial membership is {:?} at {}", init_membership, membership_index);
         r.set_membership(&init_membership, membership_index).await.unwrap();
@@ -259,10 +262,13 @@ impl<A: RaftApp> RaftCore<A> {
 
         Ok(())
     }
+    fn allow_new_membership_change(&self) -> bool {
+        self.log.commit_index.load(Ordering::SeqCst) >= self.membership_barrier.load(Ordering::SeqCst)
+    }
     async fn set_membership(self: &Arc<Self>, membership: &HashSet<Id>, index: Index) -> anyhow::Result<()> {
         log::info!("change membership to {:?}", membership);
         self.cluster.write().await.set_membership(&membership, Arc::clone(&self)).await?;
-        self.lastest_membership_index.store(index, Ordering::SeqCst);
+        self.membership_barrier.store(index, Ordering::SeqCst);
         Ok(())
     }
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -728,7 +734,8 @@ impl<A: RaftApp> RaftCore<A> {
             log::info!("got enough votes from the cluster. promoted to leader");
 
             // as soon as the node becomes the leader, replicate noop entries with term.
-            self.log.append_new_entry(Command::Noop, None, aim_term).await?;
+            let index = self.log.append_new_entry(Command::Noop, None, aim_term).await?;
+            self.membership_barrier.store(index, Ordering::SeqCst);
 
             // initialize replication progress
             {

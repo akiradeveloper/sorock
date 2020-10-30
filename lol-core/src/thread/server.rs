@@ -66,11 +66,22 @@ impl<A: RaftApp> Raft for Thread<A> {
             let command = if req.core {
                 match core_message::Req::deserialize(&req.message).unwrap() {
                     core_message::Req::AddServer(id) => {
+                        // I know this isn't correct in a real sense.
+                        // As there is a gap between this guard and setting new barrier
+                        // concurrent requests "can be" accepted but this is ok in practice.
+                        if !self.core.allow_new_membership_change() {
+                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                        }
+
                         let mut membership = self.core.cluster.read().await.get_membership();
                         membership.insert(id);
                         Command::ClusterConfiguration { membership }
                     },
                     core_message::Req::RemoveServer(id) => {
+                        if !self.core.allow_new_membership_change() {
+                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                        }
+
                         let mut membership = self.core.cluster.read().await.get_membership();
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
