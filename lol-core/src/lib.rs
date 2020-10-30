@@ -73,7 +73,16 @@ pub trait RaftApp: Sync + Send + 'static {
 type Term = u64;
 /// log index.
 pub type Index = u64;
-type Clock = (Term, Index);
+#[derive(Clone, Copy, Eq)]
+struct Clock {
+    term: Term,
+    index: Index,
+}
+impl PartialEq for Clock {
+    fn eq(&self, that: &Self) -> bool {
+        self.term == that.term && self.index == that.index
+    }
+}
 /// each node is identified by a pair of ip and port.
 pub type Id = String;
 
@@ -225,8 +234,8 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn init_cluster(self: &Arc<Self>) -> anyhow::Result<()> {
         let snapshot = Entry {
-            prev_clock: (0, 0),
-            this_clock: (0, 1),
+            prev_clock: Clock { term: 0, index: 0 },
+            this_clock: Clock { term: 0, index: 1 },
             command: Command::Snapshot {
                 membership: HashSet::new(),
             }.into(),
@@ -235,8 +244,8 @@ impl<A: RaftApp> RaftCore<A> {
         let mut membership = HashSet::new();
         membership.insert(self.id.clone());
         let add_server = Entry {
-            prev_clock: (0, 1),
-            this_clock: (0, 2),
+            prev_clock: Clock { term: 0, index: 1 },
+            this_clock: Clock { term: 0, index: 2 },
             command: Command::ClusterConfiguration {
                 membership: membership.clone(),
             }.into(),
@@ -390,14 +399,14 @@ impl<A: RaftApp> RaftCore<A> {
     }
     // follower calls this function when it receives entries from the leader.
     async fn queue_received_entry(self: &Arc<Self>, req: AppendEntryBuffer) -> anyhow::Result<bool> {
-        let mut prev_clock = (req.prev_log_term, req.prev_log_index);
+        let mut prev_clock = Clock { term: req.prev_log_term, index: req.prev_log_index };
         for e in req.entries {
             let entry = Entry {
                 prev_clock,
-                this_clock: (e.term, e.index),
+                this_clock: Clock { term: e.term, index: e.index },
                 command: e.command,
             };
-            let insert_index = entry.this_clock.1;
+            let insert_index = entry.this_clock.index;
             let command = entry.command.clone();
             match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
                 TryInsertResult::Inserted => {
@@ -409,7 +418,7 @@ impl<A: RaftApp> RaftCore<A> {
                     return Ok(false);
                 },
             }
-            prev_clock = (e.term, e.index);
+            prev_clock = Clock { term: e.term, index: e.index };
         }
         Ok(true)
     }
@@ -419,8 +428,8 @@ impl<A: RaftApp> RaftCore<A> {
         r: Index,
     ) -> anyhow::Result<AppendEntryBuffer> {
         let head = self.log.storage.get_entry(l).await?.unwrap();
-        let (prev_log_term, prev_log_index) = head.prev_clock;
-        let (term, index) = head.this_clock;
+        let Clock { term: prev_log_term, index: prev_log_index } = head.prev_clock;
+        let Clock { term, index } = head.this_clock;
         let e = AppendEntryElem {
             term,
             index,
@@ -436,7 +445,7 @@ impl<A: RaftApp> RaftCore<A> {
         for idx in l + 1..r {
             let e = {
                 let x = self.log.storage.get_entry(idx).await?.unwrap();
-                let (term, index) = x.this_clock;
+                let Clock { term, index } = x.this_clock;
                 AppendEntryElem {
                     term,
                     index,
@@ -624,9 +633,15 @@ impl<A: RaftApp> RaftCore<A> {
             .log
             .storage
             .get_entry(cur_last_index)
-            .await?.map(|x| x.this_clock).unwrap_or((0,0));
+            .await?.map(|x| x.this_clock).unwrap_or(Clock { term: 0, index: 0 });
 
-        if candidate_last_log_clock < this_last_log_clock {
+        let candidate_win = match candidate_last_log_clock.term.cmp(&this_last_log_clock.term) {
+            std::cmp::Ordering::Greater => { true },
+            std::cmp::Ordering::Equal => { candidate_last_log_clock.index >= this_last_log_clock.index },
+            std::cmp::Ordering::Less => { false }
+        };
+
+        if !candidate_win {
             log::warn!("candidate clock is older. reject vote");
             self.store_vote(vote).await?;
             return Ok(false);
@@ -681,7 +696,7 @@ impl<A: RaftApp> RaftCore<A> {
         for endpoint in others {
             let myid = self.id.clone();
             vote_requests.push(async move {
-                let (last_log_term, last_log_index) = last_log_clock;
+                let Clock { term: last_log_term, index: last_log_index } = last_log_clock;
                 let req = crate::proto_compiled::RequestVoteReq {
                     term: aim_term,
                     candidate_id: myid,
@@ -913,7 +928,7 @@ impl Log {
         let cur_last_log_index = self.storage.get_last_index().await?;
         let prev_clock = self.storage.get_entry(cur_last_log_index).await?.unwrap().this_clock;
         let new_index = cur_last_log_index + 1;
-        let this_clock = (term, new_index);
+        let this_clock = Clock { term, index: new_index };
         let e = Entry {
             prev_clock,
             this_clock,
@@ -929,7 +944,7 @@ impl Log {
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
         let _token = self.append_token.acquire().await;
 
-        let (_, prev_index) = entry.prev_clock;
+        let Clock { term: _, index: prev_index } = entry.prev_clock;
         if let Some(prev_clock) = self.storage.get_entry(prev_index).await?.map(|x| x.this_clock) {
             if prev_clock != entry.prev_clock {
                 return Ok(TryInsertResult::Rejected);
@@ -939,7 +954,7 @@ impl Log {
             // old entries before the new snapshot will be garbage collected.
             let command = entry.command.clone();
             if std::matches!(command.into(), Command::Snapshot { .. }) {
-                let (_, snapshot_index) = entry.this_clock;
+                let Clock { term: _, index: snapshot_index } = entry.this_clock;
                 log::warn!(
                     "log is too old. replicated a snapshot (idx={}) from leader",
                     snapshot_index
@@ -963,7 +978,7 @@ impl Log {
             }
         }
 
-        let (_, new_index) = entry.this_clock;
+        let Clock { term: _, index: new_index } = entry.this_clock;
 
         if let Some(old_clock) = self.storage.get_entry(new_index).await?.map(|e| e.this_clock) {
             if old_clock == entry.this_clock {
@@ -987,13 +1002,11 @@ impl Log {
         }
     }
     async fn insert_entry(&self, e: Entry) -> anyhow::Result<()> {
-        let (_, idx) = e.this_clock;
-        self.storage.insert_entry(idx, e).await?;
+        self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
     }
     async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
-        let (_, idx) = e.this_clock;
-        self.storage.insert_snapshot(idx, e).await?;
+        self.storage.insert_snapshot(e.this_clock.index, e).await?;
         Ok(())
     }
     async fn advance_commit_index<A: RaftApp>(&self, new_agreement: Index, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
@@ -1006,7 +1019,7 @@ impl Log {
 
         for i in old_agreement + 1..=new_agreement {
             let e = self.storage.get_entry(i).await?.unwrap();
-            let term = e.this_clock.0;
+            let term = e.this_clock.term;
             match CommandB::deserialize(&e.command) {
                 CommandB::ClusterConfiguration { membership } => {
                     let remove_this_node = !membership.contains(&core.id);
