@@ -37,27 +37,17 @@ async fn main() {
     let config = lol_core::connection::EndpointConfig::default().timeout(Duration::from_secs(5));
     let mut conn = endpoint.connect_with(config).await.unwrap();
     match opt.sub {
-        // commit
         Sub::AddServer { id } => {
             let id = lol_core::connection::resolve(&id).unwrap();
-            let msg = core_message::Req::AddServer(id);
-            let req = proto_compiled::CommitReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
-            };
-            conn.request_commit(req).await.unwrap();
+            let req = proto_compiled::AddServerReq { id, };
+            conn.add_server(req).await.unwrap();
         }
-        // commit
         Sub::RemoveServer { id } => {
             let id = lol_core::connection::resolve(&id).unwrap();
-            let msg = core_message::Req::RemoveServer(id);
-            let req = proto_compiled::CommitReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
-            };
-            conn.request_commit(req).await.unwrap();
+            let req = proto_compiled::RemoveServerReq { id, };
+            conn.remove_server(req).await.unwrap();
         }
-        // core locally
+        // will be removed.
         Sub::InitCluster => {
             let msg = core_message::Req::InitCluster;
             let req = proto_compiled::ProcessReq {
