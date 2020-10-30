@@ -71,6 +71,14 @@ message HeartbeatReq {
 message HeartbeatRep {}
 message TimeoutNowReq {}
 message TimeoutNowRep {}
+message AddServerReq {
+    string id = 1;
+}
+message AddServerRep {}
+message RemoveServerReq {
+    string id = 1;
+}
+message RemoveServerRep {}
 
 service Raft {
     rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
@@ -82,4 +90,6 @@ service Raft {
     rpc RequestProcessLocally (ProcessReq) returns (ProcessRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
+    rpc AddServer (AddServerReq) returns (AddServerRep);
+    rpc RemoveServer (RemoveServerReq) returns (RemoveServerRep);
 }
