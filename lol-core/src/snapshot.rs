@@ -5,6 +5,7 @@ use crate::{RaftCore, RaftApp};
 use crate::storage::Entry;
 use std::time::Duration;
 use futures::StreamExt;
+use std::path::{Path, PathBuf};
 
 pub(crate) struct InsertSnapshot {
     pub e: Entry,
@@ -93,8 +94,8 @@ impl BytesSnapshot {
 /// a snapshot saved in a file.
 /// instead of bytes snapshot you may choose this to deal with
 /// gigantic snapshot beyond system memory.
-struct FileSnapshot {
-    pub path: std::path::PathBuf,
+pub struct FileSnapshot {
+    pub path: PathBuf,
 }
 impl FileSnapshot {
     pub async fn to_snapshot_stream(&self) -> SnapshotStream {
@@ -103,9 +104,8 @@ impl FileSnapshot {
     }
 }
 impl FileSnapshot {
-    pub async fn from_snapshot_stream(st: SnapshotStream) -> anyhow::Result<Self> {
-        let path = std::path::Path::new("tmp"); // TODO make the file in unique path
-        let f = tokio::fs::File::create(&path).await?;
+    pub async fn from_snapshot_stream(st: SnapshotStream, path: &Path) -> anyhow::Result<Self> {
+        let f = tokio::fs::File::create(path).await?;
         util::read_snapshot_stream(f, st).await?;
         Ok(FileSnapshot { path: path.to_owned() })
     }
