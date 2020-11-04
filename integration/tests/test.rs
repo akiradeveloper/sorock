@@ -60,6 +60,18 @@ fn test_init_cluster() {
     init_cluster(100);
 }
 #[test]
+fn test_init_cluster_again() {
+    let env = init_cluster(1);
+    Admin::to(0, env.clone()).remove_server(0).unwrap();
+    Admin::to(0, env.clone()).add_server(0).unwrap();
+    assert_cluster(
+        Duration::from_secs(5),
+        vec![0],
+        vec![0],
+        env.clone(),
+    );
+}
+#[test]
 fn test_one_node_operations() {
     let env = init_cluster(1);
     let x = Client::to(0, env.clone()).get("a").unwrap();
