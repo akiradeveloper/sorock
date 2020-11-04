@@ -549,22 +549,22 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn find_new_agreement(&self) -> anyhow::Result<Index> {
         let cluster = self.cluster.read().await.internal.clone();
-        let new_agreement = {
-            let n = cluster.len();
-            let mid = n / 2;
-            let mut match_indices = vec![];
-            for (id, member) in cluster {
-                if id == self.id {
-                    let last_log_index = self.log.get_last_log_index().await?;
-                    match_indices.push(last_log_index);
-                } else {
-                    match_indices.push(member.progress.unwrap().match_index);
-                }
+        let mut match_indices = vec![];
+
+        // in leader stepdown leader is out of the membership
+        // but consensus on the membership change should be made to respond to the client.
+        let last_log_index = self.log.get_last_log_index().await?;
+        match_indices.push(last_log_index);
+
+        for (id, member) in cluster {
+            if id != self.id {
+                match_indices.push(member.progress.unwrap().match_index);
             }
-            match_indices.sort();
-            match_indices.reverse();
-            match_indices[mid]
-        };
+        }
+        match_indices.sort();
+        match_indices.reverse();
+        let mid = match_indices.len() / 2;
+        let new_agreement = match_indices[mid];
         Ok(new_agreement)
     }
 }
