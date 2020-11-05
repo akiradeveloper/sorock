@@ -18,6 +18,7 @@ prost = "0.6"
 tokio = { version = "0.2", features = ["macros", "fs"] }
 rand = "0.7"
 async-trait = "0.1"
+async-stream = "0.2"
 futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
@@ -27,6 +28,7 @@ log = "0.4"
 anyhow = "1.0"
 tokio-util = { version = "0.3", features = ["codec"] }
 bytes = "0.5.6"
+sync_wrapper = "0.1"
 
 rocksdb = { version = "0.15", optional = true }
 
