@@ -5,6 +5,7 @@ use crate::{RaftCore, RaftApp};
 use crate::storage::Entry;
 use std::time::Duration;
 use futures::StreamExt;
+use std::path::{Path, PathBuf};
 
 pub(crate) struct InsertSnapshot {
     pub e: Entry,
@@ -54,13 +55,14 @@ use crate::proto_compiled::GetSnapshotRep;
 use bytes::Bytes;
 /// the stream type that is used internally. it is considered as just a stream of bytes.
 /// the length of each bytes may vary.
-pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send + Sync>>;
+pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 pub(crate) type SnapshotStreamOut = std::pin::Pin<Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send + Sync>>;
-pub(crate) fn map_out(st: SnapshotStream) ->  SnapshotStreamOut {
-    Box::pin(st.map(|res| res.map(|x| GetSnapshotRep { chunk: x.to_vec() }).map_err(|_| tonic::Status::unknown("streaming error"))))
+pub(crate) fn into_out_stream(in_stream: SnapshotStream) ->  SnapshotStreamOut {
+    let out_stream = in_stream.map(|res| res.map(|x| GetSnapshotRep { chunk: x.to_vec() }).map_err(|_| tonic::Status::unknown("streaming error")));
+    Box::pin(crate::SyncStream::new(out_stream))
 }
-pub(crate) fn map_in(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
-    st.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
+pub(crate) fn into_in_stream(out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
+    out_stream.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
 /// basic snapshot type which is just a byte sequence.
 pub struct BytesSnapshot {
@@ -93,8 +95,8 @@ impl BytesSnapshot {
 /// a snapshot saved in a file.
 /// instead of bytes snapshot you may choose this to deal with
 /// gigantic snapshot beyond system memory.
-struct FileSnapshot {
-    pub path: std::path::PathBuf,
+pub struct FileSnapshot {
+    pub path: PathBuf,
 }
 impl FileSnapshot {
     pub async fn to_snapshot_stream(&self) -> SnapshotStream {
@@ -103,9 +105,8 @@ impl FileSnapshot {
     }
 }
 impl FileSnapshot {
-    pub async fn from_snapshot_stream(st: SnapshotStream) -> anyhow::Result<Self> {
-        let path = std::path::Path::new("tmp"); // TODO make the file in unique path
-        let f = tokio::fs::File::create(&path).await?;
+    pub async fn from_snapshot_stream(st: SnapshotStream, path: &Path) -> anyhow::Result<Self> {
+        let f = tokio::fs::File::create(path).await?;
         util::read_snapshot_stream(f, st).await?;
         Ok(FileSnapshot { path: path.to_owned() })
     }

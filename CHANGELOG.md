@@ -1,3 +1,10 @@
+# 0.5.2 (2020-11-6)
+
+- Optimize log replication.
+- Fix some issues with membership change.
+- Remove Sync constraint from SnapshotStream.
+- Implement FileSnapshot.
+
 # 0.5.1 (2020-10-30)
 
 - Ractor out lol-test as a crate.
@@ -28,6 +35,6 @@
 
 - Implement RocksDB implementation of the RaftStorage.
 
-# 0.2 (2020-9-26)
+# 0.2.0 (2020-9-26)
 
 - Introduce RaftStorage abstraction.

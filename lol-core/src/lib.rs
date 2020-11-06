@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
+use futures::stream::StreamExt;
 
 /// simple and backward-compatible RaftApp trait.
 pub mod compat;
@@ -336,41 +337,60 @@ enum TryInsertResult {
     Skipped,
     Rejected,
 }
-struct AppendEntryElem {
+struct LogStream {
+    sender_id: String,
+    prev_log_term: Term,
+    prev_log_index: Index,
+    entries: std::pin::Pin<Box<dyn futures::stream::Stream<Item = LogStreamElem> + Send + Sync>>,
+}
+struct LogStreamElem {
     term: Term,
     index: Index,
     command: Bytes,
 }
-struct AppendEntryBuffer {
-    sender_id: String,
-    prev_log_term: Term,
-    prev_log_index: Index,
-    entries: Vec<AppendEntryElem>,
+// wrapper to safely add `Sync` to stream.
+//
+// this wrapper is a work-around to issues like
+// - https://github.com/dtolnay/async-trait/issues/77
+// - https://github.com/hyperium/hyper/pull/2187
+//
+// in our case, the problem is tonic::IntoStreamingRequest requires the given stream to be `Sync`.
+// unless async_trait starts to return `Future`s with `Sync` or tonic (or maybe hyper under the hood) is fixed this wrapper should remain.
+struct SyncStream<S> {
+    st: sync_wrapper::SyncWrapper<S>
 }
-fn into_stream(
-    req: AppendEntryBuffer,
+impl <S> SyncStream<S> {
+    fn new(st: S) -> Self {
+        Self { st: sync_wrapper::SyncWrapper::new(st) }
+    }
+}
+impl <S: futures::stream::Stream> futures::stream::Stream for SyncStream<S> {
+    type Item = S::Item;
+    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut futures::task::Context<'_>) -> futures::task::Poll<Option<Self::Item>> {
+        let st = unsafe { self.map_unchecked_mut(|x| x.st.get_mut()) };
+        st.poll_next(cx)
+    }
+}
+fn into_out_stream(
+    x: LogStream
 ) -> impl futures::stream::Stream<Item = crate::proto_compiled::AppendEntryReq> {
     use crate::proto_compiled::{append_entry_req::Elem, AppendStreamHeader, AppendStreamEntry};
-    let mut elems = vec![];
-
-    elems.push(Elem::Header(AppendStreamHeader {
-        sender_id: req.sender_id,
-        prev_log_index: req.prev_log_index,
-        prev_log_term: req.prev_log_term,
-    }));
-
-    for e in &req.entries {
-        elems.push(Elem::Entry(AppendStreamEntry {
+    let header_stream = vec![Elem::Header(AppendStreamHeader {
+        sender_id: x.sender_id,
+        prev_log_index: x.prev_log_index,
+        prev_log_term: x.prev_log_term,
+    })];
+    let header_stream = futures::stream::iter(header_stream);
+    let chunk_stream = x.entries.map(|e| {
+        Elem::Entry(AppendStreamEntry {
             term: e.term,
             index: e.index,
             command: e.command.as_ref().into(),
-        }));
-    }
-    futures::stream::iter(
-        elems
-            .into_iter()
-            .map(|x| crate::proto_compiled::AppendEntryReq { elem: Some(x) }),
-    )
+        })
+    });
+    header_stream.chain(chunk_stream).map(|e| crate::proto_compiled::AppendEntryReq {
+        elem: Some(e)
+    })
 }
 // replication
 impl<A: RaftApp> RaftCore<A> {
@@ -404,9 +424,9 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     // follower calls this function when it receives entries from the leader.
-    async fn queue_received_entry(self: &Arc<Self>, req: AppendEntryBuffer) -> anyhow::Result<bool> {
+    async fn queue_received_entry(self: &Arc<Self>, mut req: LogStream) -> anyhow::Result<bool> {
         let mut prev_clock = Clock { term: req.prev_log_term, index: req.prev_log_index };
-        for e in req.entries {
+        while let Some(e) = req.entries.next().await {
             let entry = Entry {
                 prev_clock,
                 this_clock: Clock { term: e.term, index: e.index },
@@ -428,42 +448,43 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(true)
     }
-    async fn prepare_replication_request(
-        &self,
+    async fn prepare_replication_stream(
+        self: &Arc<Self>,
         l: Index,
         r: Index,
-    ) -> anyhow::Result<AppendEntryBuffer> {
+    ) -> anyhow::Result<LogStream> {
         let head = self.log.storage.get_entry(l).await?.unwrap();
         let Clock { term: prev_log_term, index: prev_log_index } = head.prev_clock;
         let Clock { term, index } = head.this_clock;
-        let e = AppendEntryElem {
+        let e = LogStreamElem {
             term,
             index,
             command: head.command,
         };
-        let mut req = AppendEntryBuffer {
-            sender_id: self.id.clone(),
-            prev_log_term,
-            prev_log_index,
-            entries: vec![e],
-        };
-
-        for idx in l + 1..r {
-            let e = {
-                let x = self.log.storage.get_entry(idx).await?.unwrap();
+        let st1 = futures::stream::iter(vec![e]);
+        let core = Arc::clone(&self);
+        let st2 = async_stream::stream! {
+            for idx in l + 1..r {
+                let x = core.log.storage.get_entry(idx).await.unwrap().unwrap();
                 let Clock { term, index } = x.this_clock;
-                AppendEntryElem {
+                let e = LogStreamElem {
                     term,
                     index,
                     command: x.command,
-                }
-            };
-            req.entries.push(e);
-        }
-
-        Ok(req)
+                };
+                yield e;
+            }
+        };
+        let st2 = SyncStream::new(st2);
+        let st = st1.chain(st2);
+        Ok(LogStream {
+            sender_id: self.id.clone(),
+            prev_log_term,
+            prev_log_index,
+            entries: Box::pin(st),
+        })
     }
-    async fn advance_replication(&self, follower_id: Id) -> anyhow::Result<bool> {
+    async fn advance_replication(self: &Arc<Self>, follower_id: Id) -> anyhow::Result<bool> {
         let member = self
             .cluster
             .read()
@@ -501,14 +522,15 @@ impl<A: RaftApp> RaftCore<A> {
         let n = std::cmp::min(old_progress.next_max_cnt, n_max_possible);
         assert!(n >= 1);
 
-        let req = self
-            .prepare_replication_request(old_progress.next_index, old_progress.next_index + n)
+        let in_stream = self
+            .prepare_replication_stream(old_progress.next_index, old_progress.next_index + n)
             .await?;
 
         let res = async {
             let endpoint = member.endpoint;
             let mut conn = endpoint.connect().await?;
-            conn.send_append_entry(into_stream(req)).await
+            let out_stream = into_out_stream(in_stream);
+            conn.send_append_entry(out_stream).await
         }
         .await;
 
@@ -549,22 +571,22 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn find_new_agreement(&self) -> anyhow::Result<Index> {
         let cluster = self.cluster.read().await.internal.clone();
-        let new_agreement = {
-            let n = cluster.len();
-            let mid = n / 2;
-            let mut match_indices = vec![];
-            for (id, member) in cluster {
-                if id == self.id {
-                    let last_log_index = self.log.get_last_log_index().await?;
-                    match_indices.push(last_log_index);
-                } else {
-                    match_indices.push(member.progress.unwrap().match_index);
-                }
+        let mut match_indices = vec![];
+
+        // in leader stepdown leader is out of the membership
+        // but consensus on the membership change should be made to respond to the client.
+        let last_log_index = self.log.get_last_log_index().await?;
+        match_indices.push(last_log_index);
+
+        for (id, member) in cluster {
+            if id != self.id {
+                match_indices.push(member.progress.unwrap().match_index);
             }
-            match_indices.sort();
-            match_indices.reverse();
-            match_indices[mid]
-        };
+        }
+        match_indices.sort();
+        match_indices.reverse();
+        let mid = match_indices.len() / 2;
+        let new_agreement = match_indices[mid];
         Ok(new_agreement)
     }
 }
@@ -577,9 +599,9 @@ impl<A: RaftApp> RaftCore<A> {
             index: snapshot_index,
         };
         let res = conn.get_snapshot(req).await?;
-        let st = res.into_inner();
-        let st = Box::pin(snapshot::map_in(st));
-        let tag = self.app.from_snapshot_stream(st, snapshot_index).await?;
+        let out_stream = res.into_inner();
+        let in_stream = Box::pin(snapshot::into_in_stream(out_stream));
+        let tag = self.app.from_snapshot_stream(in_stream, snapshot_index).await?;
         self.log.storage.put_tag(snapshot_index, tag).await?;
         Ok(())
     }
@@ -1029,9 +1051,13 @@ impl Log {
             let term = e.this_clock.term;
             match CommandB::deserialize(&e.command) {
                 CommandB::ClusterConfiguration { membership } => {
+                    // leader stepdown should happen iff the last membership change doesn't contain the leader.
+                    // this code is safe because doing or not doing leadership transfer will not affect anything
+                    // (iow, this is only a hint) but confuse the leadership which only causes instant downtime.
                     let remove_this_node = !membership.contains(&core.id);
+                    let is_last_membership_change = i == core.membership_barrier.load(Ordering::SeqCst);
                     let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
-                    if remove_this_node && is_leader {
+                    if remove_this_node && is_last_membership_change && is_leader {
                         *core.election_state.write().await = ElectionState::Follower;
             
                         // if leader node steps down choose one of the follower node to
