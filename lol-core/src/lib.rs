@@ -1051,9 +1051,13 @@ impl Log {
             let term = e.this_clock.term;
             match CommandB::deserialize(&e.command) {
                 CommandB::ClusterConfiguration { membership } => {
+                    // leader stepdown should happen iff the last membership change doesn't contain the leader.
+                    // this code is safe because doing or not doing leadership transfer will not affect anything
+                    // (iow, this is only a hint) but confuse the leadership which only causes instant downtime.
                     let remove_this_node = !membership.contains(&core.id);
+                    let is_last_membership_change = i == core.membership_barrier.load(Ordering::SeqCst);
                     let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
-                    if remove_this_node && is_leader {
+                    if remove_this_node && is_last_membership_change && is_leader {
                         *core.election_state.write().await = ElectionState::Follower;
             
                         // if leader node steps down choose one of the follower node to
