@@ -55,13 +55,14 @@ use crate::proto_compiled::GetSnapshotRep;
 use bytes::Bytes;
 /// the stream type that is used internally. it is considered as just a stream of bytes.
 /// the length of each bytes may vary.
-pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send + Sync>>;
+pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 pub(crate) type SnapshotStreamOut = std::pin::Pin<Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send + Sync>>;
-pub(crate) fn into_out_stream(st: SnapshotStream) ->  SnapshotStreamOut {
-    Box::pin(st.map(|res| res.map(|x| GetSnapshotRep { chunk: x.to_vec() }).map_err(|_| tonic::Status::unknown("streaming error"))))
+pub(crate) fn into_out_stream(in_stream: SnapshotStream) ->  SnapshotStreamOut {
+    let out_stream = in_stream.map(|res| res.map(|x| GetSnapshotRep { chunk: x.to_vec() }).map_err(|_| tonic::Status::unknown("streaming error")));
+    Box::pin(crate::SyncStream::new(out_stream))
 }
-pub(crate) fn into_in_stream(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
-    st.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
+pub(crate) fn into_in_stream(out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
+    out_stream.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
 /// basic snapshot type which is just a byte sequence.
 pub struct BytesSnapshot {
