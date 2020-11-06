@@ -13,10 +13,10 @@ use proto_compiled::{
 };
 // This code is expecting stream in a form
 // Header (Entry Frame+)
-async fn into_in_stream(mut st1: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
+async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
     use proto_compiled::append_entry_req::Elem;
     // header
-    let (sender_id, prev_log_term, prev_log_index) = if let Some(Ok(chunk)) = st1.next().await {
+    let (sender_id, prev_log_term, prev_log_index) = if let Some(Ok(chunk)) = out_stream.next().await {
         let e = chunk.elem.unwrap();
         if let Elem::Header(proto_compiled::AppendStreamHeader {
             sender_id,
@@ -32,7 +32,7 @@ async fn into_in_stream(mut st1: tonic::Streaming<AppendEntryReq>) -> crate::Log
         unreachable!()
     };
     let entries = async_stream::stream! {
-        while let Some(Ok(chunk)) = st1.next().await {
+        while let Some(Ok(chunk)) = out_stream.next().await {
             let e = chunk.elem.unwrap();
             match e {
                 Elem::Entry(proto_compiled::AppendStreamEntry { term, index, command }) => {
