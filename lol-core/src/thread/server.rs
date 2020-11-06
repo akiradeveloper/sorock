@@ -11,7 +11,49 @@ use proto_compiled::{
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
     AddServerReq, AddServerRep, RemoveServerReq, RemoveServerRep,
 };
-
+// This code is expecting stream in a form
+// Header (Entry Frame+)
+async fn into_in_stream(mut st1: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
+    use proto_compiled::append_entry_req::Elem;
+    // header
+    let (sender_id, prev_log_term, prev_log_index) = if let Some(Ok(chunk)) = st1.next().await {
+        let e = chunk.elem.unwrap();
+        if let Elem::Header(proto_compiled::AppendStreamHeader {
+            sender_id,
+            prev_log_index,
+            prev_log_term,
+        }) = e
+        {
+            (sender_id, prev_log_term, prev_log_index)
+        } else {
+            unreachable!()
+        }
+    } else {
+        unreachable!()
+    };
+    let entries = async_stream::stream! {
+        while let Some(Ok(chunk)) = st1.next().await {
+            let e = chunk.elem.unwrap();
+            match e {
+                Elem::Entry(proto_compiled::AppendStreamEntry { term, index, command }) => {
+                    let e = crate::LogStreamElem {
+                        term,
+                        index,
+                        command: command.into(),
+                    };
+                    yield e;
+                },
+                _ => unreachable!(),
+            }
+        }
+    };
+    crate::LogStream {
+        sender_id,
+        prev_log_term,
+        prev_log_index,
+        entries: Box::pin(entries),
+    }
+}
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
 }
@@ -169,51 +211,9 @@ impl<A: RaftApp> Raft for Thread<A> {
         &self,
         request: tonic::Request<tonic::Streaming<AppendEntryReq>>,
     ) -> Result<tonic::Response<AppendEntryRep>, tonic::Status> {
-        use proto_compiled::append_entry_req::Elem;
-
-        // This code is expecting stream in a form
-        // Header (Entry Frame+)+
-
-        let mut stream = request.into_inner();
-        let mut req = if let Some(Ok(chunk)) = stream.next().await {
-            let e = chunk.elem.unwrap();
-            if let Elem::Header(proto_compiled::AppendStreamHeader {
-                sender_id,
-                prev_log_index,
-                prev_log_term,
-            }) = e
-            {
-                crate::AppendEntryBuffer {
-                    sender_id,
-                    prev_log_index,
-                    prev_log_term,
-                    entries: vec![],
-                }
-            } else {
-                unreachable!()
-            }
-        } else {
-            unreachable!()
-        };
-        while let Some(Ok(chunk)) = stream.next().await {
-            let e = chunk.elem.unwrap();
-            match e {
-                Elem::Entry(proto_compiled::AppendStreamEntry { term, index, command }) => {
-                    let e = crate::AppendEntryElem {
-                        term,
-                        index,
-                        command: command.into(),
-                    };
-                    req.entries.push(e);
-                },
-                _ => unreachable!(),
-            }
-        }
-
-        // TODO (optimization)
-        // sadly, up to here, we put the entire received chunks on the heap.
-        // we could make this lazy stream so the temporary allocation becomes less.
-        let success = self.core.queue_received_entry(req).await.unwrap();
+        let out_stream = request.into_inner();
+        let in_stream = into_in_stream(out_stream).await;
+        let success = self.core.queue_received_entry(in_stream).await.unwrap();
         let res = AppendEntryRep {
             success,
             last_log_index: self.core.log.get_last_log_index().await.unwrap(),
@@ -227,12 +227,12 @@ impl<A: RaftApp> Raft for Thread<A> {
     ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
         let snapshot_index = req.index;
-        let st = self.core.make_snapshot_stream(snapshot_index).await.unwrap();
-        if st.is_none() {
+        let in_stream = self.core.make_snapshot_stream(snapshot_index).await.unwrap();
+        if in_stream.is_none() {
             return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
         }
-        let st = st.unwrap();
-        Ok(tonic::Response::new(crate::snapshot::map_out(st)))
+        let in_stream = in_stream.unwrap();
+        Ok(tonic::Response::new(crate::snapshot::into_out_stream(in_stream)))
     }
     async fn send_heartbeat(
         &self,

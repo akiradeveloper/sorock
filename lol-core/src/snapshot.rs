@@ -57,10 +57,10 @@ use bytes::Bytes;
 /// the length of each bytes may vary.
 pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send + Sync>>;
 pub(crate) type SnapshotStreamOut = std::pin::Pin<Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send + Sync>>;
-pub(crate) fn map_out(st: SnapshotStream) ->  SnapshotStreamOut {
+pub(crate) fn into_out_stream(st: SnapshotStream) ->  SnapshotStreamOut {
     Box::pin(st.map(|res| res.map(|x| GetSnapshotRep { chunk: x.to_vec() }).map_err(|_| tonic::Status::unknown("streaming error"))))
 }
-pub(crate) fn map_in(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
+pub(crate) fn into_in_stream(st: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
     st.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
 /// basic snapshot type which is just a byte sequence.
