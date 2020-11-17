@@ -916,6 +916,8 @@ struct Log {
 
     applied_membership: Mutex<HashSet<Id>>,
     snapshot_queue: snapshot::SnapshotQueue,
+
+    apply_error_seq: AtomicU64,
 }
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
@@ -945,6 +947,8 @@ impl Log {
 
             applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
+
+            apply_error_seq: 0.into(),
         }
     }
     async fn get_last_log_index(&self) -> anyhow::Result<Index> {
@@ -954,6 +958,10 @@ impl Log {
         self.storage.get_snapshot_index().await
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
+        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
+            return Err(anyhow!("log is blocked due to the previous error"));
+        }
+
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -973,6 +981,10 @@ impl Log {
         Ok(new_index)
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
+        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
+            return Err(anyhow!("log is blocked due to the previous error"));
+        }
+
         let _token = self.append_token.acquire().await;
 
         let Clock { term: _, index: prev_index } = entry.prev_clock;
@@ -1169,9 +1181,27 @@ impl Log {
             _ => true,
         };
         if ok {
+            if self.apply_error_seq.swap(0, Ordering::SeqCst) > 0 {
+                log::error!("log is unblocked");
+            }
+
             log::debug!("last_applied -> {}", apply_index);
             self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_notification.lock().await.publish();
+        } else {
+            // we assume apply_message typically fails due to
+            // 1. temporal storage/network error
+            // 2. application bug
+            // while the former is recoverable the latter isn't which results in
+            // emitting error indefinitely until storage capacity is totally consumed.
+            // to avoid this adaptive penalty is inserted after each error.
+            let n_old = self.apply_error_seq.load(Ordering::SeqCst);
+            let wait_ms: u64 = 100 * (1 << n_old);
+            log::error!("log apply failed at index={} (n={}). wait for {}ms", apply_index, n_old+1, wait_ms);
+            tokio::time::delay_for(Duration::from_millis(wait_ms)).await;
+            if self.apply_error_seq.fetch_add(1, Ordering::SeqCst) == 0 {
+                log::error!("log is blocked");
+            }
         }
         Ok(())
     }
