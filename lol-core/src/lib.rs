@@ -52,6 +52,8 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
+    /// note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
+    /// due to possible I/O errors, etc.
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
@@ -1130,23 +1132,27 @@ impl Log {
                         }
 
                         if let Some(new_tag) = new_tag {
-                            // allows orphan snapshot resource to exist.
-                            self.storage.put_tag(apply_index, new_tag).await?;
+                            // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
 
-                            let snapshot_entry = Entry {
-                                command: Command::Snapshot {
-                                    membership: self.applied_membership.lock().await.clone(),
-                                }.into(),
-                                .. apply_entry
-                            };
-                            let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
-                            let delay = Duration::from_secs(delay_sec);
-                            log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
+                            // snapshot becomes orphan when this code fails but it is allowed.
+                            let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
+                            // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
+                            // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
+                            if ok {
+                                let snapshot_entry = Entry {
+                                    command: Command::Snapshot {
+                                        membership: self.applied_membership.lock().await.clone(),
+                                    }.into(),
+                                    .. apply_entry
+                                };
+                                let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
+                                let delay = Duration::from_secs(delay_sec);
+                                log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
 
-                            // do not allow corresponding snapshot tag doesn't exist for existing snapshot entry.
-                            self.snapshot_queue.insert(snapshot::InsertSnapshot {
-                                e: snapshot_entry,
-                            }, delay).await;
+                                self.snapshot_queue.insert(snapshot::InsertSnapshot {
+                                    e: snapshot_entry,
+                                }, delay).await;
+                            }
                         }
                         true
                     }
