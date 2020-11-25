@@ -595,7 +595,10 @@ impl<A: RaftApp> RaftCore<A> {
 // snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+        // TODO: setting connection timeout can be appropriate
+        //
+        // fetching snapshot can take very long then setting timeout is not appropriate here.
+        let config = EndpointConfig::default();
         let mut conn = Endpoint::new(to).connect_with(config).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
