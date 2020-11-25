@@ -36,7 +36,7 @@ use storage::RaftStorage;
 use snapshot::SnapshotTag;
 
 // this is currently fixed but can be place in tunable if it is needed.
-const ELECTION_TIMEOUT_MS: u64 = 500;
+const ELECTION_TIMEOUT_MS: u64 = 1000;
 
 /// proto file compiled.
 pub mod proto_compiled {
@@ -819,7 +819,7 @@ impl<A: RaftApp> RaftCore<A> {
                 continue;
             }
             let endpoint = member.endpoint;
-            let config = EndpointConfig::default().timeout(Duration::from_millis(100));
+            let config = EndpointConfig::default().timeout(Duration::from_millis(300));
             let req = {
                 let term = self.load_vote().await?.cur_term;
                 proto_compiled::HeartbeatReq {
