@@ -87,7 +87,12 @@ impl PartialEq for Clock {
         self.term == that.term && self.index == that.index
     }
 }
-/// each node is identified by a pair of ip and port.
+
+/// Id must satisfy these two conditions:
+/// 1. Id can identify a node in the cluster.
+/// 2. any client or other nodes in the cluster can access this node by the Id.
+/// 
+/// typically, the form of Id is (http|https)://(hostname|ip):port
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
