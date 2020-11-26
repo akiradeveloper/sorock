@@ -173,7 +173,7 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
-    let res = lol_core::start_server(core, socket).await;
+    let res = lol_core::Server::new(core).start(socket).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);
     }

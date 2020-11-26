@@ -13,7 +13,7 @@ keywords = ["raft"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.3"
+tonic = { version = "0.3", features = ["tls"] }
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros", "fs"] }
 rand = "0.7"

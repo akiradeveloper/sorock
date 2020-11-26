@@ -12,6 +12,7 @@ use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 use futures::stream::StreamExt;
 use std::net::SocketAddr;
+use tonic::transport::ServerTlsConfig;
 
 /// simple and backward-compatible RaftApp trait.
 pub mod compat;
@@ -29,6 +30,7 @@ mod thread;
 mod thread_drop;
 /// the snapshot abstraction and some basic implementations.
 pub mod snapshot;
+mod server;
 
 use ack::Ack;
 use connection::{Endpoint, EndpointConfig};
@@ -1303,17 +1305,40 @@ impl Log {
         Ok(())
     }
 }
-pub async fn start_server<A: RaftApp>(
+
+/// server builder.
+pub struct Server<A: RaftApp> {
     core: Arc<RaftCore<A>>,
-    socket: SocketAddr,
-) -> Result<(), tonic::transport::Error> {
-    tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
-    tokio::spawn(thread::commit::run(Arc::clone(&core)));
-    tokio::spawn(thread::compaction::run(Arc::clone(&core)));
-    tokio::spawn(thread::election::run(Arc::clone(&core)));
-    tokio::spawn(thread::execution::run(Arc::clone(&core)));
-    tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
-    tokio::spawn(thread::gc::run(Arc::clone(&core)));
-    tokio::spawn(thread::snapshot_installer::run(Arc::clone(&core)));
-    thread::server::run(Arc::clone(&core), socket).await
+    tls_config: Option<ServerTlsConfig>,
+}
+impl <A: RaftApp> Server<A> {
+    pub fn new(core: Arc<RaftCore<A>>) -> Self {
+        Self {
+            core,
+            tls_config: None,
+        }
+    }
+    pub fn tls_config(&mut self, tls_config: ServerTlsConfig) {
+        self.tls_config = Some(tls_config);
+    }
+    pub async fn start(self, socket: SocketAddr) -> Result<(), tonic::transport::Error> {
+        tokio::spawn(thread::heartbeat::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::commit::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::compaction::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::election::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::execution::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::query_executor::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::gc::run(Arc::clone(&self.core)));
+        tokio::spawn(thread::snapshot_installer::run(Arc::clone(&self.core)));
+
+        let server = server::Server { core: self.core };
+        let builder = tonic::transport::Server::builder();
+        let mut builder = if let Some(x) = self.tls_config {
+            builder.tls_config(x).unwrap()
+        } else {
+            builder
+        };
+        let server = proto_compiled::raft_server::RaftServer::new(server);
+        builder.add_service(server).serve(socket).await
+    }
 }
