@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 use futures::stream::StreamExt;
+use std::net::SocketAddr;
 
 /// simple and backward-compatible RaftApp trait.
 pub mod compat;
@@ -1299,6 +1300,7 @@ impl Log {
 }
 pub async fn start_server<A: RaftApp>(
     core: Arc<RaftCore<A>>,
+    socket: SocketAddr,
 ) -> Result<(), tonic::transport::Error> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
@@ -1308,5 +1310,5 @@ pub async fn start_server<A: RaftApp>(
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
     tokio::spawn(thread::gc::run(Arc::clone(&core)));
     tokio::spawn(thread::snapshot_installer::run(Arc::clone(&core)));
-    thread::server::run(Arc::clone(&core)).await
+    thread::server::run(Arc::clone(&core), socket).await
 }
