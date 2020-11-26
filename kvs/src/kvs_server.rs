@@ -130,7 +130,8 @@ async fn main() {
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
     let id = opt.id.clone();
-    let resolved = lol_core::connection::resolve(&id).unwrap();
+    let url = url::Url::parse(&id).unwrap();
+    let resolved = lol_core::connection::resolve(&format!("{}:{}", url.host_str().unwrap(), url.port().unwrap())).unwrap();
     let socket = resolved.parse().unwrap();
     
     let config = Config { id: id.clone(), };

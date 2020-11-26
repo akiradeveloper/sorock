@@ -32,7 +32,7 @@ impl Endpoint {
         self.connect_with(EndpointConfig::default()).await
     }
     pub async fn connect_with(&self, config: EndpointConfig) -> Result<Connection, tonic::Status> {
-        let id = format!("http://{}", self.id);
+        let id = self.id.clone();
         let mut endpoint = tonic::transport::Endpoint::from_shared(id).unwrap();
         if let Some(x) = config.timeout {
             endpoint = endpoint.timeout(x);
