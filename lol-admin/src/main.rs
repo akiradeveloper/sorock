@@ -32,18 +32,15 @@ enum Sub {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let dest_id = lol_core::connection::resolve(&opt.dest_id).unwrap();
-    let endpoint = lol_core::connection::Endpoint::new(dest_id);
+    let endpoint = lol_core::connection::Endpoint::new(opt.dest_id);
     let config = lol_core::connection::EndpointConfig::default().timeout(Duration::from_secs(5));
     let mut conn = endpoint.connect_with(config).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
-            let id = lol_core::connection::resolve(&id).unwrap();
             let req = proto_compiled::AddServerReq { id, };
             conn.add_server(req).await.unwrap();
         }
         Sub::RemoveServer { id } => {
-            let id = lol_core::connection::resolve(&id).unwrap();
             let req = proto_compiled::RemoveServerReq { id, };
             conn.remove_server(req).await.unwrap();
         }

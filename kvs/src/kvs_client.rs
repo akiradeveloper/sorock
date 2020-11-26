@@ -31,8 +31,7 @@ enum Sub {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let id = lol_core::connection::resolve(&opt.id).unwrap();
-    let endpoint = lol_core::connection::Endpoint::new(id);
+    let endpoint = lol_core::connection::Endpoint::new(opt.id);
     let config = lol_core::connection::EndpointConfig::default().timeout(Duration::from_secs(5));
     let mut conn = endpoint.connect_with(config).await.unwrap();
     match opt.sub {
