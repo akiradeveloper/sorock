@@ -130,6 +130,9 @@ async fn main() {
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
     let id = opt.id.clone();
+    let resolved = lol_core::connection::resolve(&id).unwrap();
+    let socket = resolved.parse().unwrap();
+    
     let config = Config { id: id.clone(), };
     let mut tunable = TunableConfig::default();
 
@@ -169,7 +172,7 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
-    let res = lol_core::start_server(core).await;
+    let res = lol_core::start_server(core, socket).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);
     }

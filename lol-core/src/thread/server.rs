@@ -2,6 +2,7 @@ use crate::connection::{Endpoint, EndpointConfig};
 use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
+use std::net::SocketAddr;
 use tokio::stream::StreamExt;
 
 use proto_compiled::{
@@ -304,12 +305,10 @@ impl<A: RaftApp> Raft for Thread<A> {
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) -> Result<(), tonic::transport::Error> {
-    let resolved = crate::connection::resolve(&core.id).unwrap();
-    let addr = resolved.parse().unwrap();
+pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, socket: SocketAddr) -> Result<(), tonic::transport::Error> {
     let th = Thread { core };
     tonic::transport::Server::builder()
         .add_service(RaftServer::new(th))
-        .serve(addr)
+        .serve(socket)
         .await
 }
