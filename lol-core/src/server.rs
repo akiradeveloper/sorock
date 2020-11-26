@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use tokio::stream::StreamExt;
 
 use proto_compiled::{
-    raft_server::{Raft, RaftServer},
+    raft_server::Raft,
     AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
@@ -55,11 +55,11 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
         entries: Box::pin(entries),
     }
 }
-struct Thread<A: RaftApp> {
-    core: Arc<RaftCore<A>>,
+pub struct Server<A: RaftApp> {
+    pub core: Arc<RaftCore<A>>,
 }
 #[tonic::async_trait]
-impl<A: RaftApp> Raft for Thread<A> {
+impl<A: RaftApp> Raft for Server<A> {
     async fn request_apply(
         &self,
         request: tonic::Request<ApplyReq>,
@@ -304,11 +304,4 @@ impl<A: RaftApp> Raft for Thread<A> {
             Err(tonic::Status::aborted("couldn't remove server"))
         }
     }
-}
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, socket: SocketAddr) -> Result<(), tonic::transport::Error> {
-    let th = Thread { core };
-    tonic::transport::Server::builder()
-        .add_service(RaftServer::new(th))
-        .serve(socket)
-        .await
 }
