@@ -129,8 +129,8 @@ async fn main() {
     let mut app = KVS::new();
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
-    let id = connection::resolve(&opt.id).unwrap();
-    let config = Config { id: id.clone() };
+    let id = opt.id.clone();
+    let config = Config { id: id.clone(), };
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {

@@ -196,7 +196,7 @@ impl Environment {
     pub fn get_node_id(&self, id: u8) -> String {
         let port_list = self.port_list.read().unwrap();
         let port = port_list.get(&id).unwrap();
-        format!("127.0.0.1:{}", port)
+        format!("localhost:{}", port)
     }
     pub fn start(&self, id: u8, command: NodeCommand) {
         let mut port_list = self.port_list.write().unwrap();
@@ -210,8 +210,10 @@ impl Environment {
         };
         // the command must take socket addr at the first parameter
         // followed by the rest of the parameters.
+
+        // Id can be host:port. it is resolved by the server.
         let child = std::process::Command::new(command.name)
-            .arg(&format!("127.0.0.1:{}", port))
+            .arg(&format!("localhost:{}", port))
             .args(command.args)
             .spawn()
             .expect(&format!("failed to start node id={}", id));

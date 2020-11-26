@@ -305,7 +305,8 @@ impl<A: RaftApp> Raft for Thread<A> {
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) -> Result<(), tonic::transport::Error> {
-    let addr = core.id.parse().unwrap();
+    let resolved = crate::connection::resolve(&core.id).unwrap();
+    let addr = resolved.parse().unwrap();
     let th = Thread { core };
     tonic::transport::Server::builder()
         .add_service(RaftServer::new(th))
