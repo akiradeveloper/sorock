@@ -31,9 +31,8 @@ enum Sub {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let endpoint = lol_core::connection::Endpoint::new(opt.id);
-    let config = lol_core::connection::EndpointConfig::default().timeout(Duration::from_secs(5));
-    let mut conn = endpoint.connect_with(config).await.unwrap();
+    let endpoint = lol_core::connection::Endpoint::from_shared(opt.id).unwrap().timeout(Duration::from_secs(5));
+    let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::Get { key } => {
             let msg = kvs::Req::Get { key };
