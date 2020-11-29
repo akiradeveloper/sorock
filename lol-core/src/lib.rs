@@ -48,6 +48,11 @@ pub mod proto_compiled {
 
 use storage::{Entry, Vote};
 
+pub enum MakeSnapshot {
+    None,
+    CopySnapshot(SnapshotTag),
+}
+
 /// the abstraction for user-defined application runs on the RaftCore.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
@@ -57,7 +62,7 @@ pub trait RaftApp: Sync + Send + 'static {
     /// this function may return new "copy snapshot" as a copy of the state after application.
     /// note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
     /// due to possible I/O errors, etc.
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
     async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
@@ -1139,12 +1144,12 @@ impl Log {
             CommandB::Req { core, ref message } => {
                 let res = if core {
                     let res = raft_core.process_message(message).await;
-                    res.map(|x| (x, None))
+                    res.map(|x| (x, MakeSnapshot::None))
                 } else {
                     raft_core.app.apply_message(message, apply_index).await
                 };
                 match res {
-                    Ok((msg, new_tag)) => {
+                    Ok((msg, make_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
                         if ack_chans.contains_key(&apply_index) {
                             let ack = ack_chans.get(&apply_index).unwrap();
@@ -1155,28 +1160,31 @@ impl Log {
                             }
                         }
 
-                        if let Some(new_tag) = new_tag {
-                            // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
+                        match make_snapshot {
+                            MakeSnapshot::CopySnapshot(new_tag) => {
+                                // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
 
-                            // snapshot becomes orphan when this code fails but it is allowed.
-                            let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
-                            // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
-                            // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
-                            if ok {
-                                let snapshot_entry = Entry {
-                                    command: Command::Snapshot {
-                                        membership: self.applied_membership.lock().await.clone(),
-                                    }.into(),
-                                    .. apply_entry
-                                };
-                                let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
-                                let delay = Duration::from_secs(delay_sec);
-                                log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
+                                // snapshot becomes orphan when this code fails but it is allowed.
+                                let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
+                                // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
+                                // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
+                                if ok {
+                                    let snapshot_entry = Entry {
+                                        command: Command::Snapshot {
+                                            membership: self.applied_membership.lock().await.clone(),
+                                        }.into(),
+                                        .. apply_entry
+                                    };
+                                    let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
+                                    let delay = Duration::from_secs(delay_sec);
+                                    log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
 
-                                self.snapshot_queue.insert(snapshot::InsertSnapshot {
-                                    e: snapshot_entry,
-                                }, delay).await;
-                            }
+                                    self.snapshot_queue.insert(snapshot::InsertSnapshot {
+                                        e: snapshot_entry,
+                                    }, delay).await;
+                                }
+                            },
+                            MakeSnapshot::None => {},
                         }
                         true
                     }

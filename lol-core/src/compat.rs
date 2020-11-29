@@ -1,4 +1,4 @@
-use crate::{RaftApp, Index};
+use crate::{RaftApp, MakeSnapshot, Index};
 use crate::snapshot::{SnapshotTag, BytesSnapshot, SnapshotStream};
 use async_trait::async_trait;
 
@@ -30,9 +30,13 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         self.compat_app.process_message(request).await
     }
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)> {
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
         let (res, new_snapshot) = self.compat_app.apply_message(request, apply_index).await?;
-        Ok((res, new_snapshot.map(|x| x.into())))
+        let make_snapshot = match new_snapshot {
+            Some(x) => MakeSnapshot::CopySnapshot(x.into()),
+            None => MakeSnapshot::None,
+        };
+        Ok((res, make_snapshot))
     }
     async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()> {
         let y = snapshot.map(|x| x.contents.clone());
