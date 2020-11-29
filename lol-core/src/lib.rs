@@ -51,6 +51,7 @@ use storage::{Entry, Vote};
 pub enum MakeSnapshot {
     None,
     CopySnapshot(SnapshotTag),
+    FoldSnapshot,
 }
 
 /// the abstraction for user-defined application runs on the RaftCore.
@@ -1182,6 +1183,11 @@ impl Log {
                                         e: snapshot_entry,
                                     }, delay).await;
                                 }
+                            },
+                            MakeSnapshot::FoldSnapshot => {
+                                tokio::spawn(async move {
+                                    let _ = raft_core.log.create_fold_snapshot(apply_index, Arc::clone(&raft_core)).await;
+                                });
                             },
                             MakeSnapshot::None => {},
                         }
