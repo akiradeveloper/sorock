@@ -1,52 +1,23 @@
 use crate::proto_compiled;
 use crate::Id;
 use std::time::Duration;
+use tokio::sync::watch;
 
-pub type Connection = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
+pub use tonic::transport::Endpoint;
 
-#[derive(Clone)]
-pub struct EndpointConfig {
-    timeout: Option<Duration>,
-}
-impl EndpointConfig {
-    pub fn default() -> Self {
-        Self { timeout: None }
-    }
-    pub fn timeout(self, x: Duration) -> Self {
-        Self {
-            timeout: Some(x),
-            ..self
-        }
-    }
+pub type RaftClient = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
+pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
+    let uri = endpoint.uri().clone();
+    proto_compiled::raft_client::RaftClient::connect(endpoint)
+        .await
+        .map_err(|_| {
+            tonic::Status::new(
+                tonic::Code::Unavailable,
+                format!("failed to connect to {}", uri),
+            )
+        })
 }
 
-#[derive(Clone, Debug)]
-pub struct Endpoint {
-    pub id: Id,
-}
-impl Endpoint {
-    pub fn new(id: Id) -> Self {
-        Self { id }
-    }
-    pub async fn connect(&self) -> Result<Connection, tonic::Status> {
-        self.connect_with(EndpointConfig::default()).await
-    }
-    pub async fn connect_with(&self, config: EndpointConfig) -> Result<Connection, tonic::Status> {
-        let id = self.id.clone();
-        let mut endpoint = tonic::transport::Endpoint::from_shared(id).unwrap();
-        if let Some(x) = config.timeout {
-            endpoint = endpoint.timeout(x);
-        }
-        proto_compiled::raft_client::RaftClient::connect(endpoint)
-            .await
-            .map_err(|_| {
-                tonic::Status::new(
-                    tonic::Code::Unavailable,
-                    format!("failed to connect to {}", self.id),
-                )
-            })
-    }
-}
 /// resolve the socket address
 pub fn resolve(id: &str) -> Option<String> {
     use std::net::ToSocketAddrs;
@@ -88,135 +59,87 @@ pub mod gateway {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    pub struct Gateway {
-        awared_membership: HashSet<Id>,
-        awared_leader: Option<Id>,
-        thread_drop: thread_drop::ThreadDrop,
-        cached: Vec<Endpoint>,
+    #[derive(Clone)]
+    pub struct CurrentMembership {
+        pub list: Vec<Id>,
     }
-    impl Gateway {
-        /// build a gateway from a node list.
-        /// the node list should include at least one node actually being in the cluster.
-        pub async fn new(initial: HashSet<Id>) -> Arc<RwLock<Self>> {
-            let gateway = Arc::new(RwLock::new(Self::new_inner(initial)));
-            gateway.write().await.compute_cache();
-            gateway
+    async fn query_new(list: Vec<Id>) -> anyhow::Result<(Option<Id>, Vec<Id>)> {
+        exec(list, |id: Id| async move {
+            let req = core_message::Req::ClusterInfo;
+            let req = proto_compiled::ProcessReq {
+                core: true,
+                message: core_message::Req::serialize(&req),
+            };
+            let endpoint = Endpoint::from_shared(id)?;
+            let mut conn = connect(endpoint).await?;
+            let res = conn.request_process(req).await?.into_inner();
+            let res = core_message::Rep::deserialize(&res.message).unwrap();
+            if let core_message::Rep::ClusterInfo {
+                leader_id,
+                membership,
+            } = res
+            {
+                Ok((leader_id, membership))
+            } else {
+                unreachable!()
+            }
+        })
+        .await
+    }
+    fn sort(awared_leader: Id, awared_membership: Vec<Id>) -> Vec<Id> {
+        let mut v = vec![];
+        for member in awared_membership {
+            let rank = if member == awared_leader { 0 } else { 1 };
+            v.push((rank, member.to_owned()))
         }
-        /// spawn companion thread the periodically refresh the
-        /// internal cache of Gateway.
-        pub async fn start_companion_thread(gateway: &Arc<RwLock<Self>>) {
-            let cln = Arc::clone(&gateway);
-            let companion = async move {
-                loop {
-                    tokio::time::delay_for(Duration::from_secs(5)).await;
-                    let r = cln.read().await.query_new().await;
-                    if let Ok((leader_id, membership)) = r {
-                        cln.write().await.update_with(leader_id, membership);
-                        cln.write().await.compute_cache();
+        v.sort(); // leader first
+        let mut r = vec![];
+        for (_, id) in v {
+            r.push(id)
+        }
+        r
+    }
+    pub fn watch(initial: HashSet<Id>) -> watch::Receiver<CurrentMembership> {
+        let init_value = CurrentMembership {
+            list: initial.into_iter().collect(),
+        };
+        let (tx, rx) = watch::channel(init_value);
+        let rx_cln = rx.clone();
+        tokio::spawn(async move {
+            loop {
+                let cur_list = rx_cln.borrow().clone().list;
+                if let Ok((leader0, membership)) = query_new(cur_list).await {
+                    // we don't trust the membership with no leader.
+                    if let Some(leader) = leader0 {
+                        let sorted = sort(leader, membership);
+                        let _ = tx.broadcast(CurrentMembership { list: sorted });
                     }
                 }
-            };
-            let abortable = gateway.write().await.thread_drop.register(companion);
-            tokio::spawn(abortable);
-        }
-        fn new_inner(initial: HashSet<Id>) -> Self {
-            Self {
-                awared_membership: initial,
-                awared_leader: None,
-                thread_drop: thread_drop::ThreadDrop::new(),
-                cached: vec![],
+                tokio::time::delay_for(Duration::from_secs(5)).await;
             }
-        }
-        fn compute_cache(&mut self) {
-            let mut v = vec![];
-            for member in &self.awared_membership {
-                let rank = if Some(member) == self.awared_leader.as_ref() {
-                    0
-                } else {
-                    1
-                };
-                v.push((rank, member.to_owned()))
-            }
-            v.sort(); // leader first
-            let mut endpoints = vec![];
-            for (_, member) in v {
-                let endpoint = Endpoint::new(member);
-                endpoints.push(endpoint);
-            }
-            self.cached = endpoints;
-        }
-        /// get the current node list tracked by this gateway.
-        /// if there is a leader in the list the node comes first.
-        pub fn query_sequence(&self) -> Vec<Endpoint> {
-            self.cached.clone()
-        }
-        async fn query_new(&self) -> anyhow::Result<(Option<String>, Vec<String>)> {
-            let endpoints = self.query_sequence();
-            let config = EndpointConfig::default();
-            exec(&config, &endpoints, |mut conn: Connection| async move {
-                let req = core_message::Req::ClusterInfo;
-                let req = proto_compiled::ProcessReq {
-                    core: true,
-                    message: core_message::Req::serialize(&req),
-                };
-                let res = conn.request_process(req).await?.into_inner();
-                let res = core_message::Rep::deserialize(&res.message).unwrap();
-                if let core_message::Rep::ClusterInfo {
-                    leader_id,
-                    membership,
-                } = res
-                {
-                    Ok((leader_id, membership))
-                } else {
-                    unreachable!()
-                }
-            })
-            .await
-        }
-        fn update_with(&mut self, leader_id: Option<String>, membership: Vec<String>) {
-            // if leader is not known, we don't use the value because
-            // it can be during an election.
-            if leader_id.is_none() {
-                return;
-            }
-            self.awared_leader = leader_id;
-            self.awared_membership = membership.into_iter().collect();
-        }
+        });
+        rx
     }
-    pub async fn exec<F, T>(
-        config: &EndpointConfig,
-        endpoints: &[Endpoint],
-        f: impl Fn(Connection) -> F,
-    ) -> anyhow::Result<T>
+    pub async fn exec<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> anyhow::Result<T>
     where
         F: Future<Output = anyhow::Result<T>>,
     {
         for endpoint in endpoints {
-            if let Ok(conn) = endpoint.connect_with(config.clone()).await {
-                if let Ok(res) = f(conn).await {
-                    return Ok(res);
-                }
+            if let Ok(res) = f(endpoint).await {
+                return Ok(res);
             }
         }
         Err(anyhow::anyhow!(
             "any attempts to given endpoints ended up in failure"
         ))
     }
-    pub async fn parallel<F, T>(
-        config: &EndpointConfig,
-        endpoints: &[Endpoint],
-        f: impl Fn(Connection) -> F + Clone,
-    ) -> Vec<anyhow::Result<T>>
+    pub async fn parallel<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> Vec<anyhow::Result<T>>
     where
         F: Future<Output = anyhow::Result<T>>,
     {
         let mut futs = vec![];
         for endpoint in endpoints {
-            let g = f.clone();
-            futs.push(async move {
-                let conn = endpoint.connect_with(config.clone()).await?;
-                g(conn).await
-            })
+            futs.push(f(endpoint));
         }
         futures::future::join_all(futs).await
     }

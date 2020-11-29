@@ -51,10 +51,9 @@ impl Admin {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_process_locally(req).await
         })?.into_inner();
         let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -68,10 +67,9 @@ impl Admin {
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::AddServerReq { id, };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.add_server(req).await
         })?;
         Ok(())
@@ -79,10 +77,9 @@ impl Admin {
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::RemoveServerReq { id, };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.remove_server(req).await
         })?;
         Ok(())
@@ -93,10 +90,9 @@ impl Admin {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_process_locally(req).await
         })?.into_inner();
         let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -116,10 +112,9 @@ impl Admin {
     }
     pub fn timeout_now(&self) -> Result<()> {
         let req = proto_compiled::TimeoutNowReq {};
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.timeout_now(req).await
         })?;
         Ok(())

@@ -33,7 +33,7 @@ pub mod snapshot;
 mod server;
 
 use ack::Ack;
-use connection::{Endpoint, EndpointConfig};
+use connection::Endpoint;
 use thread::notification::Notification;
 use storage::RaftStorage;
 use snapshot::SnapshotTag;
@@ -537,12 +537,11 @@ impl<A: RaftApp> RaftCore<A> {
             .await?;
 
         let res = async {
-            let endpoint = member.endpoint;
-            let mut conn = endpoint.connect().await?;
+            let endpoint = Endpoint::from_shared(follower_id.clone()).unwrap();
+            let mut conn = connection::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
             conn.send_append_entry(out_stream).await
-        }
-        .await;
+        }.await;
 
         let mut incremented = false;
         let new_progress = if res.is_ok() {
@@ -606,8 +605,8 @@ impl<A: RaftApp> RaftCore<A> {
         // TODO: setting connection timeout can be appropriate
         //
         // fetching snapshot can take very long then setting timeout is not appropriate here.
-        let config = EndpointConfig::default();
-        let mut conn = Endpoint::new(to).connect_with(config).await?;
+        let endpoint = Endpoint::from_shared(to).unwrap();
+        let mut conn = connection::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
         };
@@ -715,7 +714,7 @@ impl<A: RaftApp> RaftCore<A> {
             let mut others = vec![];
             for (id, member) in cur_cluster {
                 if id != self.id {
-                    others.push(member.endpoint);
+                    others.push(id);
                 }
             }
             // -1 = self vote
@@ -749,12 +748,11 @@ impl<A: RaftApp> RaftCore<A> {
                     // dropped when it's receiving heartbeat.
                     force_vote,
                 };
-                let config = EndpointConfig::default().timeout(timeout);
                 let res = async {
-                    let mut conn = endpoint.connect_with(config).await?;
+                    let endpoint = Endpoint::from_shared(endpoint).unwrap().timeout(timeout);
+                    let mut conn = connection::connect(endpoint).await?;
                     conn.request_vote(req).await
-                }
-                .await;
+                }.await;
                 match res {
                     Ok(res) => res.into_inner().vote_granted,
                     Err(_) => false,
@@ -826,8 +824,10 @@ impl<A: RaftApp> RaftCore<A> {
             if id == self.id {
                 continue;
             }
-            let endpoint = member.endpoint;
-            let config = EndpointConfig::default().timeout(Duration::from_millis(300));
+            let endpoint = {
+                connection::Endpoint::from_shared(id.clone()).unwrap()
+                .timeout(Duration::from_millis(300))
+            };
             let req = {
                 let term = self.load_vote().await?.cur_term;
                 proto_compiled::HeartbeatReq {
@@ -837,7 +837,7 @@ impl<A: RaftApp> RaftCore<A> {
                 }
             };
             futs.push(async move {
-                if let Ok(mut conn) = endpoint.connect_with(config).await {
+                if let Ok(mut conn) = connection::connect(endpoint).await {
                     let res = conn.send_heartbeat(req).await;
                     if res.is_err() {
                         log::warn!("heartbeat to {} failed", id);
@@ -893,15 +893,16 @@ impl<A: RaftApp> RaftCore<A> {
         for (id, member) in cluster {
             if id != self.id {
                 let prog = member.progress.unwrap();
-                xs.push((prog.match_index, member));
+                xs.push((prog.match_index, id));
             }
         }
         xs.sort_by_key(|x| x.0);
 
         // choose the one with the higher match_index as the next leader.
-        if let Some((_, member)) = xs.pop() {
+        if let Some((_, id)) = xs.pop() {
             tokio::spawn(async move {
-                if let Ok(mut conn) = member.endpoint.connect().await {
+                let endpoint = Endpoint::from_shared(id).unwrap();
+                if let Ok(mut conn) = connection::connect(endpoint).await {
                     let req = proto_compiled::TimeoutNowReq {};
                     let _ = conn.timeout_now(req).await;
                 }
