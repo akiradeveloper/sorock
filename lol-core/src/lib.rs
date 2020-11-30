@@ -733,7 +733,7 @@ impl<A: RaftApp> RaftCore<A> {
             .unwrap()
             .this_clock;
 
-        let timeout = Duration::from_secs(5);
+        let vote_timeout = Duration::from_secs(5);
         let mut vote_requests = vec![];
         for endpoint in others {
             let myid = self.id.clone();
@@ -751,7 +751,7 @@ impl<A: RaftApp> RaftCore<A> {
                     force_vote,
                 };
                 let res = async {
-                    let endpoint = Endpoint::from_shared(endpoint).unwrap().timeout(timeout);
+                    let endpoint = Endpoint::from_shared(endpoint).unwrap().timeout(vote_timeout);
                     let mut conn = connection::connect(endpoint).await?;
                     conn.request_vote(req).await
                 }.await;
@@ -761,7 +761,7 @@ impl<A: RaftApp> RaftCore<A> {
                 }
             });
         }
-        let ok = quorum_join::quorum_join(timeout, quorum, vote_requests).await;
+        let ok = quorum_join::quorum_join(quorum, vote_requests).await;
         Ok(ok)
     }
     async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> anyhow::Result<()> {
