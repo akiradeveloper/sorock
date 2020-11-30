@@ -36,7 +36,7 @@ use storage::RaftStorage;
 use snapshot::SnapshotTag;
 
 // this is currently fixed but can be place in tunable if it is needed.
-const ELECTION_TIMEOUT_MS: u64 = 500;
+const ELECTION_TIMEOUT_MS: u64 = 1000;
 
 /// proto file compiled.
 pub mod proto_compiled {
@@ -52,6 +52,8 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
     /// almost same as process_message but is called in log application path.
     /// this function may return new "copy snapshot" as a copy of the state after application.
+    /// note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
+    /// due to possible I/O errors, etc.
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
     /// special type of apply_message but when the entry is snapshot entry.
     /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
@@ -593,7 +595,10 @@ impl<A: RaftApp> RaftCore<A> {
 // snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
+        // TODO: setting connection timeout can be appropriate
+        //
+        // fetching snapshot can take very long then setting timeout is not appropriate here.
+        let config = EndpointConfig::default();
         let mut conn = Endpoint::new(to).connect_with(config).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
@@ -814,7 +819,7 @@ impl<A: RaftApp> RaftCore<A> {
                 continue;
             }
             let endpoint = member.endpoint;
-            let config = EndpointConfig::default().timeout(Duration::from_millis(100));
+            let config = EndpointConfig::default().timeout(Duration::from_millis(300));
             let req = {
                 let term = self.load_vote().await?.cur_term;
                 proto_compiled::HeartbeatReq {
@@ -914,6 +919,8 @@ struct Log {
 
     applied_membership: Mutex<HashSet<Id>>,
     snapshot_queue: snapshot::SnapshotQueue,
+
+    apply_error_seq: AtomicU64,
 }
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
@@ -943,6 +950,8 @@ impl Log {
 
             applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
+
+            apply_error_seq: 0.into(),
         }
     }
     async fn get_last_log_index(&self) -> anyhow::Result<Index> {
@@ -952,6 +961,10 @@ impl Log {
         self.storage.get_snapshot_index().await
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
+        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
+            return Err(anyhow!("log is blocked due to the previous error"));
+        }
+
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -971,6 +984,10 @@ impl Log {
         Ok(new_index)
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
+        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
+            return Err(anyhow!("log is blocked due to the previous error"));
+        }
+
         let _token = self.append_token.acquire().await;
 
         let Clock { term: _, index: prev_index } = entry.prev_clock;
@@ -1130,23 +1147,27 @@ impl Log {
                         }
 
                         if let Some(new_tag) = new_tag {
-                            // allows orphan snapshot resource to exist.
-                            self.storage.put_tag(apply_index, new_tag).await?;
+                            // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
 
-                            let snapshot_entry = Entry {
-                                command: Command::Snapshot {
-                                    membership: self.applied_membership.lock().await.clone(),
-                                }.into(),
-                                .. apply_entry
-                            };
-                            let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
-                            let delay = Duration::from_secs(delay_sec);
-                            log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
+                            // snapshot becomes orphan when this code fails but it is allowed.
+                            let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
+                            // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
+                            // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
+                            if ok {
+                                let snapshot_entry = Entry {
+                                    command: Command::Snapshot {
+                                        membership: self.applied_membership.lock().await.clone(),
+                                    }.into(),
+                                    .. apply_entry
+                                };
+                                let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
+                                let delay = Duration::from_secs(delay_sec);
+                                log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
 
-                            // do not allow corresponding snapshot tag doesn't exist for existing snapshot entry.
-                            self.snapshot_queue.insert(snapshot::InsertSnapshot {
-                                e: snapshot_entry,
-                            }, delay).await;
+                                self.snapshot_queue.insert(snapshot::InsertSnapshot {
+                                    e: snapshot_entry,
+                                }, delay).await;
+                            }
                         }
                         true
                     }
@@ -1163,9 +1184,27 @@ impl Log {
             _ => true,
         };
         if ok {
+            if self.apply_error_seq.swap(0, Ordering::SeqCst) > 0 {
+                log::error!("log is unblocked");
+            }
+
             log::debug!("last_applied -> {}", apply_index);
             self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_notification.lock().await.publish();
+        } else {
+            // we assume apply_message typically fails due to
+            // 1. temporal storage/network error
+            // 2. application bug
+            // while the former is recoverable the latter isn't which results in
+            // emitting error indefinitely until storage capacity is totally consumed.
+            // to avoid this adaptive penalty is inserted after each error.
+            let n_old = self.apply_error_seq.load(Ordering::SeqCst);
+            let wait_ms: u64 = 100 * (1 << n_old);
+            log::error!("log apply failed at index={} (n={}). wait for {}ms", apply_index, n_old+1, wait_ms);
+            tokio::time::delay_for(Duration::from_millis(wait_ms)).await;
+            if self.apply_error_seq.fetch_add(1, Ordering::SeqCst) == 0 {
+                log::error!("log is blocked");
+            }
         }
         Ok(())
     }
