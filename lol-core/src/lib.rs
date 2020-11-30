@@ -297,16 +297,6 @@ impl<A: RaftApp> RaftCore<A> {
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
         let req = core_message::Req::deserialize(msg).unwrap();
         match req {
-            core_message::Req::InitCluster => {
-                let res = if self.cluster.read().await.internal.len() == 0 {
-                    log::info!("init cluster");
-                    self.init_cluster().await?;
-                    core_message::Rep::InitCluster { ok: true }
-                } else {
-                    core_message::Rep::InitCluster { ok: false }
-                };
-                Ok(core_message::Rep::serialize(&res))
-            }
             core_message::Req::ClusterInfo => {
                 let res = core_message::Rep::ClusterInfo {
                     leader_id: self.load_vote().await?.voted_for,

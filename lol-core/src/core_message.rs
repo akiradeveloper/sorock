@@ -3,7 +3,6 @@ use crate::Id;
 /// Request
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
-    InitCluster,
     AddServer(Id),
     RemoveServer(Id),
     ClusterInfo,
@@ -13,9 +12,6 @@ pub enum Req {
 /// Reply
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Rep {
-    InitCluster {
-        ok: bool,
-    },
     ClusterInfo {
         leader_id: Option<Id>,
         membership: Vec<Id>,
