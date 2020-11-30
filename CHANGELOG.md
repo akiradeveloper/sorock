@@ -1,3 +1,8 @@
+# 0.5.3 (2020-11-30)
+
+- Insert adaptive wait after apply failure to avoid infinitely repeat failing calls.
+- Log is blocked on apply failure to avoid inflation.
+
 # 0.5.2 (2020-11-6)
 
 - Optimize log replication.
