@@ -2,8 +2,8 @@ use crate::{RaftApp, MakeSnapshot, Index};
 use crate::snapshot::{SnapshotTag, BytesSnapshot, SnapshotStream};
 use async_trait::async_trait;
 
-/// similar to full-featured RaftApp but restricted:
-/// the snapshot is not a snapshot tag but a snapshot resource serialized into bytes.
+/// Similar to full-featured RaftApp but restricted:
+/// The snapshot is not a snapshot tag but a snapshot resource serialized into bytes.
 #[async_trait]
 pub trait RaftAppCompat: Sync + Send + 'static {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;

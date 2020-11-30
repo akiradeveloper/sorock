@@ -18,8 +18,8 @@ pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
         })
 }
 
-/// the purpose of gateway is to track the cluster members.
-/// in Raft you can access the leader node if you know at least one node in the cluster
+/// The purpose of gateway is to track the cluster members.
+/// In Raft you can access the leader node if you know at least one node in the cluster
 /// and gateway maintains the cluster members by polling the current membership.
 pub mod gateway {
     use super::*;

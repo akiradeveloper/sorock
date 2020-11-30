@@ -12,21 +12,21 @@ use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 use futures::stream::StreamExt;
 
-/// simple and backward-compatible RaftApp trait.
+/// Simple and backward-compatible RaftApp trait.
 pub mod compat;
-/// the abstraction for the backing storage and some implementations.
+/// The abstraction for the backing storage and some implementations.
 pub mod storage;
 mod ack;
-/// utilities to connect nodes and cluster.
+/// Utilities to connect nodes and cluster.
 pub mod connection;
-/// the request and response that RaftCore talks.
+/// The request and response that RaftCore talks.
 pub mod core_message;
 mod membership;
 mod query_queue;
 mod quorum_join;
 mod thread;
 mod thread_drop;
-/// the snapshot abstraction and some basic implementations.
+/// The snapshot abstraction and some basic implementations.
 pub mod snapshot;
 mod server;
 
@@ -39,7 +39,7 @@ use snapshot::SnapshotTag;
 // this is currently fixed but can be place in tunable if it is needed.
 const ELECTION_TIMEOUT_MS: u64 = 1000;
 
-/// proto file compiled.
+/// Proto file compiled.
 pub mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
@@ -52,36 +52,36 @@ pub enum MakeSnapshot {
     FoldSnapshot,
 }
 
-/// the abstraction for user-defined application runs on the RaftCore.
+/// The abstraction for user-defined application runs on the RaftCore.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
-    /// how state machine interacts with inputs from clients.
+    /// How state machine interacts with inputs from clients.
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    /// almost same as process_message but is called in log application path.
-    /// this function may return new "copy snapshot" as a copy of the state after application.
-    /// note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
+    /// Almost same as process_message but is called in log application path.
+    /// This function may return new "copy snapshot" as a copy of the state after application.
+    /// Note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
     /// due to possible I/O errors, etc.
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
-    /// special type of apply_message but when the entry is snapshot entry.
-    /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
+    /// Special type of apply_message but when the entry is snapshot entry.
+    /// Snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
     async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
-    /// this function is called from compaction threads.
-    /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
+    /// This function is called from compaction threads.
+    /// It should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
-    /// make a snapshot resource and returns the tag.
+    /// Make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag>;
-    /// make a snapshot stream from a snapshot resource bound to the tag.
+    /// Make a snapshot stream from a snapshot resource bound to the tag.
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
-    /// delete a snapshot resource bound to the tag.
+    /// Delete a snapshot resource bound to the tag.
     async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 type Term = u64;
-/// log index.
+/// Log index.
 pub type Index = u64;
 #[derive(Clone, Copy, Eq)]
 struct Clock {
@@ -94,11 +94,13 @@ impl PartialEq for Clock {
     }
 }
 
+/// Unique identifier of a Raft node.
+/// 
 /// Id must satisfy these two conditions:
 /// 1. Id can identify a node in the cluster.
 /// 2. any client or other nodes in the cluster can access this node by the Id.
 /// 
-/// typically, the form of Id is (http|https)://(hostname|ip):port
+/// Typically, the form of Id is (http|https)://(hostname|ip):port
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -166,7 +168,7 @@ enum ElectionState {
     Candidate,
     Follower,
 }
-/// static configuration in initialization.
+/// Static configuration in initialization.
 pub struct Config {
     id: Id,
 }
@@ -176,12 +178,12 @@ impl Config {
     }
 }
 
-/// dynamic configurations.
+/// Dynamic configurations.
 pub struct TunableConfig {
-    /// snapshot will be inserted into log after this delay.
+    /// Snapshot will be inserted into log after this delay.
     pub compaction_delay_sec: u64,
-    /// the interval that compaction runs.
-    /// you can set this to 0 and fold snapshot will never be created.
+    /// The interval that compaction runs.
+    /// You can set this to 0 and fold snapshot will never be created.
     pub compaction_interval_sec: u64,
 }
 impl TunableConfig {
@@ -193,7 +195,7 @@ impl TunableConfig {
     }
 }
 /// RaftCore is the heart of the Raft system.
-/// it does everything Raft should do like election, dynamic membership change,
+/// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
 pub struct RaftCore<A: RaftApp> {
     id: Id,
