@@ -131,8 +131,8 @@ async fn main() {
 
     let id = opt.id.clone();
     let url = url::Url::parse(&id).unwrap();
-    let resolved = lol_core::connection::resolve(&format!("{}:{}", url.host_str().unwrap(), url.port().unwrap())).unwrap();
-    let socket = resolved.parse().unwrap();
+    let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
+    let socket = tokio::net::lookup_host(host_port_str).await.unwrap().next().unwrap();
     
     let config = Config { id: id.clone(), };
     let mut tunable = TunableConfig::default();
