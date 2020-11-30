@@ -1,10 +1,9 @@
 use std::future::Future;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use futures::stream::futures_unordered::FuturesUnordered;
+use futures::stream::StreamExt;
 
-/// execute futures and returns ok only when quorum replied ok within specified duration.
-pub async fn quorum_join(
-    timeout: Duration,
+async fn do_quorum_join(
     quorum: usize,
     futs: Vec<impl Future<Output = bool> + Send + 'static>,
 ) -> bool {
@@ -16,37 +15,37 @@ pub async fn quorum_join(
     if n == 0 && quorum == 0 {
         return true;
     }
-    let main_fut = async {
-        let n = futs.len();
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut ok: usize = 0;
-        let mut ack: usize = 0;
-        let mut threads = vec![];
-        for fut in futs {
-            let txc = tx.clone();
-            threads.push(async move {
-                let b = fut.await;
-                let _ = txc.send(b);
-            })
+
+    let queue = FuturesUnordered::new();
+    for fut in futs {
+        queue.push(fut);
+    }
+    futures::pin_mut!(queue);
+    let mut ack = 0;
+    let mut ok = 0;
+    while let Some(x) = queue.next().await {
+        ack += 1;
+        if x {
+            ok += 1;
         }
-        for th in threads {
-            tokio::spawn(th);
+        if ok >= quorum {
+            return true;
         }
-        while let Some(x) = rx.recv().await {
-            ack += 1;
-            if x {
-                ok += 1;
-            }
-            if ok >= quorum {
-                return true;
-            }
-            if ack == n {
-                return false;
-            }
+        if ack == n {
+            return false;
         }
-        unreachable!()
-    };
-    let res = tokio::time::timeout(timeout, main_fut).await;
+    }
+    false
+}
+
+/// execute futures and returns ok only when quorum replied ok within specified duration.
+pub async fn quorum_join(
+    timeout: Duration,
+    quorum: usize,
+    futs: Vec<impl Future<Output = bool> + Send + 'static>,
+) -> bool {
+    let fut = do_quorum_join(quorum, futs);
+    let res = tokio::time::timeout(timeout, fut).await;
     if res.is_err() {
         false
     } else {
