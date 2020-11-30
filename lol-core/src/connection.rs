@@ -18,36 +18,6 @@ pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
         })
 }
 
-/// resolve the socket address
-pub fn resolve(id: &str) -> Option<String> {
-    use std::net::ToSocketAddrs;
-    let res = id.to_socket_addrs();
-    match res {
-        Ok(mut it) => {
-            if let Some(x) = it.next() {
-                Some(x.to_string())
-            } else {
-                None
-            }
-        }
-        Err(_) => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_resolve() {
-        assert!(resolve("localhost:80").is_some());
-        assert!(resolve("locallocalhost:80").is_none());
-        assert!(resolve("localhost:50051").is_some());
-        assert!(resolve("127.0.0.1:80").is_some());
-        assert!(resolve("127.0.0.1:50051").is_some());
-        assert!(resolve("192.168.39.15:50051").is_some());
-    }
-}
-
 /// the purpose of gateway is to track the cluster members.
 /// in Raft you can access the leader node if you know at least one node in the cluster
 /// and gateway maintains the cluster members by polling the current membership.
