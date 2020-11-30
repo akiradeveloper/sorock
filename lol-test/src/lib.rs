@@ -10,10 +10,6 @@ pub type Result<T> = anyhow::Result<T>;
 pub type EnvRef = Arc<Environment>;
 
 pub mod admin {
-    #[derive(Clone, Debug)]
-    pub struct InitCluster {
-        pub ok: bool,
-    }
     impl PartialEq for ClusterInfo {
         fn eq(&self, other: &Self) -> bool {
             self.leader_id == other.leader_id && self.membership == other.membership
@@ -43,26 +39,6 @@ impl Admin {
             let mut rt = Builder::new().basic_scheduler().enable_all().build().unwrap();
             rt.block_on(fut)
         }).join().unwrap()
-    }
-    #[deprecated]
-    fn init_cluster(&self) -> Result<admin::InitCluster> {
-        let msg = core_message::Req::InitCluster;
-        let req = proto_compiled::ProcessReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
-        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
-        let res = Self::block_on(async move {
-            let mut conn = connection::connect(endpoint).await?;
-            conn.request_process_locally(req).await
-        })?.into_inner();
-        let msg = core_message::Rep::deserialize(&res.message).unwrap();
-        let msg = if let core_message::Rep::InitCluster { ok } = msg {
-            admin::InitCluster { ok }
-        } else {
-            unreachable!()
-        };
-        Ok(msg)
     }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
