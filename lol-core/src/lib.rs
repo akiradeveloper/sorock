@@ -168,8 +168,14 @@ enum ElectionState {
 }
 /// static configuration in initialization.
 pub struct Config {
-    pub id: Id,
+    id: Id,
 }
+impl Config {
+    pub fn new(id: Id) -> Self {
+        Self { id, }
+    }
+}
+
 /// dynamic configurations.
 pub struct TunableConfig {
     /// snapshot will be inserted into log after this delay.

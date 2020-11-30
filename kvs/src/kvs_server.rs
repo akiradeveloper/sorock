@@ -134,7 +134,7 @@ async fn main() {
     let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
     let socket = tokio::net::lookup_host(host_port_str).await.unwrap().next().unwrap();
     
-    let config = Config { id: id.clone(), };
+    let config = Config::new(id.clone());
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {
