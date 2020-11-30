@@ -1317,8 +1317,8 @@ impl Log {
     }
 }
 
-pub type RaftServer<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
-pub fn start_server<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftServer<A> {
+pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
+pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));

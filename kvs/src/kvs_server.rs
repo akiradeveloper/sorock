@@ -173,9 +173,9 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
-    let server = lol_core::start_server(core);
+    let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
-    let res = builder.add_service(server).serve(socket).await;
+    let res = builder.add_service(service).serve(socket).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);
     }
