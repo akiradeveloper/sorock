@@ -12,8 +12,6 @@ struct Opt {
 }
 #[derive(Debug, StructOpt)]
 enum Sub {
-    #[structopt(name = "init-cluster")]
-    InitCluster,
     #[structopt(name = "add-server")]
     AddServer {
         #[structopt(name = "ID")]
@@ -43,24 +41,6 @@ async fn main() {
             let req = proto_compiled::RemoveServerReq { id, };
             conn.remove_server(req).await.unwrap();
         }
-        // will be removed.
-        Sub::InitCluster => {
-            let msg = core_message::Req::InitCluster;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
-            };
-            let res = conn.request_process_locally(req).await.unwrap().into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            let msg = if let core_message::Rep::InitCluster { ok } = msg {
-                lol_admin::InitCluster { ok }
-            } else {
-                unreachable!()
-            };
-            let json = serde_json::to_string(&msg).unwrap();
-            println!("{}", json);
-        }
-        // core locally
         Sub::ClusterInfo => {
             let msg = core_message::Req::ClusterInfo;
             let req = proto_compiled::ProcessReq {
