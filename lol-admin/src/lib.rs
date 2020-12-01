@@ -8,7 +8,3 @@ impl PartialEq for ClusterInfo {
         self.leader_id == other.leader_id && self.membership == other.membership
     }
 }
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
-pub struct InitCluster {
-    pub ok: bool,
-}

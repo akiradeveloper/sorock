@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use lol_core::connection;
 use lol_core::{Index, Config, RaftCore, TunableConfig};
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
@@ -130,7 +129,11 @@ async fn main() {
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
     let id = opt.id.clone();
-    let config = Config { id: id.clone(), };
+    let url = url::Url::parse(&id).unwrap();
+    let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
+    let socket = tokio::net::lookup_host(host_port_str).await.unwrap().next().unwrap();
+    
+    let config = Config::new(id.clone());
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {
@@ -169,7 +172,9 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
-    let res = lol_core::start_server(core).await;
+    let service = lol_core::make_service(core);
+    let mut builder = tonic::transport::Server::builder();
+    let res = builder.add_service(service).serve(socket).await;
     if res.is_err() {
         eprintln!("failed to start kvs-server error={:?}", res);
     }

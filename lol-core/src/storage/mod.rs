@@ -1,12 +1,11 @@
 use crate::{Clock, Term, Index, Id};
-use std::time::Duration;
 use std::collections::BTreeSet;
 use bytes::Bytes;
 
-/// in-memory implementation backed by BTreeMap.
+/// In-memory implementation backed by BTreeMap.
 pub mod memory;
 
-/// persistent implementation backed by RocksDB.
+/// Persistent implementation backed by RocksDB.
 #[cfg(feature = "persistency")]
 #[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
 pub mod disk;
@@ -32,13 +31,13 @@ pub struct Entry {
     pub(crate) command: Bytes,
 }
 
-/// the abstraction for the backing storage.
-/// basically it is considered as a sequence of log entries and the recent vote.
+/// The abstraction for the backing storage.
+/// Conceptually it is considered as a sequence of log entries and the recent vote.
 #[async_trait::async_trait]
 pub trait RaftStorage: Sync + Send + 'static {
-    /// delete range ..r
+    /// Delete range ..r
     async fn delete_before(&self, r: Index) -> anyhow::Result<()> ;
-    /// save the snapshot entry so snapshot index always advance.
+    /// Save the snapshot entry so snapshot index always advance.
     async fn insert_snapshot(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()> ;
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;

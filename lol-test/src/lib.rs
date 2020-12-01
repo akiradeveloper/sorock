@@ -10,10 +10,6 @@ pub type Result<T> = anyhow::Result<T>;
 pub type EnvRef = Arc<Environment>;
 
 pub mod admin {
-    #[derive(Clone, Debug)]
-    pub struct InitCluster {
-        pub ok: bool,
-    }
     impl PartialEq for ClusterInfo {
         fn eq(&self, other: &Self) -> bool {
             self.leader_id == other.leader_id && self.membership == other.membership
@@ -44,34 +40,12 @@ impl Admin {
             rt.block_on(fut)
         }).join().unwrap()
     }
-    #[deprecated]
-    fn init_cluster(&self) -> Result<admin::InitCluster> {
-        let msg = core_message::Req::InitCluster;
-        let req = proto_compiled::ProcessReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
-        let res = Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
-            conn.request_process_locally(req).await
-        })?.into_inner();
-        let msg = core_message::Rep::deserialize(&res.message).unwrap();
-        let msg = if let core_message::Rep::InitCluster { ok } = msg {
-            admin::InitCluster { ok }
-        } else {
-            unreachable!()
-        };
-        Ok(msg)
-    }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::AddServerReq { id, };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.add_server(req).await
         })?;
         Ok(())
@@ -79,10 +53,9 @@ impl Admin {
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::RemoveServerReq { id, };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.remove_server(req).await
         })?;
         Ok(())
@@ -93,10 +66,9 @@ impl Admin {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_process_locally(req).await
         })?.into_inner();
         let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -116,10 +88,9 @@ impl Admin {
     }
     pub fn timeout_now(&self) -> Result<()> {
         let req = proto_compiled::TimeoutNowReq {};
-        let endpoint = connection::Endpoint::new(self.to.clone());
-        let config = connection::EndpointConfig::default().timeout(Duration::from_secs(5));
+        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = endpoint.connect_with(config).await?;
+            let mut conn = connection::connect(endpoint).await?;
             conn.timeout_now(req).await
         })?;
         Ok(())
@@ -196,7 +167,7 @@ impl Environment {
     pub fn get_node_id(&self, id: u8) -> String {
         let port_list = self.port_list.read().unwrap();
         let port = port_list.get(&id).unwrap();
-        format!("localhost:{}", port)
+        format!("http://localhost:{}", port)
     }
     pub fn start(&self, id: u8, command: NodeCommand) {
         let mut port_list = self.port_list.write().unwrap();
@@ -213,7 +184,7 @@ impl Environment {
 
         // Id can be host:port. it is resolved by the server.
         let child = std::process::Command::new(command.name)
-            .arg(&format!("localhost:{}", port))
+            .arg(&format!("http://localhost:{}", port))
             .args(command.args)
             .spawn()
             .expect(&format!("failed to start node id={}", id));

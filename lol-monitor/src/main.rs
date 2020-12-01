@@ -9,11 +9,10 @@ mod ui;
 use app::App;
 use futures::stream;
 use futures::StreamExt;
-use lol_core::connection::{gateway, gateway::Gateway, Connection, EndpointConfig};
+use lol_core::connection::{self, Endpoint, gateway};
 use lol_core::{core_message, proto_compiled};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::watch;
 
 #[derive(Clap)]
@@ -35,18 +34,18 @@ async fn main() -> anyhow::Result<()> {
 
     let mut initial = HashSet::new();
     initial.insert(opts.id);
-    let gateway = Gateway::new(initial).await;
-    Gateway::start_companion_thread(&gateway).await;
+    let gateway = gateway::watch(initial);
 
-    let s1_0 = stream::unfold(Arc::clone(&gateway), |gateway| async move {
-        let endpoints = gateway.read().await.query_sequence();
-        let config = EndpointConfig::default().timeout(Duration::from_secs(1));
-        let res = gateway::exec(&config, &endpoints, |mut conn| async move {
+    let s1_0 = stream::unfold(gateway.clone(), |gateway| async move {
+        let endpoints = gateway.borrow().list.clone();
+        let res = gateway::exec(endpoints, |id| async move {
             let msg = core_message::Req::ClusterInfo;
             let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
+            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::ClusterInfo {
@@ -87,17 +86,18 @@ async fn main() -> anyhow::Result<()> {
     };
     tokio::pin!(s1);
 
-    let s2_0 = stream::unfold(Arc::clone(&gateway), |gateway| async move {
+    let s2_0 = stream::unfold(gateway.clone(), |gateway| async move {
         let mut h = HashMap::new();
 
-        let endpoints = gateway.read().await.query_sequence();
-        let config = EndpointConfig::default().timeout(Duration::from_secs(1));
-        let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
+        let endpoints = gateway.borrow().list.clone();
+        let res = gateway::parallel(endpoints.clone(), |id| async move {
             let msg = core_message::Req::LogInfo;
             let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
+            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::LogInfo {
@@ -121,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
 
         let n = endpoints.len();
         for i in 0..n {
-            let id = &endpoints[i].id;
+            let id = &endpoints[i];
             if let Ok(x) = &res[i] {
                 h.insert(id.to_owned(), x.clone());
             }
@@ -144,17 +144,18 @@ async fn main() -> anyhow::Result<()> {
     };
     tokio::pin!(s2);
 
-    let s3_0 = stream::unfold(Arc::clone(&gateway), |gateway| async move {
+    let s3_0 = stream::unfold(gateway.clone(), |gateway| async move {
         let mut h = HashSet::new();
 
-        let endpoints = gateway.read().await.query_sequence();
-        let config = EndpointConfig::default().timeout(Duration::from_secs(1));
-        let res = gateway::parallel(&config, &endpoints, |mut conn| async move {
+        let endpoints = gateway.borrow().list.clone();
+        let res = gateway::parallel(endpoints.clone(), |id| async move {
             let msg = core_message::Req::HealthCheck;
             let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
+            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::HealthCheck { ok } = msg {
@@ -167,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
 
         let n = endpoints.len();
         for i in 0..n {
-            let id = &endpoints[i].id;
+            let id = &endpoints[i];
             if let Ok(app::HealthCheck { ok }) = &res[i] {
                 if *ok {
                     h.insert(id.to_owned());

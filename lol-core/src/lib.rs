@@ -12,25 +12,26 @@ use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 use futures::stream::StreamExt;
 
-/// simple and backward-compatible RaftApp trait.
+/// Simple and backward-compatible RaftApp trait.
 pub mod compat;
-/// the abstraction for the backing storage and some implementations.
+/// The abstraction for the backing storage and some implementations.
 pub mod storage;
 mod ack;
-/// utilities to connect nodes and cluster.
+/// Utilities for connection.
 pub mod connection;
-/// the request and response that RaftCore talks.
+/// The request and response that RaftCore talks.
 pub mod core_message;
 mod membership;
 mod query_queue;
 mod quorum_join;
 mod thread;
 mod thread_drop;
-/// the snapshot abstraction and some basic implementations.
+/// The snapshot abstraction and some basic implementations.
 pub mod snapshot;
+mod server;
 
 use ack::Ack;
-use connection::{Endpoint, EndpointConfig};
+use connection::Endpoint;
 use thread::notification::Notification;
 use storage::RaftStorage;
 use snapshot::SnapshotTag;
@@ -38,43 +39,53 @@ use snapshot::SnapshotTag;
 // this is currently fixed but can be place in tunable if it is needed.
 const ELECTION_TIMEOUT_MS: u64 = 1000;
 
-/// proto file compiled.
+/// Proto file compiled.
 pub mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
 
 use storage::{Entry, Vote};
 
-/// the abstraction for user-defined application runs on the RaftCore.
+/// Plan to make a new snapshot.
+pub enum MakeSnapshot {
+    /// No snapshot will be made.
+    None,
+    /// Copy snapshot will be made.
+    CopySnapshot(SnapshotTag),
+    /// Fold snapshot will be made.
+    FoldSnapshot,
+}
+
+/// The abstraction for user-defined application runs on the RaftCore.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
-    /// how state machine interacts with inputs from clients.
+    /// How state machine interacts with inputs from clients.
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    /// almost same as process_message but is called in log application path.
-    /// this function may return new "copy snapshot" as a copy of the state after application.
-    /// note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
+    /// Almost same as process_message but is called in log application path.
+    /// This function may return `MakeSnapshot` to make a new snapshot.
+    /// Note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
     /// due to possible I/O errors, etc.
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<SnapshotTag>)>;
-    /// special type of apply_message but when the entry is snapshot entry.
-    /// snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
+    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
+    /// Special type of apply_message but when the entry is snapshot entry.
+    /// Snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
     async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()>;
-    /// this function is called from compaction threads.
-    /// it should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
+    /// This function is called from compaction threads.
+    /// It should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
-    /// make a snapshot resource and returns the tag.
+    /// Make a snapshot resource and returns the tag.
     async fn from_snapshot_stream(&self, st: snapshot::SnapshotStream, snapshot_index: Index) -> anyhow::Result<SnapshotTag>;
-    /// make a snapshot stream from a snapshot resource bound to the tag.
+    /// Make a snapshot stream from a snapshot resource bound to the tag.
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
-    /// delete a snapshot resource bound to the tag.
+    /// Delete a snapshot resource bound to the tag.
     async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 type Term = u64;
-/// log index.
+/// Log index.
 pub type Index = u64;
 #[derive(Clone, Copy, Eq)]
 struct Clock {
@@ -86,7 +97,14 @@ impl PartialEq for Clock {
         self.term == that.term && self.index == that.index
     }
 }
-/// each node is identified by a pair of ip and port.
+
+/// Unique identifier of a Raft node.
+/// 
+/// Id must satisfy these two conditions:
+/// 1. Id can identify a node in the cluster.
+/// 2. any client or other nodes in the cluster can access this node by the Id.
+/// 
+/// Typically, the form of Id is (http|https)://(hostname|ip):port
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -154,16 +172,22 @@ enum ElectionState {
     Candidate,
     Follower,
 }
-/// static configuration in initialization.
+/// Static configuration in initialization.
 pub struct Config {
-    pub id: Id,
+    id: Id,
 }
-/// dynamic configurations.
+impl Config {
+    pub fn new(id: Id) -> Self {
+        Self { id, }
+    }
+}
+
+/// Dynamic configurations.
 pub struct TunableConfig {
-    /// snapshot will be inserted into log after this delay.
+    /// Snapshot will be inserted into log after this delay.
     pub compaction_delay_sec: u64,
-    /// the interval that compaction runs.
-    /// you can set this to 0 and fold snapshot will never be created.
+    /// The interval that compaction runs.
+    /// You can set this to 0 and fold snapshot will never be created.
     pub compaction_interval_sec: u64,
 }
 impl TunableConfig {
@@ -175,7 +199,7 @@ impl TunableConfig {
     }
 }
 /// RaftCore is the heart of the Raft system.
-/// it does everything Raft should do like election, dynamic membership change,
+/// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
 pub struct RaftCore<A: RaftApp> {
     id: Id,
@@ -277,16 +301,6 @@ impl<A: RaftApp> RaftCore<A> {
     async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
         let req = core_message::Req::deserialize(msg).unwrap();
         match req {
-            core_message::Req::InitCluster => {
-                let res = if self.cluster.read().await.internal.len() == 0 {
-                    log::info!("init cluster");
-                    self.init_cluster().await?;
-                    core_message::Rep::InitCluster { ok: true }
-                } else {
-                    core_message::Rep::InitCluster { ok: false }
-                };
-                Ok(core_message::Rep::serialize(&res))
-            }
             core_message::Req::ClusterInfo => {
                 let res = core_message::Rep::ClusterInfo {
                     leader_id: self.load_vote().await?.voted_for,
@@ -529,12 +543,11 @@ impl<A: RaftApp> RaftCore<A> {
             .await?;
 
         let res = async {
-            let endpoint = member.endpoint;
-            let mut conn = endpoint.connect().await?;
+            let endpoint = Endpoint::from_shared(follower_id.clone()).unwrap();
+            let mut conn = connection::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
             conn.send_append_entry(out_stream).await
-        }
-        .await;
+        }.await;
 
         let mut incremented = false;
         let new_progress = if res.is_ok() {
@@ -598,8 +611,8 @@ impl<A: RaftApp> RaftCore<A> {
         // TODO: setting connection timeout can be appropriate
         //
         // fetching snapshot can take very long then setting timeout is not appropriate here.
-        let config = EndpointConfig::default();
-        let mut conn = Endpoint::new(to).connect_with(config).await?;
+        let endpoint = Endpoint::from_shared(to).unwrap();
+        let mut conn = connection::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
         };
@@ -707,7 +720,7 @@ impl<A: RaftApp> RaftCore<A> {
             let mut others = vec![];
             for (id, member) in cur_cluster {
                 if id != self.id {
-                    others.push(member.endpoint);
+                    others.push(id);
                 }
             }
             // -1 = self vote
@@ -724,7 +737,7 @@ impl<A: RaftApp> RaftCore<A> {
             .unwrap()
             .this_clock;
 
-        let timeout = Duration::from_secs(5);
+        let vote_timeout = Duration::from_secs(5);
         let mut vote_requests = vec![];
         for endpoint in others {
             let myid = self.id.clone();
@@ -741,19 +754,18 @@ impl<A: RaftApp> RaftCore<A> {
                     // dropped when it's receiving heartbeat.
                     force_vote,
                 };
-                let config = EndpointConfig::default().timeout(timeout);
                 let res = async {
-                    let mut conn = endpoint.connect_with(config).await?;
+                    let endpoint = Endpoint::from_shared(endpoint).unwrap().timeout(vote_timeout);
+                    let mut conn = connection::connect(endpoint).await?;
                     conn.request_vote(req).await
-                }
-                .await;
+                }.await;
                 match res {
                     Ok(res) => res.into_inner().vote_granted,
                     Err(_) => false,
                 }
             });
         }
-        let ok = quorum_join::quorum_join(timeout, quorum, vote_requests).await;
+        let ok = quorum_join::quorum_join(quorum, vote_requests).await;
         Ok(ok)
     }
     async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> anyhow::Result<()> {
@@ -818,8 +830,10 @@ impl<A: RaftApp> RaftCore<A> {
             if id == self.id {
                 continue;
             }
-            let endpoint = member.endpoint;
-            let config = EndpointConfig::default().timeout(Duration::from_millis(300));
+            let endpoint = {
+                connection::Endpoint::from_shared(id.clone()).unwrap()
+                .timeout(Duration::from_millis(300))
+            };
             let req = {
                 let term = self.load_vote().await?.cur_term;
                 proto_compiled::HeartbeatReq {
@@ -829,7 +843,7 @@ impl<A: RaftApp> RaftCore<A> {
                 }
             };
             futs.push(async move {
-                if let Ok(mut conn) = endpoint.connect_with(config).await {
+                if let Ok(mut conn) = connection::connect(endpoint).await {
                     let res = conn.send_heartbeat(req).await;
                     if res.is_err() {
                         log::warn!("heartbeat to {} failed", id);
@@ -885,15 +899,16 @@ impl<A: RaftApp> RaftCore<A> {
         for (id, member) in cluster {
             if id != self.id {
                 let prog = member.progress.unwrap();
-                xs.push((prog.match_index, member));
+                xs.push((prog.match_index, id));
             }
         }
         xs.sort_by_key(|x| x.0);
 
         // choose the one with the higher match_index as the next leader.
-        if let Some((_, member)) = xs.pop() {
+        if let Some((_, id)) = xs.pop() {
             tokio::spawn(async move {
-                if let Ok(mut conn) = member.endpoint.connect().await {
+                let endpoint = Endpoint::from_shared(id).unwrap();
+                if let Ok(mut conn) = connection::connect(endpoint).await {
                     let req = proto_compiled::TimeoutNowReq {};
                     let _ = conn.timeout_now(req).await;
                 }
@@ -1130,12 +1145,12 @@ impl Log {
             CommandB::Req { core, ref message } => {
                 let res = if core {
                     let res = raft_core.process_message(message).await;
-                    res.map(|x| (x, None))
+                    res.map(|x| (x, MakeSnapshot::None))
                 } else {
                     raft_core.app.apply_message(message, apply_index).await
                 };
                 match res {
-                    Ok((msg, new_tag)) => {
+                    Ok((msg, make_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
                         if ack_chans.contains_key(&apply_index) {
                             let ack = ack_chans.get(&apply_index).unwrap();
@@ -1146,28 +1161,36 @@ impl Log {
                             }
                         }
 
-                        if let Some(new_tag) = new_tag {
-                            // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
+                        match make_snapshot {
+                            MakeSnapshot::CopySnapshot(new_tag) => {
+                                // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
 
-                            // snapshot becomes orphan when this code fails but it is allowed.
-                            let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
-                            // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
-                            // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
-                            if ok {
-                                let snapshot_entry = Entry {
-                                    command: Command::Snapshot {
-                                        membership: self.applied_membership.lock().await.clone(),
-                                    }.into(),
-                                    .. apply_entry
-                                };
-                                let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
-                                let delay = Duration::from_secs(delay_sec);
-                                log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
+                                // snapshot becomes orphan when this code fails but it is allowed.
+                                let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
+                                // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
+                                // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
+                                if ok {
+                                    let snapshot_entry = Entry {
+                                        command: Command::Snapshot {
+                                            membership: self.applied_membership.lock().await.clone(),
+                                        }.into(),
+                                        .. apply_entry
+                                    };
+                                    let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
+                                    let delay = Duration::from_secs(delay_sec);
+                                    log::info!("copy snapshot is made and will be inserted in {}s", delay_sec);
 
-                                self.snapshot_queue.insert(snapshot::InsertSnapshot {
-                                    e: snapshot_entry,
-                                }, delay).await;
-                            }
+                                    self.snapshot_queue.insert(snapshot::InsertSnapshot {
+                                        e: snapshot_entry,
+                                    }, delay).await;
+                                }
+                            },
+                            MakeSnapshot::FoldSnapshot => {
+                                tokio::spawn(async move {
+                                    let _ = raft_core.log.create_fold_snapshot(apply_index, Arc::clone(&raft_core)).await;
+                                });
+                            },
+                            MakeSnapshot::None => {},
                         }
                         true
                     }
@@ -1297,9 +1320,11 @@ impl Log {
         Ok(())
     }
 }
-pub async fn start_server<A: RaftApp>(
-    core: Arc<RaftCore<A>>,
-) -> Result<(), tonic::transport::Error> {
+
+pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
+
+/// Lift `RaftCore` to `Service`.
+pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));
@@ -1308,5 +1333,6 @@ pub async fn start_server<A: RaftApp>(
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
     tokio::spawn(thread::gc::run(Arc::clone(&core)));
     tokio::spawn(thread::snapshot_installer::run(Arc::clone(&core)));
-    thread::server::run(Arc::clone(&core)).await
+    let server = server::Server { core };
+    proto_compiled::raft_server::RaftServer::new(server)
 }

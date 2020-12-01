@@ -8,9 +8,26 @@
 
 A Raft implementation in Rust language. To support this project please give it a ⭐
 
-[Get Started](https://github.com/akiradeveloper/lol/wiki)
+[Documentation](https://github.com/akiradeveloper/lol/wiki)
 
-## How to participate in this project
+## Example
+
+```rust
+// Implement RaftApp for YourApp!
+struct YourApp { ... }
+impl RaftApp for YourApp {
+    ...
+}
+let app = YourApp { ... };
+let storage = ...; // Choose a backend from lol_core::storage
+let core = RaftCore::new(app, storage, config, ...);
+let service = lol_core::make_service(core);
+tonic::transport::Server::builder()
+  .add_service(service)
+  .serve(socket).await;
+```
+
+## Development
 
 Use docker container to make an dev environment on your computer.
 

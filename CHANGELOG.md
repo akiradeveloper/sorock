@@ -1,3 +1,9 @@
+# 0.6.0 (2020-12-1)
+
+- Clear separation between library and tonic infrastructure.
+- RaftApp's apply_message now returns MakeSnapshot.
+- Change Id's format to support TLS.
+
 # 0.5.3 (2020-11-30)
 
 - Insert adaptive wait after apply failure to avoid infinitely repeat failing calls.
