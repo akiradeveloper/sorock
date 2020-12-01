@@ -1,7 +1,7 @@
 ND=[]
 (0...10).each { |i|
     offset = 50+i
-    ND << "localhost:500#{offset}"
+    ND << "http://localhost:500#{offset}"
 }
 # FIXME:
 # kill the kvs-server processes after this script is done.
@@ -13,9 +13,7 @@ ND.each { |nd|
 sleep(5)
 
 MASTER=ND[0]
-`lol-admin #{MASTER} init-cluster`
-sleep(2)
-(1...10).each { |i|
+(0...10).each { |i|
     `lol-admin #{MASTER} add-server #{ND[i]}`
     sleep(2)
 }
