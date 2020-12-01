@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use lol_core::{connection, core_message, proto_compiled};
+use tonic::transport::channel::Endpoint;
 
 pub type Result<T> = anyhow::Result<T>;
 pub type EnvRef = Arc<Environment>;
@@ -43,7 +44,7 @@ impl Admin {
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::AddServerReq { id, };
-        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
             conn.add_server(req).await
@@ -53,7 +54,7 @@ impl Admin {
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
         let req = proto_compiled::RemoveServerReq { id, };
-        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
             conn.remove_server(req).await
@@ -66,7 +67,7 @@ impl Admin {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
             conn.request_process_locally(req).await
@@ -88,7 +89,7 @@ impl Admin {
     }
     pub fn timeout_now(&self) -> Result<()> {
         let req = proto_compiled::TimeoutNowReq {};
-        let endpoint = connection::Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
             conn.timeout_now(req).await
