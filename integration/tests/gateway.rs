@@ -3,6 +3,7 @@ use lol_core::Id;
 use lol_core::connection::{self, gateway};
 use std::collections::HashSet;
 use std::time::Duration;
+use tonic::transport::channel::Endpoint;
 
 #[tokio::test(threaded_scheduler)]
 async fn test_gateway() {
@@ -18,7 +19,7 @@ async fn test_gateway() {
     tokio::time::delay_for(Duration::from_secs(6)).await;
 
     let connect = |id| async {
-        let endpoint = connection::Endpoint::from_shared(id).unwrap();
+        let endpoint = Endpoint::from_shared(id).unwrap();
         connection::connect(endpoint).await?;
         Ok(())
     };

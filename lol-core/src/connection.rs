@@ -3,7 +3,7 @@ use crate::Id;
 use std::time::Duration;
 use tokio::sync::watch;
 
-pub use tonic::transport::Endpoint;
+pub(crate) use tonic::transport::Endpoint;
 
 pub type RaftClient = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
 pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
