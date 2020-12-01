@@ -23,12 +23,12 @@ pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
 /// and gateway maintains the cluster members by polling the current membership.
 pub mod gateway {
     use super::*;
-    use crate::{core_message, thread_drop};
+    use crate::core_message;
     use core::future::Future;
     use std::collections::HashSet;
-    use std::sync::Arc;
-    use tokio::sync::RwLock;
 
+    /// The list of nodes in the cluster.
+    /// The list is sorted so the leader should come first.
     #[derive(Clone)]
     pub struct CurrentMembership {
         pub list: Vec<Id>,
@@ -69,6 +69,7 @@ pub mod gateway {
         }
         r
     }
+    /// Start to watch the cluster membership.
     pub fn watch(initial: HashSet<Id>) -> watch::Receiver<CurrentMembership> {
         let init_value = CurrentMembership {
             list: initial.into_iter().collect(),
@@ -90,6 +91,8 @@ pub mod gateway {
         });
         rx
     }
+    /// Execute queries in order until the first `Ok` response.
+    /// When all attempts are failed, this function returns `Err`.
     pub async fn exec<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> anyhow::Result<T>
     where
         F: Future<Output = anyhow::Result<T>>,
@@ -103,6 +106,7 @@ pub mod gateway {
             "any attempts to given endpoints ended up in failure"
         ))
     }
+    /// Execute queries in parallel to get the responses.
     pub async fn parallel<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> Vec<anyhow::Result<T>>
     where
         F: Future<Output = anyhow::Result<T>>,

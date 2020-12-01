@@ -12,8 +12,7 @@ use futures::StreamExt;
 use lol_core::connection::{self, Endpoint, gateway};
 use lol_core::{core_message, proto_compiled};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::watch;
 
 #[derive(Clap)]

@@ -1,5 +1,4 @@
 use std::future::Future;
-use std::time::Duration;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::StreamExt;
 

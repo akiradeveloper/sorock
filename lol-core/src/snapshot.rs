@@ -1,5 +1,5 @@
 use tokio::time::DelayQueue;
-use tokio::sync::{RwLock, Mutex};
+use tokio::sync::Mutex;
 use std::sync::Arc;
 use crate::{RaftCore, RaftApp};
 use crate::storage::Entry;

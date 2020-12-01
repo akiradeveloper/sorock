@@ -1,5 +1,5 @@
 use super::thread_drop::ThreadDrop;
-use crate::{connection, Id, Index};
+use crate::{Id, Index};
 use crate::{RaftApp, RaftCore};
 use std::collections::HashMap;
 use std::collections::HashSet;

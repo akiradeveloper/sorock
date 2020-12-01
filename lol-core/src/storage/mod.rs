@@ -1,5 +1,4 @@
 use crate::{Clock, Term, Index, Id};
-use std::time::Duration;
 use std::collections::BTreeSet;
 use bytes::Bytes;
 

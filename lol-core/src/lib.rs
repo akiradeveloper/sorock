@@ -17,7 +17,7 @@ pub mod compat;
 /// The abstraction for the backing storage and some implementations.
 pub mod storage;
 mod ack;
-/// Utilities to connect nodes and cluster.
+/// Utilities for connection.
 pub mod connection;
 /// The request and response that RaftCore talks.
 pub mod core_message;
@@ -46,9 +46,13 @@ pub mod proto_compiled {
 
 use storage::{Entry, Vote};
 
+/// Plan to make a new snapshot.
 pub enum MakeSnapshot {
+    /// No snapshot will be made.
     None,
+    /// Copy snapshot will be made.
     CopySnapshot(SnapshotTag),
+    /// Fold snapshot will be made.
     FoldSnapshot,
 }
 
@@ -58,7 +62,7 @@ pub trait RaftApp: Sync + Send + 'static {
     /// How state machine interacts with inputs from clients.
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
     /// Almost same as process_message but is called in log application path.
-    /// This function may return new "copy snapshot" as a copy of the state after application.
+    /// This function may return `MakeSnapshot` to make a new snapshot.
     /// Note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
     /// due to possible I/O errors, etc.
     async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
@@ -1318,6 +1322,8 @@ impl Log {
 }
 
 pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
+
+/// Lift `RaftCore` to `Service`.
 pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
     tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));

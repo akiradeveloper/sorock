@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use lol_core::connection;
 use lol_core::{Index, Config, RaftCore, TunableConfig};
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
