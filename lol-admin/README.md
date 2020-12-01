@@ -10,11 +10,6 @@ followed by sub command.
 
 ## Sub command
 
-### init-cluster
-
-A special operation to the first node. This operation is to 
-form the initial cluster that is consist of the node only.
-
 ### add-server $addr / remove-server $addr
 
 Add or remove new server which is not yet in the cluster.

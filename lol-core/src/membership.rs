@@ -1,5 +1,5 @@
 use super::thread_drop::ThreadDrop;
-use crate::{connection, Id, Index};
+use crate::{Id, Index};
 use crate::{RaftApp, RaftCore};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -22,7 +22,6 @@ impl ReplicationProgress {
 }
 #[derive(Clone, Debug)]
 pub struct ClusterMember {
-    pub endpoint: connection::Endpoint,
     pub progress: Option<ReplicationProgress>,
 }
 #[derive(Debug)]
@@ -46,10 +45,8 @@ impl Cluster {
         if self.internal.contains_key(&id) {
             return Ok(());
         }
-        let endpoint = connection::Endpoint::new(id.clone());
         let member = if id == self.selfid {
             ClusterMember {
-                endpoint,
                 progress: None,
             }
         } else {
@@ -63,7 +60,6 @@ impl Cluster {
 
             let last_log_index = core.log.get_last_log_index().await?;
             ClusterMember {
-                endpoint,
                 progress: Some(ReplicationProgress::new(last_log_index)),
             }
         };

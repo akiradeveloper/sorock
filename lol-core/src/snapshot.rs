@@ -1,5 +1,5 @@
 use tokio::time::DelayQueue;
-use tokio::sync::{RwLock, Mutex};
+use tokio::sync::Mutex;
 use std::sync::Arc;
 use crate::{RaftCore, RaftApp};
 use crate::storage::Entry;
@@ -34,8 +34,8 @@ impl SnapshotQueue {
     }
 }
 
-/// snapshot tag is a tag that bound to some snapshot resource.
-/// if the resource is a file the tag is the path to the file, for example.
+/// Snapshot tag is a tag that bound to some snapshot resource.
+/// If the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotTag {
     pub contents: bytes::Bytes
@@ -56,8 +56,8 @@ impl From<Vec<u8>> for SnapshotTag {
 use futures::stream::Stream;
 use crate::proto_compiled::GetSnapshotRep;
 use bytes::Bytes;
-/// the stream type that is used internally. it is considered as just a stream of bytes.
-/// the length of each bytes may vary.
+/// The stream type that is used internally. it is considered as just a stream of bytes.
+/// The length of each bytes may vary.
 pub type SnapshotStream = std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 pub(crate) type SnapshotStreamOut = std::pin::Pin<Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send + Sync>>;
 pub(crate) fn into_out_stream(in_stream: SnapshotStream) ->  SnapshotStreamOut {
@@ -67,7 +67,7 @@ pub(crate) fn into_out_stream(in_stream: SnapshotStream) ->  SnapshotStreamOut {
 pub(crate) fn into_in_stream(out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>) -> impl Stream<Item = anyhow::Result<Bytes>> {
     out_stream.map(|res| res.map(|x| x.chunk.into()).map_err(|_| anyhow::Error::msg("streaming error")))
 }
-/// basic snapshot type which is just a byte sequence.
+/// Basic snapshot type which is just a byte sequence.
 pub struct BytesSnapshot {
     pub contents: Bytes,
 }
@@ -95,8 +95,8 @@ impl BytesSnapshot {
         Ok(BytesSnapshot { contents: v.into() })
     }
 }
-/// a snapshot saved in a file.
-/// instead of bytes snapshot you may choose this to deal with
+/// A snapshot saved in a file.
+/// Instead of bytes snapshot you may choose this to deal with
 /// gigantic snapshot beyond system memory.
 pub struct FileSnapshot {
     pub path: PathBuf,

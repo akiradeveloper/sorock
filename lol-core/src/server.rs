@@ -1,11 +1,11 @@
-use crate::connection::{Endpoint, EndpointConfig};
+use crate::connection::{self, Endpoint};
 use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::stream::StreamExt;
 
 use proto_compiled::{
-    raft_server::{Raft, RaftServer},
+    raft_server::Raft,
     AppendEntryRep, AppendEntryReq, GetSnapshotReq,
     ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
     HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
@@ -54,11 +54,11 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
         entries: Box::pin(entries),
     }
 }
-struct Thread<A: RaftApp> {
-    core: Arc<RaftCore<A>>,
+pub struct Server<A: RaftApp> {
+    pub core: Arc<RaftCore<A>>,
 }
 #[tonic::async_trait]
-impl<A: RaftApp> Raft for Thread<A> {
+impl<A: RaftApp> Raft for Server<A> {
     async fn request_apply(
         &self,
         request: tonic::Request<ApplyReq>,
@@ -87,8 +87,8 @@ impl<A: RaftApp> Raft for Thread<A> {
             res.map(|x| tonic::Response::new(proto_compiled::ApplyRep { message: x.0 }))
                 .map_err(|_| tonic::Status::cancelled("failed to apply the request"))
         } else {
-            let endpoint = Endpoint::new(leader_id);
-            let mut conn = endpoint.connect().await?;
+            let endpoint = Endpoint::from_shared(leader_id).unwrap();
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_apply(request).await
         }
     }
@@ -146,8 +146,8 @@ impl<A: RaftApp> Raft for Thread<A> {
             res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
         } else {
-            let endpoint = Endpoint::new(leader_id);
-            let mut conn = endpoint.connect().await?;
+            let endpoint = Endpoint::from_shared(leader_id).unwrap();
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_commit(request).await
         }
     }
@@ -173,8 +173,8 @@ impl<A: RaftApp> Raft for Thread<A> {
             res.map(|x| tonic::Response::new(ProcessRep { message: x }))
                 .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
         } else {
-            let endpoint = Endpoint::new(leader_id);
-            let mut conn = endpoint.connect().await?;
+            let endpoint = Endpoint::from_shared(leader_id).unwrap();
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_process(request).await
         }
     }
@@ -272,9 +272,9 @@ impl<A: RaftApp> Raft for Thread<A> {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let endpoint = Endpoint::new(self.core.id.clone());
-            let config = EndpointConfig::default().timeout(Duration::from_secs(5));
-            let mut conn = endpoint.connect_with(config).await?;
+            let endpoint = Endpoint::from_shared(self.core.id.clone()).unwrap()
+                .timeout(Duration::from_secs(5));
+            let mut conn = connection::connect(endpoint).await?;
             conn.request_commit(req).await.is_ok()
         };
         if ok {
@@ -293,9 +293,9 @@ impl<A: RaftApp> Raft for Thread<A> {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = Endpoint::new(self.core.id.clone());
-        let config = EndpointConfig::default().timeout(Duration::from_secs(5));
-        let mut conn = endpoint.connect_with(config).await?;
+        let endpoint = Endpoint::from_shared(self.core.id.clone()).unwrap()
+            .timeout(Duration::from_secs(5));
+        let mut conn = connection::connect(endpoint).await?;
         let ok = conn.request_commit(req).await.is_ok();
         if ok {
             Ok(tonic::Response::new(RemoveServerRep {}))
@@ -303,13 +303,4 @@ impl<A: RaftApp> Raft for Thread<A> {
             Err(tonic::Status::aborted("couldn't remove server"))
         }
     }
-}
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) -> Result<(), tonic::transport::Error> {
-    let resolved = crate::connection::resolve(&core.id).unwrap();
-    let addr = resolved.parse().unwrap();
-    let th = Thread { core };
-    tonic::transport::Server::builder()
-        .add_service(RaftServer::new(th))
-        .serve(addr)
-        .await
 }
