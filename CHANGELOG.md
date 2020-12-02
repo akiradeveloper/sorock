@@ -1,3 +1,8 @@
+# 0.6.1 (2020-12-2)
+
+- Hide connection::Endpoint which wasn't my intention to expose.
+- Fix tests
+
 # 0.6.0 (2020-12-1)
 
 - Clear separation between library and tonic infrastructure.
