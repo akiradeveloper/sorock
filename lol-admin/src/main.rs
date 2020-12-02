@@ -1,6 +1,7 @@
 use lol_core::{core_message, proto_compiled};
 use std::time::Duration;
 use structopt::StructOpt;
+use tonic::transport::channel::Endpoint;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "lol-admin")]
@@ -30,7 +31,7 @@ enum Sub {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let endpoint = lol_core::connection::Endpoint::from_shared(opt.dest_id).unwrap().timeout(Duration::from_secs(5));
+    let endpoint = Endpoint::from_shared(opt.dest_id).unwrap().timeout(Duration::from_secs(5));
     let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {

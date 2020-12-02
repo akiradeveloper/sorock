@@ -1,6 +1,6 @@
 [package]
 name = "lol-admin"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
@@ -10,5 +10,6 @@ edition = "2018"
 lol-core = { path = "../lol-core" }
 structopt = "0.3"
 tokio = { version = "0.2", features = ["macros"] }
+tonic = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

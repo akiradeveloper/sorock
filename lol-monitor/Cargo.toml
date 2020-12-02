@@ -1,6 +1,6 @@
 [package]
 name = "lol-monitor"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
@@ -13,6 +13,7 @@ default = ["termion"]
 lol-core = { path = "../lol-core" }
 tui = "*"
 tokio = { version = "0.2", features = ["macros", "rt-threaded", "stream" ] }
+tonic = "0.3"
 termion = { version = "1.5", optional = true }
 anyhow = "1.0"
 futures = "0.3"
