@@ -790,8 +790,6 @@ impl<A: RaftApp> RaftCore<A> {
             }
 
             *self.election_state.write().await = ElectionState::Leader;
-
-            let _ = self.broadcast_heartbeat().await;
         } else {
             log::info!("failed to become leader. now back to follower");
             *self.election_state.write().await = ElectionState::Follower;
@@ -839,18 +837,6 @@ impl<A: RaftApp> RaftCore<A> {
                 log::warn!("heartbeat to {} failed", follower_id);
             }
         }
-        Ok(())
-    }
-    async fn broadcast_heartbeat(&self) -> anyhow::Result<()> {
-        let cluster = self.cluster.read().await.internal.clone();
-        let mut futs = vec![];
-        for (id, _) in cluster {
-            if id == self.id {
-                continue;
-            }
-            futs.push(self.send_heartbeat(id));
-        }
-        futures::future::join_all(futs).await;
         Ok(())
     }
     async fn receive_heartbeat(
