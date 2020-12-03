@@ -13,9 +13,10 @@ keywords = ["raft"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+url = "2.2"
 tonic = "0.3"
 prost = "0.6"
-tokio = { version = "0.2", features = ["macros", "fs"] }
+tokio = { version = "0.2", features = ["macros", "fs", "net", "dns"] }
 rand = "0.7"
 async-trait = "0.1"
 async-stream = "0.2"

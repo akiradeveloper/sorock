@@ -172,6 +172,9 @@ async fn main() {
         RaftCore::new(app, storage, config, tunable).await
     };
 
+    let udp_server = lol_core::udp::Server::new(Arc::clone(&core)).await.unwrap();
+    tokio::spawn(udp_server.serve(socket));
+
     let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
     let res = builder.add_service(service).serve(socket).await;

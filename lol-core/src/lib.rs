@@ -12,6 +12,7 @@ use tokio::sync::{Mutex, RwLock, Semaphore};
 use bytes::Bytes;
 use futures::stream::StreamExt;
 
+pub mod udp;
 /// Simple and backward-compatible RaftApp trait.
 pub mod compat;
 /// The abstraction for the backing storage and some implementations.
@@ -822,21 +823,16 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
-        let endpoint = connection::Endpoint::from_shared(follower_id.clone())?.timeout(Duration::from_secs(5));
-        let req = {
+        let message = {
             let term = self.load_vote().await?.cur_term;
-            proto_compiled::HeartbeatReq {
+            udp::Message::Heartbeat {
                 term,
                 leader_id: self.id.clone(),
                 leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
         };
-        if let Ok(mut conn) = connection::connect(endpoint).await {
-            let res = conn.send_heartbeat(req).await;
-            if res.is_err() {
-                log::warn!("heartbeat to {} failed", follower_id);
-            }
-        }
+        let mut cli = udp::Client::new(self.id.clone()).await?;
+        let _ = cli.send_to(follower_id, message).await?;
         Ok(())
     }
     async fn receive_heartbeat(
