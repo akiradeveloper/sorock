@@ -790,8 +790,6 @@ impl<A: RaftApp> RaftCore<A> {
             }
 
             *self.election_state.write().await = ElectionState::Leader;
-
-            let _ = self.broadcast_heartbeat().await;
         } else {
             log::info!("failed to become leader. now back to follower");
             *self.election_state.write().await = ElectionState::Follower;
@@ -823,35 +821,22 @@ impl<A: RaftApp> RaftCore<A> {
 
         Ok(())
     }
-    async fn broadcast_heartbeat(&self) -> anyhow::Result<()> {
-        let cluster = self.cluster.read().await.internal.clone();
-        let mut futs = vec![];
-        for (id, member) in cluster {
-            if id == self.id {
-                continue;
+    async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
+        let endpoint = connection::Endpoint::from_shared(follower_id.clone())?.timeout(Duration::from_secs(5));
+        let req = {
+            let term = self.load_vote().await?.cur_term;
+            proto_compiled::HeartbeatReq {
+                term,
+                leader_id: self.id.clone(),
+                leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
-            let endpoint = {
-                connection::Endpoint::from_shared(id.clone()).unwrap()
-                .timeout(Duration::from_millis(300))
-            };
-            let req = {
-                let term = self.load_vote().await?.cur_term;
-                proto_compiled::HeartbeatReq {
-                    term,
-                    leader_id: self.id.clone(),
-                    leader_commit: self.log.commit_index.load(Ordering::SeqCst),
-                }
-            };
-            futs.push(async move {
-                if let Ok(mut conn) = connection::connect(endpoint).await {
-                    let res = conn.send_heartbeat(req).await;
-                    if res.is_err() {
-                        log::warn!("heartbeat to {} failed", id);
-                    }
-                }
-            })
+        };
+        if let Ok(mut conn) = connection::connect(endpoint).await {
+            let res = conn.send_heartbeat(req).await;
+            if res.is_err() {
+                log::warn!("heartbeat to {} failed", follower_id);
+            }
         }
-        futures::future::join_all(futs).await;
         Ok(())
     }
     async fn receive_heartbeat(
@@ -1325,7 +1310,6 @@ pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server
 
 /// Lift `RaftCore` to `Service`.
 pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
-    tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));
