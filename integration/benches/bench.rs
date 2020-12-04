@@ -12,16 +12,18 @@ extern crate test;
 fn do_bench_commit(n: u8, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = init_cluster(n);
+
     let id = env.get_node_id(0);
+    let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+    let conn = rt.block_on(connect(endpoint)).unwrap();
     b.iter(|| {
-        let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+        let mut conn = conn.clone();
         let msg = kvs::Req::Set {
             key: "k".to_owned(),
             value: "v".to_owned(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
-            let mut conn = connect(endpoint).await.unwrap();
             conn.request_commit(lol_core::proto_compiled::CommitReq {
                 core: false,
                 message: msg,
@@ -55,14 +57,15 @@ fn do_bench_apply(n: u8, b: &mut test::Bencher) {
     thread::sleep(Duration::from_secs(1));
 
     let id = env.get_node_id(0);
+    let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+    let conn = rt.block_on(connect(endpoint)).unwrap();
     b.iter(|| {
-        let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+        let mut conn = conn.clone();
         let msg = kvs::Req::Get {
             key: "k".to_owned(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
-            let mut conn = connect(endpoint).await.unwrap();
             conn.request_apply(lol_core::proto_compiled::ApplyReq {
                 core: false,
                 mutation: true,
@@ -97,14 +100,15 @@ fn do_bench_query(n: u8, b: &mut test::Bencher) {
     thread::sleep(Duration::from_secs(1));
 
     let id = env.get_node_id(0);
+    let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+    let conn = rt.block_on(connect(endpoint)).unwrap();
     b.iter(|| {
-        let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+        let mut conn = conn.clone();
         let msg = kvs::Req::Get {
             key: "k".to_owned(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
-            let mut conn = connect(endpoint).await.unwrap();
             conn.request_apply(lol_core::proto_compiled::ApplyReq {
                 core: false,
                 mutation: false,
@@ -135,21 +139,23 @@ fn bench_query_64(b: &mut test::Bencher) {
 fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = make_cluster(n, command);
-    let id = env.get_node_id(0);
     // 100KB
     let mut v = String::new();
     for _ in 0..100_000 {
         v.push('a');
     }
+
+    let id = env.get_node_id(0);
+    let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+    let conn = rt.block_on(connect(endpoint)).unwrap();
     b.iter(|| {
-        let endpoint = Endpoint::from_shared(id.clone()).unwrap();
+        let mut conn = conn.clone();
         let msg = kvs::Req::Set {
             key: "k".to_owned(),
             value: v.clone(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
-            let mut conn = connect(endpoint).await.unwrap();
             conn.request_commit(lol_core::proto_compiled::CommitReq {
                 core: false,
                 message: msg,
