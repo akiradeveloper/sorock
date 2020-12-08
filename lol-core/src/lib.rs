@@ -284,8 +284,9 @@ impl<A: RaftApp> RaftCore<A> {
         self.set_membership(&membership, 2).await?;
 
         // after this function is called
-        // this server becomes the leader by self-vote and advance commit index in usual manner.
+        // this server immediately becomes the leader by self-vote and advance commit index.
         // consequently when initial install_snapshot is called this server is already the leader.
+        self.send_timeout_now(self.id.clone());
 
         Ok(())
     }
