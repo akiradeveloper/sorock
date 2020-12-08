@@ -2,12 +2,12 @@ use std::collections::{BTreeSet, BTreeMap};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use std::sync::atomic::{AtomicU64, Ordering};
-use super::{Entry, Vote};
+use super::{Entry, Ballot};
 use crate::Index;
 
 pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,
-    vote: Arc<Mutex<Vote>>,
+    ballot: Arc<Mutex<Ballot>>,
     snapshot_index: AtomicU64,
     tags: Arc<RwLock<BTreeMap<u64, crate::SnapshotTag>>>,
 }
@@ -15,7 +15,7 @@ impl Storage {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(BTreeMap::new())),
-            vote: Arc::new(Mutex::new(Vote::new())),
+            ballot: Arc::new(Mutex::new(Ballot::new())),
             snapshot_index: AtomicU64::new(0),
             tags: Arc::new(RwLock::new(BTreeMap::new()))
         }
@@ -79,12 +79,12 @@ impl super::RaftStorage for Storage {
         let r = self.snapshot_index.load(Ordering::SeqCst);
         Ok(r)
     }
-    async fn store_vote(&self, v: Vote) -> Result<()> {
-        *self.vote.lock().await = v;
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
+        *self.ballot.lock().await = v;
         Ok(())
     }
-    async fn load_vote(&self) -> Result<Vote> {
-        let r = self.vote.lock().await.clone();
+    async fn load_ballot(&self) -> Result<Ballot> {
+        let r = self.ballot.lock().await.clone();
         Ok(r)
     }
 }
