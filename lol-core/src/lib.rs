@@ -44,7 +44,7 @@ pub mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
 
-use storage::{Entry, Vote};
+use storage::{Entry, Ballot};
 
 /// Plan to make a new snapshot.
 pub enum MakeSnapshot {
@@ -304,7 +304,7 @@ impl<A: RaftApp> RaftCore<A> {
         match req {
             core_message::Req::ClusterInfo => {
                 let res = core_message::Rep::ClusterInfo {
-                    leader_id: self.load_vote().await?.voted_for,
+                    leader_id: self.load_ballot().await?.voted_for,
                     membership: {
                         let mut xs: Vec<_> =
                             self.cluster.read().await.get_membership().into_iter().collect();
@@ -429,7 +429,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
     // leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
-        let term = self.load_vote().await?.cur_term;
+        let term = self.load_ballot().await?.cur_term;
         // safe term is a term that noop entry is successfully committed.
         if self.safe_term.load(Ordering::SeqCst) < term {
             return Err(anyhow!("noop entry for term {} isn't committed yet."));
@@ -636,11 +636,11 @@ impl<A: RaftApp> RaftCore<A> {
 }
 // election
 impl<A: RaftApp> RaftCore<A> {
-    async fn store_vote(&self, v: Vote) -> anyhow::Result<()> {
-        self.log.storage.store_vote(v).await
+    async fn store_ballot(&self, v: Ballot) -> anyhow::Result<()> {
+        self.log.storage.store_ballot(v).await
     }
-    async fn load_vote(&self) -> anyhow::Result<Vote> {
-        self.log.storage.load_vote().await
+    async fn load_ballot(&self) -> anyhow::Result<Ballot> {
+        self.log.storage.load_ballot().await
     }
     async fn receive_vote(
         &self,
@@ -658,16 +658,16 @@ impl<A: RaftApp> RaftCore<A> {
 
         let _vote_guard = self.vote_token.acquire().await;
 
-        let mut vote = self.load_vote().await?;
-        if candidate_term < vote.cur_term {
+        let mut ballot = self.load_ballot().await?;
+        if candidate_term < ballot.cur_term {
             log::warn!("candidate term is older. reject vote");
             return Ok(false);
         }
 
-        if candidate_term > vote.cur_term {
+        if candidate_term > ballot.cur_term {
             log::warn!("received newer term. reset vote");
-            vote.cur_term = candidate_term;
-            vote.voted_for = None;
+            ballot.cur_term = candidate_term;
+            ballot.voted_for = None;
             *self.election_state.write().await = ElectionState::Follower;
         }
 
@@ -692,13 +692,13 @@ impl<A: RaftApp> RaftCore<A> {
 
         if !candidate_win {
             log::warn!("candidate clock is older. reject vote");
-            self.store_vote(vote).await?;
+            self.store_ballot(ballot).await?;
             return Ok(false);
         }
 
-        let grant = match &vote.voted_for {
+        let grant = match &ballot.voted_for {
             None => {
-                vote.voted_for = Some(candidate_id.clone());
+                ballot.voted_for = Some(candidate_id.clone());
                 true
             }
             Some(id) => {
@@ -710,7 +710,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
         };
 
-        self.store_vote(vote).await?;
+        self.store_ballot(ballot).await?;
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
@@ -802,15 +802,15 @@ impl<A: RaftApp> RaftCore<A> {
     async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
         // vote to self
         let aim_term = {
-            let vote_guard = self.vote_token.acquire().await;
-            let mut new_vote = self.load_vote().await?;
-            let cur_term = new_vote.cur_term;
+            let ballot_guard = self.vote_token.acquire().await;
+            let mut new_ballot = self.load_ballot().await?;
+            let cur_term = new_ballot.cur_term;
             let aim_term = cur_term + 1;
-            new_vote.cur_term = aim_term;
-            new_vote.voted_for = Some(self.id.clone());
+            new_ballot.cur_term = aim_term;
+            new_ballot.voted_for = Some(self.id.clone());
 
-            self.store_vote(new_vote).await?;
-            drop(vote_guard);
+            self.store_ballot(new_ballot).await?;
+            drop(ballot_guard);
 
             *self.election_state.write().await = ElectionState::Candidate;
             aim_term
@@ -828,7 +828,7 @@ impl<A: RaftApp> RaftCore<A> {
     async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
         let endpoint = connection::Endpoint::from_shared(follower_id.clone())?.timeout(Duration::from_secs(5));
         let req = {
-            let term = self.load_vote().await?.cur_term;
+            let term = self.load_ballot().await?.cur_term;
             proto_compiled::HeartbeatReq {
                 term,
                 leader_id: self.id.clone(),
@@ -849,9 +849,9 @@ impl<A: RaftApp> RaftCore<A> {
         leader_term: Term,
         leader_commit: Index,
     ) -> anyhow::Result<()> {
-        let vote_guard = self.vote_token.acquire().await;
-        let mut vote = self.load_vote().await?;
-        if leader_term < vote.cur_term {
+        let ballot_guard = self.vote_token.acquire().await;
+        let mut ballot = self.load_ballot().await?;
+        if leader_term < ballot.cur_term {
             log::warn!("heartbeat is stale. rejected");
             return Ok(());
         }
@@ -859,20 +859,20 @@ impl<A: RaftApp> RaftCore<A> {
         // now the heartbeat is valid and record the time
         *self.last_heartbeat_received.lock().await = Instant::now();
 
-        if leader_term > vote.cur_term {
-            log::warn!("received heartbeat with newer term. reset vote");
-            vote.cur_term = leader_term;
-            vote.voted_for = None;
+        if leader_term > ballot.cur_term {
+            log::warn!("received heartbeat with newer term. reset ballot");
+            ballot.cur_term = leader_term;
+            ballot.voted_for = None;
             *self.election_state.write().await = ElectionState::Follower;
         }
 
-        if vote.voted_for != Some(leader_id.clone()) {
+        if ballot.voted_for != Some(leader_id.clone()) {
             log::info!("learn the current leader ({})", leader_id);
-            vote.voted_for = Some(leader_id);
+            ballot.voted_for = Some(leader_id);
         }
 
-        self.store_vote(vote).await?;
-        drop(vote_guard);
+        self.store_ballot(ballot).await?;
+        drop(ballot_guard);
 
         let new_commit_index = std::cmp::min(
             leader_commit,
