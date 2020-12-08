@@ -210,7 +210,7 @@ pub struct RaftCore<A: RaftApp> {
     election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
-    election_token: Semaphore,
+    vote_token: Semaphore,
     // until noop is committed and safe term is incrememted
     // no new entry in the current term is appended to the log.
     safe_term: AtomicU64,
@@ -232,7 +232,7 @@ impl<A: RaftApp> RaftCore<A> {
             election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
-            election_token: Semaphore::new(1),
+            vote_token: Semaphore::new(1),
             safe_term: 0.into(),
             membership_barrier: 0.into(),
         });
@@ -656,6 +656,8 @@ impl<A: RaftApp> RaftCore<A> {
             }
         }
 
+        let _vote_guard = self.vote_token.acquire().await;
+
         let mut vote = self.load_vote().await?;
         if candidate_term < vote.cur_term {
             log::warn!("candidate term is older. reject vote");
@@ -719,7 +721,7 @@ impl<A: RaftApp> RaftCore<A> {
             let majority = (n / 2) + 1;
             let include_self = cur_cluster.contains_key(&self.id);
             let mut others = vec![];
-            for (id, member) in cur_cluster {
+            for (id, _) in cur_cluster {
                 if id != self.id {
                     others.push(id);
                 }
@@ -798,10 +800,9 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
-        let _token = self.election_token.acquire().await;
-
         // vote to self
         let aim_term = {
+            let vote_guard = self.vote_token.acquire().await;
             let mut new_vote = self.load_vote().await?;
             let cur_term = new_vote.cur_term;
             let aim_term = cur_term + 1;
@@ -809,6 +810,8 @@ impl<A: RaftApp> RaftCore<A> {
             new_vote.voted_for = Some(self.id.clone());
 
             self.store_vote(new_vote).await?;
+            drop(vote_guard);
+
             *self.election_state.write().await = ElectionState::Candidate;
             aim_term
         };
@@ -846,6 +849,7 @@ impl<A: RaftApp> RaftCore<A> {
         leader_term: Term,
         leader_commit: Index,
     ) -> anyhow::Result<()> {
+        let vote_guard = self.vote_token.acquire().await;
         let mut vote = self.load_vote().await?;
         if leader_term < vote.cur_term {
             log::warn!("heartbeat is stale. rejected");
@@ -868,6 +872,7 @@ impl<A: RaftApp> RaftCore<A> {
         }
 
         self.store_vote(vote).await?;
+        drop(vote_guard);
 
         let new_commit_index = std::cmp::min(
             leader_commit,
