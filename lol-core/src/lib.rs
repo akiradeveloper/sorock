@@ -284,8 +284,9 @@ impl<A: RaftApp> RaftCore<A> {
         self.set_membership(&membership, 2).await?;
 
         // after this function is called
-        // this server becomes the leader by self-vote and advance commit index in usual manner.
+        // this server immediately becomes the leader by self-vote and advance commit index.
         // consequently when initial install_snapshot is called this server is already the leader.
+        self.send_timeout_now(self.id.clone());
 
         Ok(())
     }
@@ -891,14 +892,17 @@ impl<A: RaftApp> RaftCore<A> {
 
         // choose the one with the higher match_index as the next leader.
         if let Some((_, id)) = xs.pop() {
-            tokio::spawn(async move {
-                let endpoint = Endpoint::from_shared(id).unwrap();
-                if let Ok(mut conn) = connection::connect(endpoint).await {
-                    let req = proto_compiled::TimeoutNowReq {};
-                    let _ = conn.timeout_now(req).await;
-                }
-            });
+            self.send_timeout_now(id);
         }
+    }
+    fn send_timeout_now(&self, id: Id) {
+        tokio::spawn(async move {
+            let endpoint = Endpoint::from_shared(id).unwrap();
+            if let Ok(mut conn) = connection::connect(endpoint).await {
+                let req = proto_compiled::TimeoutNowReq {};
+                let _ = conn.timeout_now(req).await;
+            }
+        });
     }
 }
 struct Log {
