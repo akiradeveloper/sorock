@@ -891,14 +891,17 @@ impl<A: RaftApp> RaftCore<A> {
 
         // choose the one with the higher match_index as the next leader.
         if let Some((_, id)) = xs.pop() {
-            tokio::spawn(async move {
-                let endpoint = Endpoint::from_shared(id).unwrap();
-                if let Ok(mut conn) = connection::connect(endpoint).await {
-                    let req = proto_compiled::TimeoutNowReq {};
-                    let _ = conn.timeout_now(req).await;
-                }
-            });
+            self.send_timeout_now(id);
         }
+    }
+    fn send_timeout_now(&self, id: Id) {
+        tokio::spawn(async move {
+            let endpoint = Endpoint::from_shared(id).unwrap();
+            if let Ok(mut conn) = connection::connect(endpoint).await {
+                let req = proto_compiled::TimeoutNowReq {};
+                let _ = conn.timeout_now(req).await;
+            }
+        });
     }
 }
 struct Log {
