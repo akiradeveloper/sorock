@@ -243,7 +243,7 @@ impl super::RaftStorage for Storage {
         let x: SnapshotIndexB = b.into();
         Ok(x.0)
     }
-    async fn store_ballot(&self, v: Ballot) -> Result<()> {
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = v.into();
         self.db.put_cf(&cf, BALLOT, b)?;

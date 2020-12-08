@@ -43,7 +43,7 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
     async fn get_snapshot_index(&self) -> anyhow::Result<Index>;
     async fn get_last_index(&self) -> anyhow::Result<Index>;
-    async fn store_ballot(&self, v: Ballot) -> anyhow::Result<()>;
+    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()>;
     async fn load_ballot(&self) -> anyhow::Result<Ballot>;
     async fn put_tag(&self, i: Index, snapshot: crate::SnapshotTag) -> anyhow::Result<()>;
     async fn delete_tag(&self, i: Index) -> anyhow::Result<()>;
@@ -61,7 +61,7 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     // vote
     let id = "hoge".to_owned();
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
-    s.store_ballot(Ballot { cur_term: 1, voted_for: Some(id.clone()) }).await?;
+    s.save_ballot(Ballot { cur_term: 1, voted_for: Some(id.clone()) }).await?;
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 1, voted_for: Some(id.clone()) });
 
     // tag

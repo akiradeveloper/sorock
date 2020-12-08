@@ -79,7 +79,7 @@ impl super::RaftStorage for Storage {
         let r = self.snapshot_index.load(Ordering::SeqCst);
         Ok(r)
     }
-    async fn store_ballot(&self, v: Ballot) -> Result<()> {
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
         *self.ballot.lock().await = v;
         Ok(())
     }

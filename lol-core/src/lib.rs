@@ -636,8 +636,8 @@ impl<A: RaftApp> RaftCore<A> {
 }
 // election
 impl<A: RaftApp> RaftCore<A> {
-    async fn store_ballot(&self, v: Ballot) -> anyhow::Result<()> {
-        self.log.storage.store_ballot(v).await
+    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
+        self.log.storage.save_ballot(v).await
     }
     async fn load_ballot(&self) -> anyhow::Result<Ballot> {
         self.log.storage.load_ballot().await
@@ -692,7 +692,7 @@ impl<A: RaftApp> RaftCore<A> {
 
         if !candidate_win {
             log::warn!("candidate clock is older. reject vote");
-            self.store_ballot(ballot).await?;
+            self.save_ballot(ballot).await?;
             return Ok(false);
         }
 
@@ -710,7 +710,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
         };
 
-        self.store_ballot(ballot).await?;
+        self.save_ballot(ballot).await?;
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
@@ -809,7 +809,7 @@ impl<A: RaftApp> RaftCore<A> {
             new_ballot.cur_term = aim_term;
             new_ballot.voted_for = Some(self.id.clone());
 
-            self.store_ballot(new_ballot).await?;
+            self.save_ballot(new_ballot).await?;
             drop(ballot_guard);
 
             *self.election_state.write().await = ElectionState::Candidate;
@@ -871,7 +871,7 @@ impl<A: RaftApp> RaftCore<A> {
             ballot.voted_for = Some(leader_id);
         }
 
-        self.store_ballot(ballot).await?;
+        self.save_ballot(ballot).await?;
         drop(ballot_guard);
 
         let new_commit_index = std::cmp::min(
