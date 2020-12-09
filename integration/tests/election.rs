@@ -31,16 +31,6 @@ fn test_reelection_after_leader_crash() {
         vec![0, 1, 2],
         env.clone(),
     );
-
-    // FIXME for what reason?
-    // restart the server
-    env.start(0, kvs_server(vec![]));
-    assert_cluster(
-        Duration::from_secs(5),
-        vec![0, 1, 2],
-        vec![0, 1, 2],
-        env.clone(),
-    );
 }
 #[test]
 fn test_two_nodes_up_after_down() {
