@@ -4,6 +4,20 @@ use std::thread;
 use std::time::Duration;
 
 #[test]
+fn test_reelection_large_cluster() {
+    let n = 8;
+    let env = init_cluster(n);
+    thread::sleep(Duration::from_secs(10));
+    env.stop(0);
+    thread::sleep(Duration::from_secs(3));
+    assert_cluster(
+        Duration::from_secs(5),
+        (1..n).collect(),
+        (0..n).collect(),
+        env.clone(),
+    )
+}
+#[test]
 fn test_reelection_after_leader_crash() {
     let env = init_cluster(3);
 
