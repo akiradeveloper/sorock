@@ -1,7 +1,6 @@
-use crate::{ElectionState, RaftApp, RaftCore, ELECTION_TIMEOUT_MS};
+use crate::{ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::time::delay_for;
+use std::time::Duration;
 
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
@@ -9,10 +8,7 @@ struct Thread<A: RaftApp> {
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
         loop {
-            // randomly timeout to avoid two nodes become candidate at the same time.
-            let rand_part = rand::random::<u64>() % ELECTION_TIMEOUT_MS;
-            let rand_timeout = Duration::from_millis(ELECTION_TIMEOUT_MS + rand_part);
-            delay_for(rand_timeout).await;
+            tokio::time::delay_for(Duration::from_millis(100)).await;
 
             if !self
                 .core
@@ -25,18 +21,27 @@ impl<A: RaftApp> Thread<A> {
                 continue;
             }
 
+            if !std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
+                continue;
+            }
+
+            if !self.core.detect_election_timeout().await {
+                continue;
+            } else {
+                let normal_dist = &self.core.failure_detector.read().await.detector.normal_dist();
+                let base_timeout = (normal_dist.mu() + normal_dist.sigma() * 4).as_millis();
+                let rand_timeout = rand::random::<u128>() % base_timeout;
+                tokio::time::delay_for(Duration::from_millis(rand_timeout as u64)).await;
+                // double-check
+                if !self.core.detect_election_timeout().await {
+                    continue;
+                }
+            }
+
             let core = Arc::clone(&self.core);
             let f = async move {
-                let last_time = *core.last_heartbeat_received.lock().await;
-                let now = Instant::now();
-                let elapsed = now - last_time;
-                if elapsed > Duration::from_millis(ELECTION_TIMEOUT_MS) {
-                    let election_state = *core.election_state.read().await;
-                    if std::matches!(election_state, ElectionState::Follower) {
-                        log::info!("heartbeat is not received for {} ms", elapsed.as_millis());
-                        core.try_promote(false).await.unwrap();
-                    }
-                };
+                log::info!("heartbeat is not received for a long time");
+                core.try_promote(false).await.unwrap();
             };
             let _ = tokio::spawn(f).await;
         }

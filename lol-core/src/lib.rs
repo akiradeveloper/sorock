@@ -36,9 +36,6 @@ use thread::notification::Notification;
 use storage::RaftStorage;
 use snapshot::SnapshotTag;
 
-// this is currently fixed but can be place in tunable if it is needed.
-const ELECTION_TIMEOUT_MS: u64 = 1000;
-
 /// Proto file compiled.
 pub mod proto_compiled {
     tonic::include_proto!("lol_core");
@@ -198,6 +195,19 @@ impl TunableConfig {
         }
     }
 }
+struct FailureDetector {
+    watch_id: Id,
+    detector: phi_detector::PingWindow,
+}
+impl FailureDetector {
+    fn watch(id: Id) -> Self {
+        Self {
+            watch_id: id,
+            detector: phi_detector::PingWindow::new(&[Duration::from_secs(1)], Instant::now()),
+        }
+    }
+}
+
 /// RaftCore is the heart of the Raft system.
 /// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
@@ -205,7 +215,6 @@ pub struct RaftCore<A: RaftApp> {
     id: Id,
     app: A,
     query_queue: Mutex<query_queue::QueryQueue>,
-    last_heartbeat_received: Mutex<Instant>,
     log: Log,
     election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
@@ -216,6 +225,8 @@ pub struct RaftCore<A: RaftApp> {
     safe_term: AtomicU64,
     // membership should not be appended until commit_index passes this line.
     membership_barrier: AtomicU64,
+
+    failure_detector: RwLock<FailureDetector>,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
@@ -223,11 +234,11 @@ impl<A: RaftApp> RaftCore<A> {
         let init_cluster = membership::Cluster::empty(id.clone()).await;
         let (membership_index, init_membership) = Self::find_last_membership(&storage).await.unwrap();
         let init_log = Log::new(Box::new(storage)).await;
+        let fd = FailureDetector::watch(id.clone());
         let r = Arc::new(Self {
             app,
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
             id,
-            last_heartbeat_received: Mutex::new(Instant::now()),
             log: init_log,
             election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
@@ -235,6 +246,7 @@ impl<A: RaftApp> RaftCore<A> {
             vote_token: Semaphore::new(1),
             safe_term: 0.into(),
             membership_barrier: 0.into(),
+            failure_detector: RwLock::new(fd),
         });
         log::info!("initial membership is {:?} at {}", init_membership, membership_index);
         r.set_membership(&init_membership, membership_index).await.unwrap();
@@ -642,6 +654,12 @@ impl<A: RaftApp> RaftCore<A> {
     async fn load_ballot(&self) -> anyhow::Result<Ballot> {
         self.log.storage.load_ballot().await
     }
+    async fn detect_election_timeout(&self) -> bool {
+        let fd = &self.failure_detector.read().await.detector;
+        let normal_dist = fd.normal_dist();
+        let phi = normal_dist.phi(Instant::now() - fd.last_ping());
+        phi > 3.
+    }
     async fn receive_vote(
         &self,
         candidate_term: Term,
@@ -650,8 +668,7 @@ impl<A: RaftApp> RaftCore<A> {
         force_vote: bool,
     ) -> anyhow::Result<bool> {
         if !force_vote {
-            let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
-            if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
+            if !self.detect_election_timeout().await {
                 return Ok(false)
             }
         }
@@ -843,6 +860,15 @@ impl<A: RaftApp> RaftCore<A> {
         }
         Ok(())
     }
+    async fn record_heartbeat(&self) {
+        self.failure_detector.write().await.detector.add_ping(Instant::now())
+    }
+    async fn reset_failure_detector(&self, leader_id: Id) {
+        let cur_watch_id = self.failure_detector.read().await.watch_id.clone();
+        if cur_watch_id != leader_id {
+            *self.failure_detector.write().await = FailureDetector::watch(leader_id);
+        }
+    }
     async fn receive_heartbeat(
         self: &Arc<Self>,
         leader_id: Id,
@@ -856,8 +882,8 @@ impl<A: RaftApp> RaftCore<A> {
             return Ok(());
         }
 
-        // now the heartbeat is valid and record the time
-        *self.last_heartbeat_received.lock().await = Instant::now();
+        self.record_heartbeat().await;
+        self.reset_failure_detector(leader_id.clone()).await;
 
         if leader_term > ballot.cur_term {
             log::warn!("received heartbeat with newer term. reset ballot");

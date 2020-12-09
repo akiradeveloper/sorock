@@ -29,6 +29,7 @@ anyhow = "1.0"
 tokio-util = { version = "0.3", features = ["codec"] }
 bytes = "0.5.6"
 sync_wrapper = "0.1"
+phi-detector = "0.3"
 
 rocksdb = { version = "0.15", optional = true }
 
