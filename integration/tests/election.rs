@@ -9,7 +9,7 @@ fn test_reelection_large_cluster() {
     let env = init_cluster(n);
     thread::sleep(Duration::from_secs(10));
     env.stop(0);
-    thread::sleep(Duration::from_secs(3));
+    thread::sleep(Duration::from_millis(500));
     assert_cluster(
         Duration::from_secs(5),
         (1..n).collect(),
