@@ -1,3 +1,11 @@
+# 0.6.2 (2020-12-10)
+
+- Introduce new failure detector based on Phi Accrual Failure Detection algorithm. (#122)
+- Heartbeat thread is maintained per follower node. (#114)
+- The initial node immediately starts the initial election by sending TimeoutNow to itself. (#118)
+- Fix critical bug in fold snapshot. (#124)
+- Fix bug in election. Ballot should accept only one single writer. (#119)
+
 # 0.6.1 (2020-12-2)
 
 - Hide connection::Endpoint which wasn't my intention to expose.

@@ -4,7 +4,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{HashMap, BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -36,15 +36,12 @@ use thread::notification::Notification;
 use storage::RaftStorage;
 use snapshot::SnapshotTag;
 
-// this is currently fixed but can be place in tunable if it is needed.
-const ELECTION_TIMEOUT_MS: u64 = 1000;
-
 /// Proto file compiled.
 pub mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
 
-use storage::{Entry, Vote};
+use storage::{Entry, Ballot};
 
 /// Plan to make a new snapshot.
 pub enum MakeSnapshot {
@@ -198,6 +195,19 @@ impl TunableConfig {
         }
     }
 }
+struct FailureDetector {
+    watch_id: Id,
+    detector: phi_detector::PingWindow,
+}
+impl FailureDetector {
+    fn watch(id: Id) -> Self {
+        Self {
+            watch_id: id,
+            detector: phi_detector::PingWindow::new(&[Duration::from_secs(1)], Instant::now()),
+        }
+    }
+}
+
 /// RaftCore is the heart of the Raft system.
 /// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
@@ -205,17 +215,18 @@ pub struct RaftCore<A: RaftApp> {
     id: Id,
     app: A,
     query_queue: Mutex<query_queue::QueryQueue>,
-    last_heartbeat_received: Mutex<Instant>,
     log: Log,
     election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
-    election_token: Semaphore,
+    vote_token: Semaphore,
     // until noop is committed and safe term is incrememted
     // no new entry in the current term is appended to the log.
     safe_term: AtomicU64,
     // membership should not be appended until commit_index passes this line.
     membership_barrier: AtomicU64,
+
+    failure_detector: RwLock<FailureDetector>,
 }
 impl<A: RaftApp> RaftCore<A> {
     pub async fn new<S: RaftStorage>(app: A, storage: S, config: Config, tunable: TunableConfig) -> Arc<Self> {
@@ -223,18 +234,19 @@ impl<A: RaftApp> RaftCore<A> {
         let init_cluster = membership::Cluster::empty(id.clone()).await;
         let (membership_index, init_membership) = Self::find_last_membership(&storage).await.unwrap();
         let init_log = Log::new(Box::new(storage)).await;
+        let fd = FailureDetector::watch(id.clone());
         let r = Arc::new(Self {
             app,
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
             id,
-            last_heartbeat_received: Mutex::new(Instant::now()),
             log: init_log,
             election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
             tunable: RwLock::new(tunable),
-            election_token: Semaphore::new(1),
+            vote_token: Semaphore::new(1),
             safe_term: 0.into(),
             membership_barrier: 0.into(),
+            failure_detector: RwLock::new(fd),
         });
         log::info!("initial membership is {:?} at {}", init_membership, membership_index);
         r.set_membership(&init_membership, membership_index).await.unwrap();
@@ -284,8 +296,9 @@ impl<A: RaftApp> RaftCore<A> {
         self.set_membership(&membership, 2).await?;
 
         // after this function is called
-        // this server becomes the leader by self-vote and advance commit index in usual manner.
+        // this server immediately becomes the leader by self-vote and advance commit index.
         // consequently when initial install_snapshot is called this server is already the leader.
+        self.send_timeout_now(self.id.clone());
 
         Ok(())
     }
@@ -303,7 +316,7 @@ impl<A: RaftApp> RaftCore<A> {
         match req {
             core_message::Req::ClusterInfo => {
                 let res = core_message::Rep::ClusterInfo {
-                    leader_id: self.load_vote().await?.voted_for,
+                    leader_id: self.load_ballot().await?.voted_for,
                     membership: {
                         let mut xs: Vec<_> =
                             self.cluster.read().await.get_membership().into_iter().collect();
@@ -428,7 +441,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
     // leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
-        let term = self.load_vote().await?.cur_term;
+        let term = self.load_ballot().await?.cur_term;
         // safe term is a term that noop entry is successfully committed.
         if self.safe_term.load(Ordering::SeqCst) < term {
             return Err(anyhow!("noop entry for term {} isn't committed yet."));
@@ -635,11 +648,17 @@ impl<A: RaftApp> RaftCore<A> {
 }
 // election
 impl<A: RaftApp> RaftCore<A> {
-    async fn store_vote(&self, v: Vote) -> anyhow::Result<()> {
-        self.log.storage.store_vote(v).await
+    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
+        self.log.storage.save_ballot(v).await
     }
-    async fn load_vote(&self) -> anyhow::Result<Vote> {
-        self.log.storage.load_vote().await
+    async fn load_ballot(&self) -> anyhow::Result<Ballot> {
+        self.log.storage.load_ballot().await
+    }
+    async fn detect_election_timeout(&self) -> bool {
+        let fd = &self.failure_detector.read().await.detector;
+        let normal_dist = fd.normal_dist();
+        let phi = normal_dist.phi(Instant::now() - fd.last_ping());
+        phi > 3.
     }
     async fn receive_vote(
         &self,
@@ -649,22 +668,23 @@ impl<A: RaftApp> RaftCore<A> {
         force_vote: bool,
     ) -> anyhow::Result<bool> {
         if !force_vote {
-            let elapsed = Instant::now() - *self.last_heartbeat_received.lock().await;
-            if elapsed < Duration::from_millis(ELECTION_TIMEOUT_MS) {
+            if !self.detect_election_timeout().await {
                 return Ok(false)
             }
         }
 
-        let mut vote = self.load_vote().await?;
-        if candidate_term < vote.cur_term {
+        let _vote_guard = self.vote_token.acquire().await;
+
+        let mut ballot = self.load_ballot().await?;
+        if candidate_term < ballot.cur_term {
             log::warn!("candidate term is older. reject vote");
             return Ok(false);
         }
 
-        if candidate_term > vote.cur_term {
+        if candidate_term > ballot.cur_term {
             log::warn!("received newer term. reset vote");
-            vote.cur_term = candidate_term;
-            vote.voted_for = None;
+            ballot.cur_term = candidate_term;
+            ballot.voted_for = None;
             *self.election_state.write().await = ElectionState::Follower;
         }
 
@@ -689,13 +709,13 @@ impl<A: RaftApp> RaftCore<A> {
 
         if !candidate_win {
             log::warn!("candidate clock is older. reject vote");
-            self.store_vote(vote).await?;
+            self.save_ballot(ballot).await?;
             return Ok(false);
         }
 
-        let grant = match &vote.voted_for {
+        let grant = match &ballot.voted_for {
             None => {
-                vote.voted_for = Some(candidate_id.clone());
+                ballot.voted_for = Some(candidate_id.clone());
                 true
             }
             Some(id) => {
@@ -707,7 +727,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
         };
 
-        self.store_vote(vote).await?;
+        self.save_ballot(ballot).await?;
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
@@ -718,7 +738,7 @@ impl<A: RaftApp> RaftCore<A> {
             let majority = (n / 2) + 1;
             let include_self = cur_cluster.contains_key(&self.id);
             let mut others = vec![];
-            for (id, member) in cur_cluster {
+            for (id, _) in cur_cluster {
                 if id != self.id {
                     others.push(id);
                 }
@@ -790,8 +810,6 @@ impl<A: RaftApp> RaftCore<A> {
             }
 
             *self.election_state.write().await = ElectionState::Leader;
-
-            let _ = self.broadcast_heartbeat().await;
         } else {
             log::info!("failed to become leader. now back to follower");
             *self.election_state.write().await = ElectionState::Follower;
@@ -799,17 +817,18 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
-        let _token = self.election_token.acquire().await;
-
         // vote to self
         let aim_term = {
-            let mut new_vote = self.load_vote().await?;
-            let cur_term = new_vote.cur_term;
+            let ballot_guard = self.vote_token.acquire().await;
+            let mut new_ballot = self.load_ballot().await?;
+            let cur_term = new_ballot.cur_term;
             let aim_term = cur_term + 1;
-            new_vote.cur_term = aim_term;
-            new_vote.voted_for = Some(self.id.clone());
+            new_ballot.cur_term = aim_term;
+            new_ballot.voted_for = Some(self.id.clone());
 
-            self.store_vote(new_vote).await?;
+            self.save_ballot(new_ballot).await?;
+            drop(ballot_guard);
+
             *self.election_state.write().await = ElectionState::Candidate;
             aim_term
         };
@@ -823,36 +842,32 @@ impl<A: RaftApp> RaftCore<A> {
 
         Ok(())
     }
-    async fn broadcast_heartbeat(&self) -> anyhow::Result<()> {
-        let cluster = self.cluster.read().await.internal.clone();
-        let mut futs = vec![];
-        for (id, member) in cluster {
-            if id == self.id {
-                continue;
+    async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
+        let endpoint = connection::Endpoint::from_shared(follower_id.clone())?.timeout(Duration::from_secs(5));
+        let req = {
+            let term = self.load_ballot().await?.cur_term;
+            proto_compiled::HeartbeatReq {
+                term,
+                leader_id: self.id.clone(),
+                leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
-            let endpoint = {
-                connection::Endpoint::from_shared(id.clone()).unwrap()
-                .timeout(Duration::from_millis(300))
-            };
-            let req = {
-                let term = self.load_vote().await?.cur_term;
-                proto_compiled::HeartbeatReq {
-                    term,
-                    leader_id: self.id.clone(),
-                    leader_commit: self.log.commit_index.load(Ordering::SeqCst),
-                }
-            };
-            futs.push(async move {
-                if let Ok(mut conn) = connection::connect(endpoint).await {
-                    let res = conn.send_heartbeat(req).await;
-                    if res.is_err() {
-                        log::warn!("heartbeat to {} failed", id);
-                    }
-                }
-            })
+        };
+        if let Ok(mut conn) = connection::connect(endpoint).await {
+            let res = conn.send_heartbeat(req).await;
+            if res.is_err() {
+                log::warn!("heartbeat to {} failed", follower_id);
+            }
         }
-        futures::future::join_all(futs).await;
         Ok(())
+    }
+    async fn record_heartbeat(&self) {
+        self.failure_detector.write().await.detector.add_ping(Instant::now())
+    }
+    async fn reset_failure_detector(&self, leader_id: Id) {
+        let cur_watch_id = self.failure_detector.read().await.watch_id.clone();
+        if cur_watch_id != leader_id {
+            *self.failure_detector.write().await = FailureDetector::watch(leader_id);
+        }
     }
     async fn receive_heartbeat(
         self: &Arc<Self>,
@@ -860,28 +875,30 @@ impl<A: RaftApp> RaftCore<A> {
         leader_term: Term,
         leader_commit: Index,
     ) -> anyhow::Result<()> {
-        let mut vote = self.load_vote().await?;
-        if leader_term < vote.cur_term {
+        let ballot_guard = self.vote_token.acquire().await;
+        let mut ballot = self.load_ballot().await?;
+        if leader_term < ballot.cur_term {
             log::warn!("heartbeat is stale. rejected");
             return Ok(());
         }
 
-        // now the heartbeat is valid and record the time
-        *self.last_heartbeat_received.lock().await = Instant::now();
+        self.record_heartbeat().await;
+        self.reset_failure_detector(leader_id.clone()).await;
 
-        if leader_term > vote.cur_term {
-            log::warn!("received heartbeat with newer term. reset vote");
-            vote.cur_term = leader_term;
-            vote.voted_for = None;
+        if leader_term > ballot.cur_term {
+            log::warn!("received heartbeat with newer term. reset ballot");
+            ballot.cur_term = leader_term;
+            ballot.voted_for = None;
             *self.election_state.write().await = ElectionState::Follower;
         }
 
-        if vote.voted_for != Some(leader_id.clone()) {
+        if ballot.voted_for != Some(leader_id.clone()) {
             log::info!("learn the current leader ({})", leader_id);
-            vote.voted_for = Some(leader_id);
+            ballot.voted_for = Some(leader_id);
         }
 
-        self.store_vote(vote).await?;
+        self.save_ballot(ballot).await?;
+        drop(ballot_guard);
 
         let new_commit_index = std::cmp::min(
             leader_commit,
@@ -906,14 +923,17 @@ impl<A: RaftApp> RaftCore<A> {
 
         // choose the one with the higher match_index as the next leader.
         if let Some((_, id)) = xs.pop() {
-            tokio::spawn(async move {
-                let endpoint = Endpoint::from_shared(id).unwrap();
-                if let Ok(mut conn) = connection::connect(endpoint).await {
-                    let req = proto_compiled::TimeoutNowReq {};
-                    let _ = conn.timeout_now(req).await;
-                }
-            });
+            self.send_timeout_now(id);
         }
+    }
+    fn send_timeout_now(&self, id: Id) {
+        tokio::spawn(async move {
+            let endpoint = Endpoint::from_shared(id).unwrap();
+            if let Ok(mut conn) = connection::connect(endpoint).await {
+                let req = proto_compiled::TimeoutNowReq {};
+                let _ = conn.timeout_now(req).await;
+            }
+        });
     }
 }
 struct Log {
@@ -1254,7 +1274,7 @@ impl Log {
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_membership = membership;
-            let mut commands = HashMap::new();
+            let mut commands = BTreeMap::new();
             for i in cur_snapshot_index + 1..=new_snapshot_index {
                 let command = self.storage.get_entry(i).await?.unwrap().command;
                 commands.insert(i, command);
@@ -1325,7 +1345,6 @@ pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server
 
 /// Lift `RaftCore` to `Service`.
 pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
-    tokio::spawn(thread::heartbeat::run(Arc::clone(&core)));
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));

@@ -51,11 +51,16 @@ impl Cluster {
             }
         } else {
             let mut dropper = ThreadDrop::new();
-            let g = dropper.register(crate::thread::replication::run(
+            let replication_thread = dropper.register(crate::thread::replication::run(
                 Arc::clone(&core),
                 id.clone(),
             ));
-            tokio::spawn(g);
+            tokio::spawn(replication_thread);
+            let heartbeat_thread = dropper.register(crate::thread::heartbeat::run(
+                Arc::clone(&core),
+                id.clone(),
+            ));
+            tokio::spawn(heartbeat_thread);
             self.thread_drop.insert(id.clone(), dropper);
 
             let last_log_index = core.log.get_last_log_index().await?;

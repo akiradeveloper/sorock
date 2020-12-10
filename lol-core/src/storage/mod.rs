@@ -11,11 +11,11 @@ pub mod memory;
 pub mod disk;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Vote {
+pub struct Ballot {
     pub(crate) cur_term: Term,
     pub(crate) voted_for: Option<Id>,
 }
-impl Vote {
+impl Ballot {
     fn new() -> Self {
         Self {
             cur_term: 0,
@@ -43,8 +43,8 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
     async fn get_snapshot_index(&self) -> anyhow::Result<Index>;
     async fn get_last_index(&self) -> anyhow::Result<Index>;
-    async fn store_vote(&self, v: Vote) -> anyhow::Result<()>;
-    async fn load_vote(&self) -> anyhow::Result<Vote>;
+    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()>;
+    async fn load_ballot(&self) -> anyhow::Result<Ballot>;
     async fn put_tag(&self, i: Index, snapshot: crate::SnapshotTag) -> anyhow::Result<()>;
     async fn delete_tag(&self, i: Index) -> anyhow::Result<()>;
     async fn get_tag(&self, i: Index) -> anyhow::Result<Option<crate::SnapshotTag>>;
@@ -60,9 +60,9 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
 
     // vote
     let id = "hoge".to_owned();
-    assert_eq!(s.load_vote().await?, Vote { cur_term: 0, voted_for: None });
-    s.store_vote(Vote { cur_term: 1, voted_for: Some(id.clone()) }).await?;
-    assert_eq!(s.load_vote().await?, Vote { cur_term: 1, voted_for: Some(id.clone()) });
+    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
+    s.save_ballot(Ballot { cur_term: 1, voted_for: Some(id.clone()) }).await?;
+    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 1, voted_for: Some(id.clone()) });
 
     // tag
     let tag: crate::SnapshotTag = vec![].into();

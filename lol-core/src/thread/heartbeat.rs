@@ -1,8 +1,9 @@
-use crate::{ElectionState, RaftApp, RaftCore};
+use crate::{ElectionState, RaftApp, RaftCore, Id};
 use std::sync::Arc;
 use std::time::Duration;
 
 struct Thread<A: RaftApp> {
+    follower_id: Id,
     core: Arc<RaftCore<A>>,
 }
 impl<A: RaftApp> Thread<A> {
@@ -22,17 +23,18 @@ impl<A: RaftApp> Thread<A> {
             }
 
             let core = Arc::clone(&self.core);
+            let follower_id = self.follower_id.clone();
             let f = async move {
                 let election_state = *core.election_state.read().await;
                 if std::matches!(election_state, ElectionState::Leader) {
-                    core.broadcast_heartbeat().await.unwrap();
+                    core.send_heartbeat(follower_id).await.unwrap();
                 };
             };
             let _ = tokio::spawn(f).await;
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) {
-    let x = Thread { core };
+pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
+    let x = Thread { core, follower_id };
     x.run().await
 }

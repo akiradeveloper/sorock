@@ -159,10 +159,12 @@ impl Environment {
             node_list: RwLock::new(HashMap::new()),
         };
         x.start(id, command);
+        // wait for the server is ready
         thread::sleep(Duration::from_millis(1000));
         let env = Arc::new(x);
+        // init-cluster send timeout-now internally to immediate vote for the new leader.
         Admin::to(id, env.clone()).add_server(id).unwrap();
-        thread::sleep(Duration::from_millis(2000));
+        thread::sleep(Duration::from_millis(100));
         env
     }
     pub fn get_node_id(&self, id: u8) -> String {

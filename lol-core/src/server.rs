@@ -63,13 +63,13 @@ impl<A: RaftApp> Raft for Server<A> {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
-        let vote = self.core.load_vote().await.unwrap();
-        if vote.voted_for.is_none() {
+        let ballot = self.core.load_ballot().await.unwrap();
+        if ballot.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
             ));
         }
-        let leader_id = vote.voted_for.unwrap();
+        let leader_id = ballot.voted_for.unwrap();
 
         if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let (ack, rx) = ack::channel_for_apply();
@@ -96,13 +96,13 @@ impl<A: RaftApp> Raft for Server<A> {
         &self,
         request: tonic::Request<CommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
-        let vote = self.core.load_vote().await.unwrap();
-        if vote.voted_for.is_none() {
+        let ballot = self.core.load_ballot().await.unwrap();
+        if ballot.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
             ));
         }
-        let leader_id = vote.voted_for.unwrap();
+        let leader_id = ballot.voted_for.unwrap();
 
         if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let (ack, rx) = ack::channel_for_commit();
@@ -155,13 +155,13 @@ impl<A: RaftApp> Raft for Server<A> {
         &self,
         request: tonic::Request<ProcessReq>,
     ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let vote = self.core.load_vote().await.unwrap();
-        if vote.voted_for.is_none() {
+        let ballot = self.core.load_ballot().await.unwrap();
+        if ballot.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
                 "leader is not known by the server",
             ));
         }
-        let leader_id = vote.voted_for.unwrap();
+        let leader_id = ballot.voted_for.unwrap();
 
         if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
             let req = request.into_inner();

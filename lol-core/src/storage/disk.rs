@@ -1,7 +1,7 @@
 use crate::Index;
 use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor, IteratorMode};
 use std::collections::BTreeSet;
-use super::{Entry, Vote};
+use super::{Entry, Ballot};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 use tokio::sync::Semaphore;
@@ -11,7 +11,7 @@ const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
 const CF_TAGS: &str = "tags";
 const SNAPSHOT_INDEX: &str = "snapshot_index";
-const VOTE: &str = "vote";
+const BALLOT: &str = "ballot";
 const CMP: &str = "index_asc";
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -22,7 +22,7 @@ struct EntryB {
     command: Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
-struct VoteB {
+struct BallotB {
     term: u64,
     voted_for: Option<String>,
 }
@@ -50,18 +50,18 @@ impl Into<Vec<u8>> for Entry {
     }
 }
 
-impl From<Vec<u8>> for Vote {
+impl From<Vec<u8>> for Ballot {
     fn from(x: Vec<u8>) -> Self {
-        let x: VoteB = rmp_serde::from_slice(&x).unwrap();
-        Vote {
+        let x: BallotB = rmp_serde::from_slice(&x).unwrap();
+        Ballot {
             cur_term: x.term,
             voted_for: x.voted_for,
         }
     }
 }
-impl Into<Vec<u8>> for Vote {
+impl Into<Vec<u8>> for Ballot {
     fn into(self) -> Vec<u8> {
-        let x = VoteB {
+        let x = BallotB {
             term: self.cur_term,
             voted_for: self.voted_for,
         };
@@ -126,13 +126,13 @@ impl StorageBuilder {
         // db.create_cf(CF_ENTRIES, &opts).unwrap();
         // db.create_cf(CF_CTRL, &Options::default()).unwrap();
 
-        let initial_vote = Vote {
+        let initial_ballot = Ballot {
             cur_term: 0,
             voted_for: None,
         };
         let cf = db.cf_handle(CF_CTRL).unwrap();
-        let b: Vec<u8> = initial_vote.into();
-        db.put_cf(&cf, VOTE, b).unwrap();
+        let b: Vec<u8> = initial_ballot.into();
+        db.put_cf(&cf, BALLOT, b).unwrap();
 
         let b: Vec<u8> = SnapshotIndexB(0).into();
         db.put_cf(&cf, SNAPSHOT_INDEX, b).unwrap();
@@ -243,15 +243,15 @@ impl super::RaftStorage for Storage {
         let x: SnapshotIndexB = b.into();
         Ok(x.0)
     }
-    async fn store_vote(&self, v: Vote) -> Result<()> {
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = v.into();
-        self.db.put_cf(&cf, VOTE, b)?;
+        self.db.put_cf(&cf, BALLOT, b)?;
         Ok(())
     }
-    async fn load_vote(&self) -> Result<Vote> {
+    async fn load_ballot(&self) -> Result<Ballot> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
-        let b = self.db.get_cf(&cf, VOTE)?.unwrap();
+        let b = self.db.get_cf(&cf, BALLOT)?.unwrap();
         let v = b.into();
         Ok(v)
     }
@@ -301,7 +301,7 @@ async fn test_rocksdb_persistency() -> Result<()> {
     drop(s);
 
     let s: Box<super::RaftStorage> = Box::new(builder.open());
-    assert_eq!(s.load_vote().await?, Vote { cur_term: 0, voted_for: None });
+    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());
     assert!(s.get_tag(3).await?.is_some());
