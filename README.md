@@ -10,6 +10,13 @@ A Raft implementation in Rust language. To support this project please give it a
 
 [Documentation](https://github.com/akiradeveloper/lol/wiki)
 
+## Features
+
+- Implements all basic [Raft](https://raft.github.io/) features: Replication, Leader Election, Log Compaction, Persistency, Dynamic Membership Change, Streaming Snapshot, etc.
+- Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is fully utilized in log replication and snapshot copying.
+- [Phi Accrual Failure Detector](https://www.computer.org/csdl/proceedings-article/srds/2004/22390066/12OmNvT2phv) is used in leader failure detection. This adaptive algorithm lets you not choose a fixed timeout number before deployment and makes it possible to deploy Raft node in Geo-distributed environment. This algorithm is also used in [Akka](https://akka.io/).
+- Clear Abstractions: RaftApp is your application or state machine in Raft's context. RaftStorage is the abstraction of the backend storage with which both in-memory and persistent (backed by RocksDB) are supported.
+
 ## Example
 
 ```rust
