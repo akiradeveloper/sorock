@@ -18,4 +18,4 @@ termion = { version = "1.5", optional = true }
 anyhow = "1.0"
 futures = "0.3"
 clap = "3.0.0-beta.1"
-async-stream = "*"
+async-stream = "0.3"
