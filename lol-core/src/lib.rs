@@ -4,7 +4,7 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::{HashMap, BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -1274,7 +1274,7 @@ impl Log {
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_membership = membership;
-            let mut commands = HashMap::new();
+            let mut commands = BTreeMap::new();
             for i in cur_snapshot_index + 1..=new_snapshot_index {
                 let command = self.storage.get_entry(i).await?.unwrap().command;
                 commands.insert(i, command);
