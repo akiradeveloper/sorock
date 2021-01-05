@@ -436,15 +436,16 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     fn commit_safe_term(&self, term: Term) {
-        log::info!("noop entry of term {} is successfully committed", term);
+        log::info!("noop entry for term {} is successfully committed", term);
         self.safe_term.fetch_max(term, Ordering::SeqCst);
     }
     // leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
         let term = self.load_ballot().await?.cur_term;
         // safe term is a term that noop entry is successfully committed.
-        if self.safe_term.load(Ordering::SeqCst) < term {
-            return Err(anyhow!("noop entry for term {} isn't committed yet."));
+        let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
+        if cur_safe_term < term {
+            return Err(anyhow!("noop entry for term {} isn't committed yet. (> {})", term, cur_safe_term));
         }
         // command.clone() is cheap because the message buffer is Bytes.
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
@@ -996,10 +997,6 @@ impl Log {
         self.storage.get_snapshot_index().await
     }
     async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
-        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
-            return Err(anyhow!("log is blocked due to the previous error"));
-        }
-
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -1019,10 +1016,6 @@ impl Log {
         Ok(new_index)
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
-        if self.apply_error_seq.load(Ordering::SeqCst) > 0 {
-            return Err(anyhow!("log is blocked due to the previous error"));
-        }
-
         let _token = self.append_token.acquire().await;
 
         let Clock { term: _, index: prev_index } = entry.prev_clock;
@@ -1227,9 +1220,7 @@ impl Log {
             _ => true,
         };
         if ok {
-            if self.apply_error_seq.swap(0, Ordering::SeqCst) > 0 {
-                log::error!("log is unblocked");
-            }
+            self.apply_error_seq.store(0, Ordering::SeqCst);
 
             log::debug!("last_applied -> {}", apply_index);
             self.last_applied.store(apply_index, Ordering::SeqCst);
@@ -1245,9 +1236,7 @@ impl Log {
             let wait_ms: u64 = 100 * (1 << n_old);
             log::error!("log apply failed at index={} (n={}). wait for {}ms", apply_index, n_old+1, wait_ms);
             tokio::time::delay_for(Duration::from_millis(wait_ms)).await;
-            if self.apply_error_seq.fetch_add(1, Ordering::SeqCst) == 0 {
-                log::error!("log is blocked");
-            }
+            self.apply_error_seq.fetch_add(1, Ordering::SeqCst);
         }
         Ok(())
     }
