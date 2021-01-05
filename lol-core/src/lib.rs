@@ -436,15 +436,16 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     fn commit_safe_term(&self, term: Term) {
-        log::info!("noop entry of term {} is successfully committed", term);
+        log::info!("noop entry for term {} is successfully committed", term);
         self.safe_term.fetch_max(term, Ordering::SeqCst);
     }
     // leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
         let term = self.load_ballot().await?.cur_term;
         // safe term is a term that noop entry is successfully committed.
-        if self.safe_term.load(Ordering::SeqCst) < term {
-            return Err(anyhow!("noop entry for term {} isn't committed yet."));
+        let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
+        if cur_safe_term < term {
+            return Err(anyhow!("noop entry for term {} isn't committed yet. (> {})", term, cur_safe_term));
         }
         // command.clone() is cheap because the message buffer is Bytes.
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
