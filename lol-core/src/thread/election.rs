@@ -24,18 +24,17 @@ impl<A: RaftApp> Thread<A> {
             if !std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
                 continue;
             }
-
             if !self.core.detect_election_timeout().await {
                 continue;
-            } else {
-                let normal_dist = &self.core.failure_detector.read().await.detector.normal_dist();
-                let base_timeout = (normal_dist.mu() + normal_dist.sigma() * 4).as_millis();
-                let rand_timeout = rand::random::<u128>() % base_timeout;
-                tokio::time::delay_for(Duration::from_millis(rand_timeout as u64)).await;
-                // double-check
-                if !self.core.detect_election_timeout().await {
-                    continue;
-                }
+            }
+
+            let normal_dist = &self.core.failure_detector.read().await.detector.normal_dist();
+            let base_timeout = (normal_dist.mu() + normal_dist.sigma() * 4).as_millis();
+            let rand_timeout = rand::random::<u128>() % base_timeout;
+            tokio::time::delay_for(Duration::from_millis(rand_timeout as u64)).await;
+            // double-check
+            if !self.core.detect_election_timeout().await {
+                continue;
             }
 
             let core = Arc::clone(&self.core);
