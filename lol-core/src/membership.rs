@@ -77,18 +77,7 @@ impl Cluster {
     }
     pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
         let cur = &self.membership;
-        let mut to_add = HashSet::new();
-        for x in goal {
-            if !cur.contains(x) {
-                to_add.insert(x.clone());
-            }
-        }
-        let mut to_remove = HashSet::new();
-        for x in cur {
-            if !goal.contains(x) {
-                to_remove.insert(x.clone());
-            }
-        }
+        let (to_add, to_remove) = diff_set(cur, goal);
         for id in to_add {
             self.add_server(id, Arc::clone(&core)).await?;
         }
@@ -97,4 +86,22 @@ impl Cluster {
         }
         Ok(())
     }
+}
+fn diff_set<T: Clone + Eq + std::hash::Hash>(cur: &HashSet<T>, goal: &HashSet<T>) -> (HashSet<T>, HashSet<T>) {
+    let mut intersection = HashSet::new();
+    for id in cur.intersection(goal) {
+        intersection.insert(id.clone());
+    }
+    let to_add = goal - &intersection;
+    let to_remove = cur - &intersection;
+    (to_add, to_remove)
+}
+#[test]
+fn test_diff_set() {
+    use std::iter::FromIterator;
+    let cur = HashSet::from_iter(vec![1,2,3,4]);
+    let goal = HashSet::from_iter(vec![3,4,5,6]);
+    let (to_add, to_remove) = diff_set(&cur, &goal);
+    assert_eq!(to_add, HashSet::from_iter(vec![5,6]));
+    assert_eq!(to_remove, HashSet::from_iter(vec![1,2]));
 }
