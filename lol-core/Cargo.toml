@@ -35,6 +35,7 @@ rocksdb = { version = "0.15", optional = true }
 
 [build-dependencies]
 tonic-build = "0.3"
+prost-build = "0.6"
 
 [features]
 full = ["persistency"]
