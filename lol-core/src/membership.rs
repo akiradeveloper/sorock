@@ -21,35 +21,34 @@ impl ReplicationProgress {
     }
 }
 #[derive(Clone, Debug)]
-pub struct ClusterMember {
-    pub progress: Option<ReplicationProgress>,
+pub struct Peer {
+    pub progress: ReplicationProgress,
 }
 #[derive(Debug)]
 pub struct Cluster {
     selfid: Id,
-    pub internal: HashMap<Id, ClusterMember>,
+    pub membership: HashSet<Id>,
+    pub peers: HashMap<Id, Peer>,
     thread_drop: HashMap<Id, ThreadDrop>,
 }
 impl Cluster {
     pub async fn empty(id: Id) -> Self {
         Self {
             selfid: id,
-            internal: HashMap::new(),
+            membership: HashSet::new(),
+            peers: HashMap::new(),
             thread_drop: HashMap::new(),
         }
     }
     pub fn get_membership(&self) -> HashSet<Id> {
-        self.internal.keys().cloned().collect()
+        self.membership.clone()
     }
     async fn add_server<A: RaftApp>(&mut self, id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
-        if self.internal.contains_key(&id) {
+        if self.membership.contains(&id) {
             return Ok(());
         }
-        let member = if id == self.selfid {
-            ClusterMember {
-                progress: None,
-            }
-        } else {
+        self.membership.insert(id.clone());
+        if id != self.selfid {
             let mut dropper = ThreadDrop::new();
             let replication_thread = dropper.register(crate::thread::replication::run(
                 Arc::clone(&core),
@@ -64,18 +63,19 @@ impl Cluster {
             self.thread_drop.insert(id.clone(), dropper);
 
             let last_log_index = core.log.get_last_log_index().await?;
-            ClusterMember {
-                progress: Some(ReplicationProgress::new(last_log_index)),
-            }
+            let member = Peer {
+                progress: ReplicationProgress::new(last_log_index),
+            };
+            self.peers.insert(id, member);
         };
-        self.internal.insert(id, member);
         Ok(())
     }
     fn remove_server(&mut self, id: Id) {
-        if !self.internal.contains_key(&id) {
+        if !self.membership.contains(&id) {
             return;
         }
-        self.internal.remove(&id);
+        self.membership.remove(&id);
+        self.peers.remove(&id);
         self.thread_drop.remove(&id);
     }
     pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {

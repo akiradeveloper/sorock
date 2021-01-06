@@ -16,8 +16,8 @@ impl<A: RaftApp> Thread<A> {
                 .cluster
                 .read()
                 .await
-                .internal
-                .contains_key(&self.core.id)
+                .membership
+                .contains(&self.core.id)
             {
                 continue;
             }
