@@ -17,3 +17,4 @@ anyhow = "1.0"
 
 [build-dependencies]
 tonic-build = "0.3"
+prost-build = "0.6"
