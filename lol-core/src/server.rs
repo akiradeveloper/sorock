@@ -117,7 +117,7 @@ impl<A: RaftApp> Raft for Server<A> {
                             return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
                         }
 
-                        let mut membership = self.core.cluster.read().await.get_membership();
+                        let mut membership = self.core.cluster.read().await.membership.clone();
                         membership.insert(id);
                         Command::ClusterConfiguration { membership }
                     },
@@ -126,7 +126,7 @@ impl<A: RaftApp> Raft for Server<A> {
                             return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
                         }
 
-                        let mut membership = self.core.cluster.read().await.get_membership();
+                        let mut membership = self.core.cluster.read().await.membership.clone();
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
                     },
@@ -263,8 +263,7 @@ impl<A: RaftApp> Raft for Server<A> {
         request: tonic::Request<AddServerReq>,
     ) -> Result<tonic::Response<AddServerRep>, tonic::Status> {
         let req = request.into_inner();
-        let membership = self.core.cluster.read().await.get_membership();
-        let ok = if membership.is_empty() && req.id == self.core.id {
+        let ok = if self.core.cluster.read().await.membership.is_empty() && req.id == self.core.id {
             self.core.init_cluster().await.is_ok()
         } else {
             let msg = core_message::Req::AddServer(req.id);

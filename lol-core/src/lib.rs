@@ -318,8 +318,8 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::ClusterInfo {
                     leader_id: self.load_ballot().await?.voted_for,
                     membership: {
-                        let mut xs: Vec<_> =
-                            self.cluster.read().await.get_membership().into_iter().collect();
+                        let membership = self.cluster.read().await.membership.clone();
+                        let mut xs: Vec<_> = membership.into_iter().collect();
                         xs.sort();
                         xs
                     },
@@ -515,16 +515,16 @@ impl<A: RaftApp> RaftCore<A> {
         })
     }
     async fn advance_replication(self: &Arc<Self>, follower_id: Id) -> anyhow::Result<bool> {
-        let member = self
+        let peer = self
             .cluster
             .read()
             .await
-            .internal
+            .peers
             .get(&follower_id)
             .unwrap()
             .clone();
 
-        let old_progress = member.progress.unwrap();
+        let old_progress = peer.progress;
         let cur_last_log_index = self.log.get_last_log_index().await?;
 
         // more entries to send?
@@ -542,9 +542,9 @@ impl<A: RaftApp> RaftCore<A> {
                 old_progress.next_index,
                 follower_id
             );
-            let mut cluster = self.cluster.write().await;
             let new_progress = membership::ReplicationProgress::new(cur_snapshot_index);
-            cluster.internal.get_mut(&follower_id).unwrap().progress = Some(new_progress);
+            let mut cluster = self.cluster.write().await;
+            cluster.peers.get_mut(&follower_id).unwrap().progress = new_progress;
             return Ok(true);
         }
 
@@ -590,7 +590,7 @@ impl<A: RaftApp> RaftCore<A> {
 
         {
             let mut cluster = self.cluster.write().await;
-            cluster.internal.get_mut(&follower_id).unwrap().progress = Some(new_progress);
+            cluster.peers.get_mut(&follower_id).unwrap().progress = new_progress;
         }
         if incremented {
             self.log.replication_notification.lock().await.publish();
@@ -599,7 +599,6 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(true)
     }
     async fn find_new_agreement(&self) -> anyhow::Result<Index> {
-        let cluster = self.cluster.read().await.internal.clone();
         let mut match_indices = vec![];
 
         // in leader stepdown leader is out of the membership
@@ -607,11 +606,10 @@ impl<A: RaftApp> RaftCore<A> {
         let last_log_index = self.log.get_last_log_index().await?;
         match_indices.push(last_log_index);
 
-        for (id, member) in cluster {
-            if id != self.id {
-                match_indices.push(member.progress.unwrap().match_index);
-            }
+        for (_, peer) in self.cluster.read().await.peers.clone() {
+            match_indices.push(peer.progress.match_index);
         }
+
         match_indices.sort();
         match_indices.reverse();
         let mid = match_indices.len() / 2;
@@ -733,20 +731,20 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(grant)
     }
     async fn request_votes(self: &Arc<Self>, aim_term: Term, force_vote: bool) -> anyhow::Result<bool> {
-        let (others, quorum) = {
-            let cur_cluster = self.cluster.read().await.internal.clone();
-            let n = cur_cluster.len();
+        let (others, remaining) = {
+            let membership = self.cluster.read().await.membership.clone();
+            let n = membership.len();
             let majority = (n / 2) + 1;
-            let include_self = cur_cluster.contains_key(&self.id);
+            let include_self = membership.contains(&self.id);
             let mut others = vec![];
-            for (id, _) in cur_cluster {
+            for id in membership {
                 if id != self.id {
                     others.push(id);
                 }
             }
             // -1 = self vote
-            let quorum = if include_self { majority - 1 } else { majority };
-            (others, quorum)
+            let m = if include_self { majority - 1 } else { majority };
+            (others, m)
         };
 
         let last_log_index = self.log.get_last_log_index().await?;
@@ -759,6 +757,8 @@ impl<A: RaftApp> RaftCore<A> {
             .this_clock;
 
         let vote_timeout = Duration::from_secs(5);
+
+        // Let's get remaining votes out of others.
         let mut vote_requests = vec![];
         for endpoint in others {
             let myid = self.id.clone();
@@ -786,7 +786,7 @@ impl<A: RaftApp> RaftCore<A> {
                 }
             });
         }
-        let ok = quorum_join::quorum_join(quorum, vote_requests).await;
+        let ok = quorum_join::quorum_join(remaining, vote_requests).await;
         Ok(ok)
     }
     async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> anyhow::Result<()> {
@@ -803,10 +803,8 @@ impl<A: RaftApp> RaftCore<A> {
                     self.log.get_last_log_index().await?,
                 );
                 let mut cluster = self.cluster.write().await;
-                for (id, member) in &mut cluster.internal {
-                    if id != &self.id {
-                        member.progress = Some(initial_progress.clone());
-                    }
+                for (id, peer) in &mut cluster.peers {
+                    peer.progress = initial_progress.clone();
                 }
             }
 
@@ -913,12 +911,10 @@ impl<A: RaftApp> RaftCore<A> {
     }
     async fn transfer_leadership(&self) {
         let mut xs = vec![];
-        let cluster = self.cluster.read().await.internal.clone();
-        for (id, member) in cluster {
-            if id != self.id {
-                let prog = member.progress.unwrap();
-                xs.push((prog.match_index, id));
-            }
+        let peers = self.cluster.read().await.peers.clone();
+        for (id, peer) in peers {
+            let progress = peer.progress;
+            xs.push((progress.match_index, id));
         }
         xs.sort_by_key(|x| x.0);
 
