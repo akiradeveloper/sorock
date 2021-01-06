@@ -318,8 +318,8 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::ClusterInfo {
                     leader_id: self.load_ballot().await?.voted_for,
                     membership: {
-                        let mut xs: Vec<_> =
-                            self.cluster.read().await.get_membership().into_iter().collect();
+                        let membership = self.cluster.read().await.membership.clone();
+                        let mut xs: Vec<_> = membership.into_iter().collect();
                         xs.sort();
                         xs
                     },
