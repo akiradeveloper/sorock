@@ -220,10 +220,10 @@ pub struct RaftCore<A: RaftApp> {
     cluster: RwLock<membership::Cluster>,
     tunable: RwLock<TunableConfig>,
     vote_token: Semaphore,
-    // until noop is committed and safe term is incrememted
+    // Until noop is committed and safe term is incrememted
     // no new entry in the current term is appended to the log.
     safe_term: AtomicU64,
-    // membership should not be appended until commit_index passes this line.
+    // Membership should not be appended until commit_index passes this line.
     membership_barrier: AtomicU64,
 
     failure_detector: RwLock<FailureDetector>,
@@ -295,9 +295,9 @@ impl<A: RaftApp> RaftCore<A> {
         self.log.insert_entry(add_server).await?;
         self.set_membership(&membership, 2).await?;
 
-        // after this function is called
+        // After this function is called
         // this server immediately becomes the leader by self-vote and advance commit index.
-        // consequently when initial install_snapshot is called this server is already the leader.
+        // Consequently, when initial install_snapshot is called this server is already the leader.
         self.send_timeout_now(self.id.clone());
 
         Ok(())
@@ -348,9 +348,9 @@ impl<A: RaftApp> RaftCore<A> {
             .lock()
             .await
             .register(self.log.commit_index.load(Ordering::SeqCst), query);
-        // in case last_applied == commit_index and there is no subsequent entries after this line,
+        // In case last_applied == commit_index and there is no subsequent entries after this line,
         // no notification on last_applied's change will be made and this query will never be processed.
-        // to avoid this, here manually kicks the execution of query_queue.
+        // To avoid this, here manually kicks the execution of query_queue.
         self.query_queue
             .lock()
             .await
@@ -377,14 +377,14 @@ struct LogStreamElem {
     index: Index,
     command: Bytes,
 }
-// wrapper to safely add `Sync` to stream.
+// Wrapper to safely add `Sync` to stream.
 //
-// this wrapper is a work-around to issues like
+// This wrapper is a work-around to issues like
 // - https://github.com/dtolnay/async-trait/issues/77
 // - https://github.com/hyperium/hyper/pull/2187
 //
-// in our case, the problem is tonic::IntoStreamingRequest requires the given stream to be `Sync`.
-// unless async_trait starts to return `Future`s with `Sync` or tonic (or maybe hyper under the hood) is fixed this wrapper should remain.
+// In our case, the problem is tonic::IntoStreamingRequest requires the given stream to be `Sync`.
+// Unless async_trait starts to return `Future`s with `Sync` or tonic (or maybe hyper under the hood) is fixed this wrapper should remain.
 struct SyncStream<S> {
     st: sync_wrapper::SyncWrapper<S>
 }
@@ -421,7 +421,7 @@ fn into_out_stream(
         elem: Some(e)
     })
 }
-// replication
+// Replication
 impl<A: RaftApp> RaftCore<A> {
     async fn change_membership(self: &Arc<Self>, command: Command, index: Index) -> anyhow::Result<()> {
         match command {
@@ -439,21 +439,21 @@ impl<A: RaftApp> RaftCore<A> {
         log::info!("noop entry for term {} is successfully committed", term);
         self.safe_term.fetch_max(term, Ordering::SeqCst);
     }
-    // leader calls this fucntion to append new entry to its log.
+    // Leader calls this fucntion to append new entry to its log.
     async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
         let term = self.load_ballot().await?.cur_term;
-        // safe term is a term that noop entry is successfully committed.
+        // safe_term is a term that noop entry is successfully committed.
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
         if cur_safe_term < term {
             return Err(anyhow!("noop entry for term {} isn't committed yet. (> {})", term, cur_safe_term));
         }
         // command.clone() is cheap because the message buffer is Bytes.
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
-        // change membership when cluster configuration is appended.
+        // Change membership when cluster configuration is appended.
         self.change_membership(command, append_index).await?;
         Ok(())
     }
-    // follower calls this function when it receives entries from the leader.
+    // Follower calls this function when it receives entries from the leader.
     async fn queue_received_entry(self: &Arc<Self>, mut req: LogStream) -> anyhow::Result<bool> {
         let mut prev_clock = Clock { term: req.prev_log_term, index: req.prev_log_index };
         while let Some(e) = req.entries.next().await {
@@ -527,14 +527,14 @@ impl<A: RaftApp> RaftCore<A> {
         let old_progress = peer.progress;
         let cur_last_log_index = self.log.get_last_log_index().await?;
 
-        // more entries to send?
+        // More entries to send?
         let should_send = cur_last_log_index >= old_progress.next_index;
         if !should_send {
             return Ok(false);
         }
 
-        // the entries to send could be deleted due to previous compactions.
-        // in this case, replication will reset from the current snapshot index.
+        // The entries to send could be deleted due to previous compactions.
+        // In this case, replication will reset from the current snapshot index.
         let cur_snapshot_index = self.log.get_snapshot_index().await?;
         if old_progress.next_index < cur_snapshot_index {
             log::warn!(
@@ -601,7 +601,7 @@ impl<A: RaftApp> RaftCore<A> {
     async fn find_new_agreement(&self) -> anyhow::Result<Index> {
         let mut match_indices = vec![];
 
-        // in leader stepdown leader is out of the membership
+        // In leader stepdown, leader is out of the membership
         // but consensus on the membership change should be made to respond to the client.
         let last_log_index = self.log.get_last_log_index().await?;
         match_indices.push(last_log_index);
@@ -617,12 +617,12 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(new_agreement)
     }
 }
-// snapshot
+// Snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        // TODO: setting connection timeout can be appropriate
+        // TODO: Setting connection timeout can be appropriate
         //
-        // fetching snapshot can take very long then setting timeout is not appropriate here.
+        // Fetching snapshot can take very long then setting timeout is not appropriate here.
         let endpoint = Endpoint::from_shared(to).unwrap();
         let mut conn = connection::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
@@ -645,7 +645,7 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(Some(st))
     }
 }
-// election
+// Election
 impl<A: RaftApp> RaftCore<A> {
     async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
         self.log.storage.save_ballot(v).await
@@ -689,11 +689,11 @@ impl<A: RaftApp> RaftCore<A> {
 
         let cur_last_index = self.log.get_last_log_index().await?;
 
-        // suppose we have 3 in-memory nodes ND0-2 and initially ND0 is the leader,
+        // Suppose we have 3 in-memory nodes ND0-2 and initially ND0 is the leader,
         // log is fully replicated between nodes and there is no in-coming entries.
-        // suddenly, ND0 and 1 is crashed and soon later rebooted.
-        // in this case, ND2 should become leader by getting vote from either ND0 or ND1.
-        // this is why using weakest clock (0,0) here when there is no entry in the log.
+        // Suddenly, ND0 and 1 is crashed and soon later rebooted.
+        // In this case, ND2 should become leader by getting vote from either ND0 or ND1.
+        // This is why using weakest clock (0,0) here when there is no entry in the log.
         let this_last_log_clock = self
             .log
             .storage
@@ -770,7 +770,7 @@ impl<A: RaftApp> RaftCore<A> {
                     last_log_term,
                     last_log_index,
                     // $4.2.3
-                    // if force_vote is set, the receiver server accepts the vote request
+                    // If force_vote is set, the receiver server accepts the vote request
                     // regardless of the heartbeat timeout otherwise the vote request is
                     // dropped when it's receiving heartbeat.
                     force_vote,
@@ -793,11 +793,11 @@ impl<A: RaftApp> RaftCore<A> {
         if ok {
             log::info!("got enough votes from the cluster. promoted to leader");
 
-            // as soon as the node becomes the leader, replicate noop entries with term.
+            // As soon as the node becomes the leader, replicate noop entries with term.
             let index = self.log.append_new_entry(Command::Noop, None, aim_term).await?;
             self.membership_barrier.store(index, Ordering::SeqCst);
 
-            // initialize replication progress
+            // Initialize replication progress
             {
                 let initial_progress = membership::ReplicationProgress::new(
                     self.log.get_last_log_index().await?,
@@ -816,7 +816,7 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
-        // vote to self
+        // Vote to self
         let aim_term = {
             let ballot_guard = self.vote_token.acquire().await;
             let mut new_ballot = self.load_ballot().await?;
@@ -835,8 +835,8 @@ impl<A: RaftApp> RaftCore<A> {
 
         log::info!("start election. try promote at term {}", aim_term);
 
-        // try to promote at the term.
-        // failing some I/O operations during election will be considered as election failure.
+        // Try to promote at the term.
+        // Failing some I/O operations during election will be considered as election failure.
         let ok = self.request_votes(aim_term, force_vote).await.unwrap_or(false);
         self.after_votes(aim_term, ok).await?;
 
@@ -919,7 +919,7 @@ impl<A: RaftApp> RaftCore<A> {
         }
         xs.sort_by_key(|x| x.0);
 
-        // choose the one with the higher match_index as the next leader.
+        // Choose the one with the higher match_index as the next leader.
         if let Some((_, id)) = xs.pop() {
             self.send_timeout_now(id);
         }
@@ -938,8 +938,8 @@ struct Log {
     storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
-    last_applied: AtomicU64,   // monotonic
-    commit_index: AtomicU64,   // monotonic
+    last_applied: AtomicU64,   // Monotonic
+    commit_index: AtomicU64,   // Monotonic
 
     append_token: Semaphore,
     commit_token: Semaphore,
@@ -958,8 +958,8 @@ struct Log {
 impl Log {
     async fn new(storage: Box<dyn RaftStorage>) -> Self {
         let snapshot_index = storage.get_snapshot_index().await.unwrap();
-        // when the storage is persistent commit_index and last_applied
-        // should be set just before the snapshot index.
+        // When the storage is persistent initial commit_index and last_applied
+        // should be set appropriately just before the snapshot index.
         let start_index = if snapshot_index == 0 {
             0
         } else {
@@ -1021,8 +1021,8 @@ impl Log {
                 return Ok(TryInsertResult::Rejected);
             }
         } else {
-            // if the entry is snapshot then we should insert this entry without consistency checks.
-            // old entries before the new snapshot will be garbage collected.
+            // If the entry is snapshot then we should insert this entry without consistency checks.
+            // Old entries before the new snapshot will be garbage collected.
             let command = entry.command.clone();
             if std::matches!(command.into(), Command::Snapshot { .. }) {
                 let Clock { term: _, index: snapshot_index } = entry.this_clock;
@@ -1053,7 +1053,7 @@ impl Log {
 
         if let Some(old_clock) = self.storage.get_entry(new_index).await?.map(|e| e.this_clock) {
             if old_clock == entry.this_clock {
-                // if there is a entry with the same term and index
+                // If there is a entry with the same term and index
                 // then the entry should be the same so skip insertion.
                 Ok(TryInsertResult::Skipped)
             } else {
@@ -1093,16 +1093,16 @@ impl Log {
             let term = e.this_clock.term;
             match CommandB::deserialize(&e.command) {
                 CommandB::ClusterConfiguration { membership } => {
-                    // leader stepdown should happen iff the last membership change doesn't contain the leader.
-                    // this code is safe because doing or not doing leadership transfer will not affect anything
-                    // (iow, this is only a hint) but confuse the leadership which only causes instant downtime.
+                    // Leader stepdown should happen iff the last membership change doesn't contain the leader.
+                    // This code is safe because doing or not doing leadership transfer will not affect anything
+                    // (IOW, it is only a hint) but confuse the leadership which only causes instant downtime.
                     let remove_this_node = !membership.contains(&core.id);
                     let is_last_membership_change = i == core.membership_barrier.load(Ordering::SeqCst);
                     let is_leader = std::matches!(*core.election_state.read().await, ElectionState::Leader);
                     if remove_this_node && is_last_membership_change && is_leader {
                         *core.election_state.write().await = ElectionState::Follower;
             
-                        // if leader node steps down choose one of the follower node to
+                        // If leader node steps down choose one of the follower node to
                         // become candidate immediately so the downtime becomes shorter.
                         core.transfer_leadership().await;
                     } 
@@ -1173,11 +1173,11 @@ impl Log {
 
                         match make_snapshot {
                             MakeSnapshot::CopySnapshot(new_tag) => {
-                                // replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
+                                // Replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
 
-                                // snapshot becomes orphan when this code fails but it is allowed.
+                                // Snapshot becomes orphan when this code fails but it is allowed.
                                 let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
-                                // inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
+                                // Inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
                                 // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
                                 if ok {
                                     let snapshot_entry = Entry {
@@ -1223,12 +1223,12 @@ impl Log {
             self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_notification.lock().await.publish();
         } else {
-            // we assume apply_message typically fails due to
+            // We assume apply_message typically fails due to
             // 1. temporal storage/network error
             // 2. application bug
-            // while the former is recoverable the latter isn't which results in
+            // While the former is recoverable the latter isn't which results in
             // emitting error indefinitely until storage capacity is totally consumed.
-            // to avoid this adaptive penalty is inserted after each error.
+            // To avoid this adaptive penalty is inserted after each error.
             let n_old = self.apply_error_seq.load(Ordering::SeqCst);
             let wait_ms: u64 = 100 * (1 << n_old);
             log::error!("log apply failed at index={} (n={}). wait for {}ms", apply_index, n_old+1, wait_ms);
@@ -1308,7 +1308,7 @@ impl Log {
         let r = self.storage.get_snapshot_index().await?;
         log::debug!("gc .. {}", r);
 
-        // delete old snapshots
+        // Delete old snapshots
         let ls: Vec<Index> = self.storage.list_tags().await?.range(..r).map(|x| *x).collect();
         for i in ls {
             if let Some(tag) = self.storage.get_tag(i).await?.clone() {
@@ -1316,9 +1316,9 @@ impl Log {
                 self.storage.delete_tag(i).await?;
             }
         }
-        // remove entries
+        // Remove entries
         self.storage.delete_before(r).await?;
-        // remove acks
+        // Remove acks
         let ls: Vec<u64> = self.ack_chans.read().await.range(..r).map(|x| *x.0).collect();
         for i in ls {
             self.ack_chans.write().await.remove(&i);

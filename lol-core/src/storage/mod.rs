@@ -59,13 +59,13 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
         command: Bytes::new(),
     };
 
-    // vote
+    // Vote
     let id = "hoge".to_owned();
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
     s.save_ballot(Ballot { cur_term: 1, voted_for: Some(id.clone()) }).await?;
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 1, voted_for: Some(id.clone()) });
 
-    // tag
+    // Tag
     let tag: crate::SnapshotTag = vec![].into();
     assert!(s.get_tag(10).await?.is_none());
     s.put_tag(10, tag.clone()).await?;
