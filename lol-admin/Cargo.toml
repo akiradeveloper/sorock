@@ -1,6 +1,6 @@
 [package]
 name = "lol-admin"
-version = "0.6.2"
+version = "0.6.3"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
