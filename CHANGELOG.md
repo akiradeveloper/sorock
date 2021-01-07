@@ -1,3 +1,9 @@
+# 0.6.3 (2021-1-7)
+
+- Revert on-faliure log blocking which was introduced in 0.5.3 (@07465c5)
+- Refactor code about cluster membership.
+- Update documents.
+
 # 0.6.2 (2020-12-10)
 
 - Introduce new failure detector based on Phi Accrual Failure Detection algorithm. (#122)

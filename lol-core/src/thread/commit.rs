@@ -33,7 +33,7 @@ impl<A: RaftApp> Thread<A> {
             })
             .await
             {}
-            // we should timeout and go to next poll because in case of one node cluster,
+            // We should timeout and go to next poll because in case of one node cluster,
             // there will be no replication happen and this thread will never wake up.
             let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
         }
