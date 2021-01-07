@@ -27,6 +27,14 @@ fn test_pause() {
     assert!(r.is_ok());
 }
 #[test]
+fn test_add_existing_node() {
+    let env = init_cluster(1);
+    for _ in 0..100 {
+        Admin::to(0, env.clone()).add_server(0);
+    }
+    assert_cluster(Duration::from_secs(5), vec![0], vec![0], env.clone())
+}
+#[test]
 fn test_env_drop() {
     for _ in 0..10 {
         let env = init_cluster(1);
