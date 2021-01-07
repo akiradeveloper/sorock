@@ -15,7 +15,7 @@ use proto_compiled::{
 // Header (Entry Frame+)
 async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
     use proto_compiled::append_entry_req::Elem;
-    // header
+    // Header
     let (sender_id, prev_log_term, prev_log_index) = if let Some(Ok(chunk)) = out_stream.next().await {
         let e = chunk.elem.unwrap();
         if let Elem::Header(proto_compiled::AppendStreamHeader {

@@ -80,7 +80,7 @@ pub mod gateway {
             loop {
                 let cur_list = rx_cln.borrow().clone().list;
                 if let Ok((leader0, membership)) = query_new(cur_list).await {
-                    // we don't trust the membership with no leader.
+                    // We don't trust the membership with no leader.
                     if let Some(leader) = leader0 {
                         let sorted = sort(leader, membership);
                         let _ = tx.broadcast(CurrentMembership { list: sorted });

@@ -78,6 +78,9 @@ impl Cluster {
     pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
         let cur = &self.membership;
         let (to_add, to_remove) = diff_set(cur, goal);
+        // $4.4
+        // When making cluster membership changes that require multiple single-server steps,
+        // it is preferable to add servers before removing servers.
         for id in to_add {
             self.add_server(id, Arc::clone(&core)).await?;
         }

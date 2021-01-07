@@ -202,7 +202,7 @@ impl super::RaftStorage for Storage {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let mut iter = self.db.raw_iterator_cf(cf);
         iter.seek_to_last();
-        // the iterator is empty
+        // The iterator is empty
         if !iter.valid() {
             return Ok(0)
         }
@@ -221,7 +221,7 @@ impl super::RaftStorage for Storage {
             batch.put_cf(&cf1, encode_index(i), b);
             let b: Vec<u8> = SnapshotIndexB(i).into();
             batch.put_cf(&cf2, SNAPSHOT_INDEX, b);
-            // should we set_sync true here? or WAL saves our data on crash?
+            // Should we set_sync true here? or WAL saves our data on crash?
             self.db.write(batch)?;
         }
         Ok(())
@@ -300,7 +300,7 @@ async fn test_rocksdb_persistency() -> Result<()> {
 
     drop(s);
 
-    let s: Box<super::RaftStorage> = Box::new(builder.open());
+    let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());

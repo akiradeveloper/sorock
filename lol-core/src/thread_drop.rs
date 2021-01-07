@@ -1,7 +1,7 @@
 use futures::future::{AbortHandle, Abortable};
 use std::future::Future;
 
-/// mechanism to drop spawned thread when the owner drops.
+/// Mechanism to drop spawned threads when the owner drops.
 #[derive(Debug)]
 pub struct ThreadDrop {
     handles: Vec<AbortHandle>,
