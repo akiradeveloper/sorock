@@ -828,6 +828,7 @@ impl<A: RaftApp> RaftCore<A> {
             self.save_ballot(new_ballot).await?;
             drop(ballot_guard);
 
+            // Becoming Candidate avoids this node starts another election during this election.
             *self.election_state.write().await = ElectionState::Candidate;
             aim_term
         };
