@@ -2,6 +2,18 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+//! Raft is a distributed consensus algorithm widely used nowadays
+//! to build distributed applications like etcd.
+//! However, while it is even understandable than notorious Paxos algorithm
+//! it is still difficult to implement correct and efficient implementation.
+//!
+//! This library is a Raft implementation based on Tonic, a gRPC library based
+//! on Tokio.
+//! By exploiting gRPC features like streaming, the inter-node log replication
+//! and snapshot copying is very efficient.
+//! Also, zero-copy ser/desr between replication stream and the log entries is
+//! another goal of this library in term of efficiency.
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashSet};
