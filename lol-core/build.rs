@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .out_dir(OUT_DIR)
     //     .compile(&["proto/lol-core.proto"], &["proto"])?;
 
-    let mut config = prost_build::Config::new();
+    let config = prost_build::Config::new();
     tonic_build::configure()
         .compile_with_config(config, &["proto/lol-core.proto"], &["proto"])?;
 

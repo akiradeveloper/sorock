@@ -51,6 +51,7 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn list_tags(&self) -> anyhow::Result<BTreeSet<Index>>;
 }
 
+#[cfg(test)]
 async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     let e = Entry {
         prev_clock: Clock { term: 0, index: 0 },

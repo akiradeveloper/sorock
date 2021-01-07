@@ -300,7 +300,7 @@ async fn test_rocksdb_persistency() -> Result<()> {
 
     drop(s);
 
-    let s: Box<super::RaftStorage> = Box::new(builder.open());
+    let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
     assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());

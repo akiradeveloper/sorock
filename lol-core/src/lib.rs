@@ -803,7 +803,7 @@ impl<A: RaftApp> RaftCore<A> {
                     self.log.get_last_log_index().await?,
                 );
                 let mut cluster = self.cluster.write().await;
-                for (id, peer) in &mut cluster.peers {
+                for (_, peer) in &mut cluster.peers {
                     peer.progress = initial_progress.clone();
                 }
             }
