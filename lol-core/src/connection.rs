@@ -62,7 +62,7 @@ pub mod gateway {
             let rank = if member == awared_leader { 0 } else { 1 };
             v.push((rank, member.to_owned()))
         }
-        v.sort(); // leader first
+        v.sort_by_key(|x| x.0); // leader first
         let mut r = vec![];
         for (_, id) in v {
             r.push(id)
