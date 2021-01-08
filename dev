@@ -1,1 +1,1 @@
-docker-compose run dev $@
+docker-compose run --rm dev $@
