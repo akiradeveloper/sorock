@@ -200,9 +200,10 @@ impl<A: RaftApp> Raft for Server<A> {
         let candidate_id = req.candidate_id;
         let candidate_clock = Clock { term: req.last_log_term, index: req.last_log_index };
         let force_vote = req.force_vote;
+        let pre_vote = req.pre_vote;
         let vote_granted = self
             .core
-            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote)
+            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote, pre_vote)
             .await.unwrap();
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))

@@ -677,7 +677,10 @@ impl<A: RaftApp> RaftCore<A> {
         candidate_id: Id,
         candidate_last_log_clock: Clock,
         force_vote: bool,
+        pre_vote: bool,
     ) -> anyhow::Result<bool> {
+        let allow_side_effects = !pre_vote;
+
         if !force_vote {
             if !self.detect_election_timeout().await {
                 return Ok(false)
@@ -696,7 +699,9 @@ impl<A: RaftApp> RaftCore<A> {
             log::warn!("received newer term. reset vote");
             ballot.cur_term = candidate_term;
             ballot.voted_for = None;
-            *self.election_state.write().await = ElectionState::Follower;
+            if allow_side_effects {
+                *self.election_state.write().await = ElectionState::Follower;
+            }
         }
 
         let cur_last_index = self.log.get_last_log_index().await?;
@@ -720,7 +725,9 @@ impl<A: RaftApp> RaftCore<A> {
 
         if !candidate_win {
             log::warn!("candidate clock is older. reject vote");
-            self.save_ballot(ballot).await?;
+            if allow_side_effects {
+                self.save_ballot(ballot).await?;
+            }
             return Ok(false);
         }
 
@@ -738,11 +745,13 @@ impl<A: RaftApp> RaftCore<A> {
             }
         };
 
-        self.save_ballot(ballot).await?;
+        if allow_side_effects {
+            self.save_ballot(ballot).await?;
+        }
         log::info!("voted response to {} = grant: {}", candidate_id, grant);
         Ok(grant)
     }
-    async fn request_votes(self: &Arc<Self>, aim_term: Term, force_vote: bool) -> anyhow::Result<bool> {
+    async fn request_votes(self: &Arc<Self>, aim_term: Term, force_vote: bool, pre_vote: bool) -> anyhow::Result<bool> {
         let (others, remaining) = {
             let membership = self.cluster.read().await.membership.clone();
             let n = membership.len();
@@ -786,6 +795,9 @@ impl<A: RaftApp> RaftCore<A> {
                     // regardless of the heartbeat timeout otherwise the vote request is
                     // dropped when it's receiving heartbeat.
                     force_vote,
+                    // $9.6 Preventing disruptions when a server rejoins the cluster
+                    // We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
+                    pre_vote,
                 };
                 let res = async {
                     let endpoint = Endpoint::from_shared(endpoint).unwrap().timeout(vote_timeout);
@@ -828,12 +840,33 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
+        // Pre-Vote phase.
+        let pre_aim_term = {
+            let _ballot_guard = self.vote_token.acquire().await;
+            let ballot = self.load_ballot().await?;
+            ballot.cur_term + 1
+        };
+
+        log::info!("start pre-vote. try promote at term {}", pre_aim_term);
+        let ok = self.request_votes(pre_aim_term, force_vote, true).await.unwrap_or(false);
+        // If pre-vote failed, do nothing and return.
+        if !ok {
+            log::info!("pre-vote failed for term {}", pre_aim_term);
+            return Ok(());
+        }
+
         // Vote to self
         let aim_term = {
             let ballot_guard = self.vote_token.acquire().await;
             let mut new_ballot = self.load_ballot().await?;
-            let cur_term = new_ballot.cur_term;
-            let aim_term = cur_term + 1;
+            let aim_term = new_ballot.cur_term + 1;
+
+            // If the aim-term's changed, no election starts similar to compare-and-swap.
+            // This could happen if this node's received TimeoutNow.
+            if aim_term != pre_aim_term {
+                return Ok(());
+            }
+
             new_ballot.cur_term = aim_term;
             new_ballot.voted_for = Some(self.id.clone());
 
@@ -849,7 +882,7 @@ impl<A: RaftApp> RaftCore<A> {
 
         // Try to promote at the term.
         // Failing some I/O operations during election will be considered as election failure.
-        let ok = self.request_votes(aim_term, force_vote).await.unwrap_or(false);
+        let ok = self.request_votes(aim_term, force_vote, false).await.unwrap_or(false);
         self.after_votes(aim_term, ok).await?;
 
         Ok(())
