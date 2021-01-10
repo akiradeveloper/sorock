@@ -104,6 +104,13 @@ impl Node {
     fn pid(&self) -> u32 {
         self.child.id()
     }
+    fn int(&mut self) {
+        std::process::Command::new("kill")
+            .arg("-INT")
+            .arg(&format!("{}", self.pid()))
+            .spawn()
+            .unwrap();
+    }
     fn pause(&mut self) {
         std::process::Command::new("kill")
             .arg("-STOP")
@@ -121,7 +128,7 @@ impl Node {
 }
 impl Drop for Node {
     fn drop(&mut self) {
-        let _ = self.child.kill();
+        let _ = self.int();
     }
 }
 #[derive(Clone)]
