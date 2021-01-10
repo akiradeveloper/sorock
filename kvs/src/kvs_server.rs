@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
+use tokio::sync::oneshot;
 use std::path::Path;
 
 #[derive(StructOpt, Debug)]
@@ -174,8 +175,22 @@ async fn main() {
 
     let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
-    let res = builder.add_service(service).serve(socket).await;
+
+    let (tx, rx) = oneshot::channel();
+    let _ = tokio::spawn(wait_for_signal(tx));
+    let res = builder.add_service(service).serve_with_shutdown(socket, async {
+        rx.await.ok();
+        log::info!("graceful context shutdown");
+    }).await;
     if res.is_err() {
-        eprintln!("failed to start kvs-server error={:?}", res);
+        log::error!("failed to start kvs-server error={:?}", res);
     }
 }
+pub async fn wait_for_signal(tx: oneshot::Sender<()>) -> anyhow::Result<()> {
+    use tokio::signal::unix;
+    let mut stream = unix::signal(unix::SignalKind::interrupt())?;
+    stream.recv().await;
+    log::info!("SIGINT received: shutting down");
+    let _ = tx.send(());
+    Ok(())
+} 
