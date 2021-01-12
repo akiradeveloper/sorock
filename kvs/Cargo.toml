@@ -10,13 +10,14 @@ edition = "2018"
 lol-core = { path = "../lol-core", features = ["persistency"] }
 async-trait = "0.1"
 tonic = "0.3"
-tokio = { version = "0.2", features = ["macros", "rt-threaded", "dns"] }
+tokio = { version = "0.2", features = ["macros", "rt-threaded", "dns", "signal"] }
 structopt = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 env_logger = "0.8"
 anyhow = "1.0"
 url = "2.2"
+log = "0.4"
 
 [[bin]]
 name = "kvs-client"
