@@ -10,12 +10,14 @@ edition = "2018"
 default = ["termion"]
 
 [dependencies]
-lol-core = { path = "../lol-core" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tonic = "0.4"
+tokio-stream = "0.1"
 tui = "*"
-tokio = { version = "0.2", features = ["macros", "rt-threaded", "stream" ] }
-tonic = "0.3"
 termion = { version = "1.5", optional = true }
 anyhow = "1.0"
 futures = "0.3"
 clap = "3.0.0-beta.1"
 async-stream = "0.3"
+
+lol-core = { path = "../lol-core" }

@@ -2,7 +2,7 @@ use crate::connection::{self, Endpoint};
 use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 use proto_compiled::{
     raft_server::Raft,

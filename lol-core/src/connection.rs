@@ -83,10 +83,10 @@ pub mod gateway {
                     // We don't trust the membership with no leader.
                     if let Some(leader) = leader0 {
                         let sorted = sort(leader, membership);
-                        let _ = tx.broadcast(CurrentMembership { list: sorted });
+                        let _ = tx.send(CurrentMembership { list: sorted });
                     }
                 }
-                tokio::time::delay_for(Duration::from_secs(5)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         });
         rx

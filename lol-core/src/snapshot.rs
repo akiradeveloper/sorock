@@ -1,4 +1,4 @@
-use tokio::time::DelayQueue;
+use tokio_util::time::DelayQueue;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use crate::{RaftCore, RaftApp};
