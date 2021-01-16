@@ -37,7 +37,7 @@ impl Admin {
     fn block_on<R: Send + 'static>(fut: impl std::future::Future<Output = R> + Send + 'static) -> R {
         // since we can't nest a runtime in the same thread this workaround is needed.
         std::thread::spawn(|| {
-            let mut rt = Builder::new().basic_scheduler().enable_all().build().unwrap();
+            let mut rt = Builder::new_current_thread().enable_all().build().unwrap();
             rt.block_on(fut)
         }).join().unwrap()
     }

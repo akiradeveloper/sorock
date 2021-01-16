@@ -1277,7 +1277,7 @@ impl Log {
             let n_old = self.apply_error_seq.load(Ordering::SeqCst);
             let wait_ms: u64 = 100 * (1 << n_old);
             log::error!("log apply failed at index={} (n={}). wait for {}ms", apply_index, n_old+1, wait_ms);
-            tokio::time::delay_for(Duration::from_millis(wait_ms)).await;
+            tokio::time::sleep(Duration::from_millis(wait_ms)).await;
             self.apply_error_seq.fetch_add(1, Ordering::SeqCst);
         }
         Ok(())

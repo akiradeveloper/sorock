@@ -75,8 +75,8 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         tokio::pin!(s1_0);
         while let Some(x) = s1_0.next().await {
-            tx1.broadcast(x);
-            tokio::time::delay_for(Duration::from_secs(1)).await;
+            tx1.send(x);
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
     let it1 = std::iter::repeat_with(|| s1_1.borrow().clone());
@@ -133,8 +133,8 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         tokio::pin!(s2_0);
         while let Some(x) = s2_0.next().await {
-            tx2.broadcast(x);
-            tokio::time::delay_for(Duration::from_secs(1)).await;
+            tx2.send(x);
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
     let it2 = std::iter::repeat_with(|| s2_1.borrow().clone());
@@ -182,8 +182,8 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         tokio::pin!(s3_0);
         while let Some(x) = s3_0.next().await {
-            tx3.broadcast(x);
-            tokio::time::delay_for(Duration::from_secs(1)).await;
+            tx3.send(x);
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
     let it3 = std::iter::repeat_with(|| s3_1.borrow().clone());
@@ -204,7 +204,7 @@ async fn main() -> anyhow::Result<()> {
         let model = app.make_model().await;
         terminal.draw(|f| ui::draw(f, model));
 
-        tokio::time::delay_for(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         if let Ok(evt) = events.next() {
             match evt {

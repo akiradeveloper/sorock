@@ -13,9 +13,12 @@ keywords = ["raft"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.3"
-prost = "0.6"
-tokio = { version = "0.2", features = ["macros", "fs"] }
+tokio = { version = "1", features = ["macros", "fs"] }
+tokio-util = { version = "0.6", features = ["codec", "time"] }
+tokio-stream = "0.1"
+tonic = "0.4"
+bytes = "1"
+prost = "0.7"
 rand = "0.7"
 async-trait = "0.1"
 async-stream = "0.3"
@@ -26,16 +29,14 @@ rmp = "0.8.9"
 rmp-serde = "0.14.3"
 log = "0.4"
 anyhow = "1.0"
-tokio-util = { version = "0.3", features = ["codec"] }
-bytes = "0.5.6"
 sync_wrapper = "0.1"
 phi-detector = "0.3"
 
 rocksdb = { version = "0.15", optional = true }
 
 [build-dependencies]
-tonic-build = "0.3"
-prost-build = "0.6"
+tonic-build = { git = "https://github.com/hyperium/tonic.git", branch = "master" }
+prost-build = "0.7"
 
 [features]
 full = ["persistency"]

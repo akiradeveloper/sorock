@@ -26,7 +26,7 @@ impl Notification {
         for (k, v) in &self.subscribers {
             match Weak::upgrade(v) {
                 Some(noti) => {
-                    noti.notify();
+                    noti.notify_one();
                 }
                 None => {
                     obsolete_list.push(*k);

@@ -8,7 +8,7 @@ struct Thread<A: RaftApp> {
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
         loop {
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
 
             if !self
                 .core
@@ -31,7 +31,7 @@ impl<A: RaftApp> Thread<A> {
             let normal_dist = &self.core.failure_detector.read().await.detector.normal_dist();
             let base_timeout = (normal_dist.mu() + normal_dist.sigma() * 4).as_millis();
             let rand_timeout = rand::random::<u128>() % base_timeout;
-            tokio::time::delay_for(Duration::from_millis(rand_timeout as u64)).await;
+            tokio::time::sleep(Duration::from_millis(rand_timeout as u64)).await;
             // Double-check
             if !self.core.detect_election_timeout().await {
                 continue;

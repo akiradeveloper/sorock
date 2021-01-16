@@ -11,12 +11,12 @@ impl<A: RaftApp> Thread<A> {
         loop {
             let v = self.core.tunable.read().await.compaction_interval_sec;
             if v == 0 {
-                tokio::time::delay_for(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
                 continue;
             }
 
             let interval = Duration::from_secs(v);
-            tokio::time::delay_for(interval).await;
+            tokio::time::sleep(interval).await;
 
             let core = Arc::clone(&self.core);
             let f = async move {

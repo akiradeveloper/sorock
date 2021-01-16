@@ -77,7 +77,7 @@ impl RaftAppCompat for KVS {
     async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             // emulate heavy install_snapshot
-            tokio::time::delay_for(Duration::from_secs(10)).await;
+            tokio::time::sleep(Duration::from_secs(10)).await;
             let mut h = self.mem.write().await;
             let snapshot = kvs::Snapshot::deserialize(x.as_ref()).unwrap();
             h.clear();

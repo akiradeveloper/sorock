@@ -9,7 +9,7 @@ struct Thread<A: RaftApp> {
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
         loop {
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
 
             if !self
                 .core
