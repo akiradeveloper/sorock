@@ -414,7 +414,7 @@ fn into_out_stream(
         Elem::Entry(AppendStreamEntry {
             term: e.term,
             index: e.index,
-            command: e.command.as_ref().into(),
+            command: e.command,
         })
     });
     header_stream.chain(chunk_stream).map(|e| crate::proto_compiled::AppendEntryReq {
