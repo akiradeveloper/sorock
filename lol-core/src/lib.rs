@@ -153,19 +153,8 @@ enum Command {
         message: Bytes
     }
 }
-impl From<Bytes> for Command {
-    fn from(x: Bytes) -> Self {
-        let y = CommandB::deserialize(x.as_ref());
-        match y {
-            CommandB::Noop => Command::Noop,
-            CommandB::Snapshot { membership } => Command::Snapshot { membership },
-            CommandB::ClusterConfiguration { membership } => Command::ClusterConfiguration { membership },
-            CommandB::Req { core, ref message } => Command::Req { core, message: Bytes::copy_from_slice(message) },
-        }
-    }
-}
-impl Into<Bytes> for Command {
-    fn into(self) -> Bytes {
+impl Command {
+    fn into_bytes(self) -> Bytes {
         let y = match self {
             Command::Noop => CommandB::Noop,
             Command::Snapshot { membership } => CommandB::Snapshot { membership },
@@ -292,7 +281,7 @@ impl<A: RaftApp> RaftCore<A> {
             this_clock: Clock { term: 0, index: 1 },
             command: Command::Snapshot {
                 membership: HashSet::new(),
-            }.into(),
+            }.into_bytes(),
         };
         self.log.insert_snapshot(snapshot).await?;
         let mut membership = HashSet::new();
@@ -302,7 +291,7 @@ impl<A: RaftApp> RaftCore<A> {
             this_clock: Clock { term: 0, index: 2 },
             command: Command::ClusterConfiguration {
                 membership: membership.clone(),
-            }.into(),
+            }.into_bytes(),
         };
         self.log.insert_entry(add_server).await?;
         self.set_membership(&membership, 2).await?;
@@ -435,12 +424,12 @@ fn into_out_stream(
 }
 // Replication
 impl<A: RaftApp> RaftCore<A> {
-    async fn change_membership(self: &Arc<Self>, command: Command, index: Index) -> anyhow::Result<()> {
-        match command {
-            Command::Snapshot { membership } => {
+    async fn change_membership(self: &Arc<Self>, command: Bytes, index: Index) -> anyhow::Result<()> {
+        match CommandB::deserialize(&command) {
+            CommandB::Snapshot { membership } => {
                 self.set_membership(&membership, index).await?;
             },
-            Command::ClusterConfiguration { membership } => {
+            CommandB::ClusterConfiguration { membership } => {
                 self.set_membership(&membership, index).await?;
             },
             _ => {},
@@ -460,6 +449,7 @@ impl<A: RaftApp> RaftCore<A> {
             return Err(anyhow!("noop entry for term {} isn't committed yet. (> {})", term, cur_safe_term));
         }
         // command.clone() is cheap because the message buffer is Bytes.
+        let command = command.into_bytes();
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
         // Change membership when cluster configuration is appended.
         self.change_membership(command, append_index).await?;
@@ -478,7 +468,7 @@ impl<A: RaftApp> RaftCore<A> {
             let command = entry.command.clone();
             match self.log.try_insert_entry(entry, req.sender_id.clone(), Arc::clone(&self)).await? {
                 TryInsertResult::Inserted => {
-                    self.change_membership(command.into(), insert_index).await?;
+                    self.change_membership(command, insert_index).await?;
                 },
                 TryInsertResult::Skipped => {},
                 TryInsertResult::Rejected => {
@@ -818,7 +808,7 @@ impl<A: RaftApp> RaftCore<A> {
             log::info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = self.log.append_new_entry(Command::Noop, None, aim_term).await?;
+            let index = self.log.append_new_entry(Command::Noop.into_bytes(), None, aim_term).await?;
             self.membership_barrier.store(index, Ordering::SeqCst);
 
             // Initialize replication progress
@@ -1038,7 +1028,7 @@ impl Log {
     async fn get_snapshot_index(&self) -> anyhow::Result<Index> {
         self.storage.get_snapshot_index().await
     }
-    async fn append_new_entry(&self, command: Command, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
+    async fn append_new_entry(&self, command: Bytes, ack: Option<Ack>, term: Term) -> anyhow::Result<Index> {
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -1048,7 +1038,7 @@ impl Log {
         let e = Entry {
             prev_clock,
             this_clock,
-            command: command.into(),
+            command,
         };
         self.insert_entry(e).await?;
         if let Some(x) = ack {
@@ -1069,7 +1059,7 @@ impl Log {
             // If the entry is snapshot then we should insert this entry without consistency checks.
             // Old entries before the new snapshot will be garbage collected.
             let command = entry.command.clone();
-            if std::matches!(command.into(), Command::Snapshot { .. }) {
+            if std::matches!(CommandB::deserialize(&command), CommandB::Snapshot { .. }) {
                 let Clock { term: _, index: snapshot_index } = entry.this_clock;
                 log::warn!(
                     "log is too old. replicated a snapshot (idx={}) from leader",
@@ -1228,7 +1218,7 @@ impl Log {
                                     let snapshot_entry = Entry {
                                         command: Command::Snapshot {
                                             membership: self.applied_membership.lock().await.clone(),
-                                        }.into(),
+                                        }.into_bytes(),
                                         .. apply_entry
                                     };
                                     let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
@@ -1299,9 +1289,9 @@ impl Log {
 
         log::info!("create new fold snapshot at index {}", new_snapshot_index);
         let cur_snapshot_entry = self.storage.get_entry(cur_snapshot_index).await?.unwrap();
-        if let Command::Snapshot {
+        if let CommandB::Snapshot {
             membership,
-        } = cur_snapshot_entry.command.into()
+        } = CommandB::deserialize(&cur_snapshot_entry.command)
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_membership = membership;
@@ -1339,7 +1329,7 @@ impl Log {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();
                 e.command = Command::Snapshot {
                     membership: new_membership,
-                }.into();
+                }.into_bytes();
                 e
             };
             let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
