@@ -4,7 +4,6 @@ use lol_core::{Index, Config, RaftCore, TunableConfig};
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
 use tokio::sync::oneshot;

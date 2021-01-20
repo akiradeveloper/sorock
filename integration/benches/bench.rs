@@ -167,34 +167,34 @@ fn command_rocks(i: u8) -> NodeCommand {
     NodeCommand::new("kvs-server").with_args(vec![s.as_str(), "--reset-persistency"])
 }
 #[bench]
-fn test_commit_huge_1_mem(b: &mut test::Bencher) {
+fn bench_commit_huge_1_mem(b: &mut test::Bencher) {
     do_bench_commit_huge(1, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_4_mem(b: &mut test::Bencher) {
+fn bench_commit_huge_4_mem(b: &mut test::Bencher) {
     do_bench_commit_huge(4, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_16_mem(b: &mut test::Bencher) {
+fn bench_commit_huge_16_mem(b: &mut test::Bencher) {
     do_bench_commit_huge(16, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_64_mem(b: &mut test::Bencher) {
+fn bench_commit_huge_64_mem(b: &mut test::Bencher) {
     do_bench_commit_huge(64, command_mem, b)
 }
 #[bench]
-fn test_commit_huge_1_rocks(b: &mut test::Bencher) {
+fn bench_commit_huge_1_rocks(b: &mut test::Bencher) {
     do_bench_commit_huge(1, command_rocks, b)
 }
 #[bench]
-fn test_commit_huge_4_rocks(b: &mut test::Bencher) {
+fn bench_commit_huge_4_rocks(b: &mut test::Bencher) {
     do_bench_commit_huge(4, command_rocks, b)
 }
 #[bench]
-fn test_commit_huge_16_rocks(b: &mut test::Bencher) {
+fn bench_commit_huge_16_rocks(b: &mut test::Bencher) {
     do_bench_commit_huge(16, command_rocks, b)
 }
 #[bench]
-fn test_commit_huge_64_rocks(b: &mut test::Bencher) {
+fn bench_commit_huge_64_rocks(b: &mut test::Bencher) {
     do_bench_commit_huge(64, command_rocks, b)
 }
