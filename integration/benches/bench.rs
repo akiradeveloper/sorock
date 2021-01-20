@@ -6,6 +6,7 @@ use std::thread;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 use lol_core::connection::connect;
+use bytes::Bytes;
 
 extern crate test;
 
@@ -13,11 +14,13 @@ fn do_bench_commit(n: u8, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = init_cluster(n);
     let id = env.get_node_id(0);
+
+    let v = Bytes::from("v");
     b.iter(|| {
         let endpoint = Endpoint::from_shared(id.clone()).unwrap();
-        let msg = kvs::Req::Set {
+        let msg = kvs::Req::SetBytes {
             key: "k".to_owned(),
-            value: "v".to_owned(),
+            value: v.clone(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
@@ -51,14 +54,14 @@ fn bench_commit_64(b: &mut test::Bencher) {
 fn do_bench_apply(n: u8, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = init_cluster(n);
-    Client::to(0, env.clone()).set("k", "v");
-    thread::sleep(Duration::from_secs(1));
-
     let id = env.get_node_id(0);
+
+    let v = Bytes::from("v");
     b.iter(|| {
         let endpoint = Endpoint::from_shared(id.clone()).unwrap();
-        let msg = kvs::Req::Get {
+        let msg = kvs::Req::SetBytes {
             key: "k".to_owned(),
+            value: v.clone(),
         };
         let msg = kvs::Req::serialize(&msg);
         let r = rt.block_on(async move {
@@ -136,14 +139,11 @@ fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test
     let mut rt = tokio::runtime::Runtime::new().unwrap();
     let env = make_cluster(n, command);
     let id = env.get_node_id(0);
-    // 100KB
-    let mut v = String::new();
-    for _ in 0..100_000 {
-        v.push('a');
-    }
+
+    let v = Bytes::from(vec![1;100_000]);
     b.iter(|| {
         let endpoint = Endpoint::from_shared(id.clone()).unwrap();
-        let msg = kvs::Req::Set {
+        let msg = kvs::Req::SetBytes {
             key: "k".to_owned(),
             value: v.clone(),
         };
