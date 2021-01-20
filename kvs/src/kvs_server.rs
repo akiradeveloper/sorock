@@ -4,11 +4,11 @@ use lol_core::{Index, Config, RaftCore, TunableConfig};
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
 use tokio::sync::oneshot;
 use std::path::Path;
+use bytes::Bytes;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
@@ -30,7 +30,7 @@ struct Opt {
     id: String,
 }
 struct KVS {
-    mem: Arc<RwLock<BTreeMap<String, String>>>,
+    mem: Arc<RwLock<BTreeMap<String, Bytes>>>,
     copy_snapshot_mode: bool,
 }
 #[async_trait]
@@ -41,21 +41,30 @@ impl RaftAppCompat for KVS {
             Some(x) => match x {
                 kvs::Req::Set { key, value } => {
                     let mut writer = self.mem.write().await;
-                    writer.insert(key, value);
+                    writer.insert(key, Bytes::from(value));
                     let res = kvs::Rep::Set {};
                     Ok(kvs::Rep::serialize(&res))
                 }
+                kvs::Req::SetBytes { key, value } => {
+                    let mut writer = self.mem.write().await;
+                    writer.insert(key, value);
+                    let res = kvs::Rep::Set {};
+                    Ok(kvs::Rep::serialize(&res))
+                },
                 kvs::Req::Get { key } => {
                     let v = self.mem.read().await.get(&key).cloned();
                     let (found, value) = match v {
-                        Some(x) => (true, x),
+                        Some(x) => (true, String::from_utf8(x.as_ref().to_vec()).unwrap()),
                         None => (false, "".to_owned()),
                     };
                     let res = kvs::Rep::Get { found, value };
                     Ok(kvs::Rep::serialize(&res))
                 }
                 kvs::Req::List => {
-                    let values = self.mem.read().await.clone().into_iter().collect();
+                    let mut values = vec![];
+                    for (k,v) in self.mem.read().await.iter() {
+                        values.push((k.clone(), String::from_utf8(v.as_ref().to_vec()).unwrap()));
+                    }
                     let res = kvs::Rep::List { values };
                     Ok(kvs::Rep::serialize(&res))
                 }
@@ -99,8 +108,11 @@ impl RaftAppCompat for KVS {
             match req {
                 Some(x) => match x {
                     kvs::Req::Set { key, value } => {
+                        old.h.insert(key, Bytes::from(value));
+                    },
+                    kvs::Req::SetBytes { key, value } => {
                         old.h.insert(key, value);
-                    }
+                    },
                     _ => {}
                 },
                 None => {}
