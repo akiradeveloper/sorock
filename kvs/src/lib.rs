@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use bytes::Bytes;
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct Get(pub Option<String>);
@@ -8,6 +9,7 @@ pub struct List(pub Vec<(String, String)>);
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
     Set { key: String, value: String },
+    SetBytes { key: String, value: Bytes },
     Get { key: String },
     List,
 }
@@ -19,7 +21,7 @@ pub enum Rep {
 }
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct Snapshot {
-    pub h: BTreeMap<String, String>,
+    pub h: BTreeMap<String, Bytes>,
 }
 impl Req {
     pub fn serialize(msg: &Req) -> Vec<u8> {
