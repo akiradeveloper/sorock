@@ -25,25 +25,25 @@ pub struct Snapshot {
 }
 impl Req {
     pub fn serialize(msg: &Req) -> Vec<u8> {
-        serde_json::to_vec(msg).unwrap()
+        bincode::serialize(msg).unwrap()
     }
     pub fn deserialize(b: &[u8]) -> Option<Self> {
-        serde_json::from_slice(b).ok()
+        bincode::deserialize(b).ok()
     }
 }
 impl Rep {
     pub fn serialize(msg: &Rep) -> Vec<u8> {
-        serde_json::to_vec(msg).unwrap()
+        bincode::serialize(msg).unwrap()
     }
     pub fn deserialize(b: &[u8]) -> Option<Self> {
-        serde_json::from_slice(b).ok()
+        bincode::deserialize(b).ok()
     }
 }
 impl Snapshot {
     pub fn serialize(msg: &Snapshot) -> Vec<u8> {
-        serde_json::to_vec(msg).unwrap()
+        bincode::serialize(msg).unwrap()
     }
     pub fn deserialize(b: &[u8]) -> Option<Snapshot> {
-        serde_json::from_slice(b).ok()
+        bincode::deserialize(b).ok()
     }
 }
