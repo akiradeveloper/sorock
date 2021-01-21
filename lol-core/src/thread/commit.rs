@@ -1,4 +1,3 @@
-use super::notification;
 use crate::{ElectionState, RaftApp, RaftCore};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -6,7 +5,6 @@ use std::time::Duration;
 
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
-    subscriber: notification::Subscriber,
 }
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
@@ -35,12 +33,11 @@ impl<A: RaftApp> Thread<A> {
             {}
             // We should timeout and go to next poll because in case of one node cluster,
             // there will be no replication happen and this thread will never wake up.
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
+            let _ = tokio::time::timeout(Duration::from_millis(100), self.core.log.replication_notification.notified()).await;
         }
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) {
-    let subscriber = core.log.replication_notification.lock().await.subscribe();
-    let x = Thread { core, subscriber };
+    let x = Thread { core };
     x.run().await
 }
