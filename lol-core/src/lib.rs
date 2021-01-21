@@ -451,6 +451,8 @@ impl<A: RaftApp> RaftCore<A> {
         // command.clone() is cheap because the message buffer is Bytes.
         let command = command.into_bytes();
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
+        self.log.replication_notification.lock().await.publish();
+
         // Change membership when cluster configuration is appended.
         self.change_membership(command, append_index).await?;
         Ok(())
