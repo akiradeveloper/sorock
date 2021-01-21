@@ -450,7 +450,7 @@ impl<A: RaftApp> RaftCore<A> {
         // command.clone() is cheap because the message buffer is Bytes.
         let command = command.into_bytes();
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
-        self.log.replication_notification.notify_one();
+        self.log.replication_notify.notify_one();
 
         // Change membership when cluster configuration is appended.
         self.change_membership(command, append_index).await?;
@@ -596,7 +596,7 @@ impl<A: RaftApp> RaftCore<A> {
             cluster.peers.get_mut(&follower_id).unwrap().progress = new_progress;
         }
         if incremented {
-            self.log.replication_notification.notify_one();
+            self.log.replication_notify.notify_one();
         }
 
         Ok(true)
@@ -981,10 +981,10 @@ struct Log {
     commit_token: Semaphore,
     compaction_token: Semaphore,
 
-    append_notification: Notify,
-    replication_notification: Notify,
-    commit_notification: Notify,
-    apply_notification: Notify,
+    append_notify: Notify,
+    replication_notify: Notify,
+    commit_notify: Notify,
+    apply_notify: Notify,
 
     applied_membership: Mutex<HashSet<Id>>,
     snapshot_queue: snapshot::SnapshotQueue,
@@ -1012,10 +1012,10 @@ impl Log {
             commit_token: Semaphore::new(1),
             compaction_token: Semaphore::new(1),
 
-            append_notification: Notify::new(),
-            replication_notification: Notify::new(),
-            commit_notification: Notify::new(),
-            apply_notification: Notify::new(),
+            append_notify: Notify::new(),
+            replication_notify: Notify::new(),
+            commit_notify: Notify::new(),
+            apply_notify: Notify::new(),
 
             applied_membership: Mutex::new(HashSet::new()),
             snapshot_queue: snapshot::SnapshotQueue::new(),
@@ -1045,7 +1045,7 @@ impl Log {
         if let Some(x) = ack {
             self.ack_chans.write().await.insert(new_index, x);
         }
-        self.append_notification.notify_waiters();
+        self.append_notify.notify_waiters();
         Ok(new_index)
     }
     async fn try_insert_entry<A: RaftApp>(&self, entry: Entry, sender_id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<TryInsertResult> {
@@ -1164,7 +1164,7 @@ impl Log {
 
         log::debug!("commit_index {} -> {}", old_agreement, new_agreement);
         self.commit_index.store(new_agreement, Ordering::SeqCst);
-        self.commit_notification.notify_one();
+        self.commit_notify.notify_one();
         Ok(())
     }
     async fn advance_last_applied<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
@@ -1257,7 +1257,7 @@ impl Log {
 
             log::debug!("last_applied -> {}", apply_index);
             self.last_applied.store(apply_index, Ordering::SeqCst);
-            self.apply_notification.notify_one();
+            self.apply_notify.notify_one();
         } else {
             // We assume apply_message typically fails due to
             // 1. temporal storage/network error
