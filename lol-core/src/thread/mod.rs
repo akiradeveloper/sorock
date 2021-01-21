@@ -7,4 +7,3 @@ pub mod query_executor;
 pub mod replication;
 pub mod gc;
 pub mod snapshot_installer;
-pub mod notification;
