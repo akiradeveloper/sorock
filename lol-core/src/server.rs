@@ -77,9 +77,9 @@ impl<A: RaftApp> Raft for Server<A> {
             if req.mutation {
                 let command = Command::Req {
                     core: req.core,
-                    message: req.message.into(),
+                    message: &req.message,
                 };
-                self.core.queue_entry(command, Some(ack)).await.unwrap();
+                self.core.queue_entry(Command::serialize(&command), Some(ack)).await.unwrap();
             } else {
                 self.core.register_query(req.core, req.message.into(), ack).await;
             }
@@ -131,17 +131,17 @@ impl<A: RaftApp> Raft for Server<A> {
                         Command::ClusterConfiguration { membership }
                     },
                     _ => Command::Req {
-                        message: req.message.into(),
+                        message: &req.message,
                         core: req.core,
                     },
                 }
             } else {
                 Command::Req {
-                    message: req.message.into(),
+                    message: &req.message,
                     core: req.core,
                 }
             };
-            self.core.queue_entry(command, Some(ack)).await.unwrap();
+            self.core.queue_entry(Command::serialize(&command), Some(ack)).await.unwrap();
             let res = rx.await;
             res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
