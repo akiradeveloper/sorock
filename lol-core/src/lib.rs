@@ -116,7 +116,7 @@ impl PartialEq for Clock {
 pub type Id = String;
 
 #[derive(serde::Serialize, serde::Deserialize)]
-enum CommandB<'a> {
+enum Command<'a> {
     Noop,
     Snapshot {
         membership: HashSet<Id>,
@@ -130,37 +130,12 @@ enum CommandB<'a> {
         message: &'a [u8]
     }
 }
-impl <'a> CommandB<'a> {
-    fn serialize(x: &CommandB) -> Vec<u8> {
-        rmp_serde::to_vec(x).unwrap()
+impl <'a> Command<'a> {
+    fn serialize(x: &Command) -> Bytes {
+        rmp_serde::to_vec(x).unwrap().into()
     }
-    fn deserialize(x: &[u8]) -> CommandB {
+    fn deserialize(x: &[u8]) -> Command {
         rmp_serde::from_slice(x).unwrap()
-    }
-}
-#[derive(Clone, Debug)]
-enum Command {
-    Noop,
-    Snapshot {
-        membership: HashSet<Id>,
-    },
-    ClusterConfiguration {
-        membership: HashSet<Id>,
-    },
-    Req {
-        core: bool,
-        message: Bytes
-    }
-}
-impl Command {
-    fn into_bytes(self) -> Bytes {
-        let y = match self {
-            Command::Noop => CommandB::Noop,
-            Command::Snapshot { membership } => CommandB::Snapshot { membership },
-            Command::ClusterConfiguration { membership } => CommandB::ClusterConfiguration { membership },
-            Command::Req { core, ref message } => CommandB::Req { core, message: &message }
-        };
-        CommandB::serialize(&y).into()
     }
 }
 #[derive(Clone, Copy)]
@@ -262,11 +237,11 @@ impl<A: RaftApp> RaftCore<A> {
         let mut ret = (0, HashSet::new());
         for i in from ..= to {
             let e = storage.get_entry(i).await?.unwrap();
-            match CommandB::deserialize(&e.command) {
-                CommandB::Snapshot { membership } => {
+            match Command::deserialize(&e.command) {
+                Command::Snapshot { membership } => {
                     ret = (i, membership);
                 },
-                CommandB::ClusterConfiguration { membership } => {
+                Command::ClusterConfiguration { membership } => {
                     ret = (i, membership);
                 },
                 _ => {}
@@ -278,9 +253,9 @@ impl<A: RaftApp> RaftCore<A> {
         let snapshot = Entry {
             prev_clock: Clock { term: 0, index: 0 },
             this_clock: Clock { term: 0, index: 1 },
-            command: Command::Snapshot {
+            command: Command::serialize(&Command::Snapshot {
                 membership: HashSet::new(),
-            }.into_bytes(),
+            }),
         };
         self.log.insert_snapshot(snapshot).await?;
         let mut membership = HashSet::new();
@@ -288,9 +263,9 @@ impl<A: RaftApp> RaftCore<A> {
         let add_server = Entry {
             prev_clock: Clock { term: 0, index: 1 },
             this_clock: Clock { term: 0, index: 2 },
-            command: Command::ClusterConfiguration {
+            command: Command::serialize(&Command::ClusterConfiguration {
                 membership: membership.clone(),
-            }.into_bytes(),
+            }),
         };
         self.log.insert_entry(add_server).await?;
         self.set_membership(&membership, 2).await?;
@@ -424,11 +399,11 @@ fn into_out_stream(
 // Replication
 impl<A: RaftApp> RaftCore<A> {
     async fn change_membership(self: &Arc<Self>, command: Bytes, index: Index) -> anyhow::Result<()> {
-        match CommandB::deserialize(&command) {
-            CommandB::Snapshot { membership } => {
+        match Command::deserialize(&command) {
+            Command::Snapshot { membership } => {
                 self.set_membership(&membership, index).await?;
             },
-            CommandB::ClusterConfiguration { membership } => {
+            Command::ClusterConfiguration { membership } => {
                 self.set_membership(&membership, index).await?;
             },
             _ => {},
@@ -440,7 +415,7 @@ impl<A: RaftApp> RaftCore<A> {
         self.safe_term.fetch_max(term, Ordering::SeqCst);
     }
     // Leader calls this fucntion to append new entry to its log.
-    async fn queue_entry(self: &Arc<Self>, command: Command, ack: Option<Ack>) -> anyhow::Result<()> {
+    async fn queue_entry(self: &Arc<Self>, command: Bytes, ack: Option<Ack>) -> anyhow::Result<()> {
         let term = self.load_ballot().await?.cur_term;
         // safe_term is a term that noop entry is successfully committed.
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
@@ -448,7 +423,6 @@ impl<A: RaftApp> RaftCore<A> {
             return Err(anyhow!("noop entry for term {} isn't committed yet. (> {})", term, cur_safe_term));
         }
         // command.clone() is cheap because the message buffer is Bytes.
-        let command = command.into_bytes();
         let append_index = self.log.append_new_entry(command.clone(), ack, term).await?;
         self.log.replication_notify.notify_one();
 
@@ -809,7 +783,7 @@ impl<A: RaftApp> RaftCore<A> {
             log::info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = self.log.append_new_entry(Command::Noop.into_bytes(), None, aim_term).await?;
+            let index = self.log.append_new_entry(Command::serialize(&Command::Noop), None, aim_term).await?;
             self.membership_barrier.store(index, Ordering::SeqCst);
 
             // Initialize replication progress
@@ -1060,7 +1034,7 @@ impl Log {
             // If the entry is snapshot then we should insert this entry without consistency checks.
             // Old entries before the new snapshot will be garbage collected.
             let command = entry.command.clone();
-            if std::matches!(CommandB::deserialize(&command), CommandB::Snapshot { .. }) {
+            if std::matches!(Command::deserialize(&command), Command::Snapshot { .. }) {
                 let Clock { term: _, index: snapshot_index } = entry.this_clock;
                 log::warn!(
                     "log is too old. replicated a snapshot (idx={}) from leader",
@@ -1127,8 +1101,8 @@ impl Log {
         for i in old_agreement + 1..=new_agreement {
             let e = self.storage.get_entry(i).await?.unwrap();
             let term = e.this_clock.term;
-            match CommandB::deserialize(&e.command) {
-                CommandB::ClusterConfiguration { membership } => {
+            match Command::deserialize(&e.command) {
+                Command::ClusterConfiguration { membership } => {
                     // Leader stepdown should happen iff the last membership change doesn't contain the leader.
                     // This code is safe because doing or not doing leadership transfer will not affect anything
                     // (IOW, it is only a hint) but confuse the leadership which only causes instant downtime.
@@ -1143,7 +1117,7 @@ impl Log {
                         core.transfer_leadership().await;
                     } 
                 },
-                CommandB::Noop => {
+                Command::Noop => {
                     core.commit_safe_term(term);
                 },
                 _ => {},
@@ -1174,8 +1148,8 @@ impl Log {
             let command = std::mem::take(&mut e.command);
             (apply_index, e, command)
         };
-        let ok = match CommandB::deserialize(&command) {
-            CommandB::Snapshot { membership } => {
+        let ok = match Command::deserialize(&command) {
+            Command::Snapshot { membership } => {
                 let tag = self.storage.get_tag(apply_index).await?;
                 log::info!("install app snapshot");
                 let res = raft_core.app.install_snapshot(tag.as_ref(), apply_index).await;
@@ -1188,7 +1162,7 @@ impl Log {
                     false
                 }
             }
-            CommandB::Req { core, ref message } => {
+            Command::Req { core, ref message } => {
                 let res = if core {
                     let res = raft_core.process_message(message).await;
                     res.map(|x| (x, MakeSnapshot::None))
@@ -1217,9 +1191,9 @@ impl Log {
                                 // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
                                 if ok {
                                     let snapshot_entry = Entry {
-                                        command: Command::Snapshot {
+                                        command: Command::serialize(&Command::Snapshot {
                                             membership: self.applied_membership.lock().await.clone(),
-                                        }.into_bytes(),
+                                        }),
                                         .. apply_entry
                                     };
                                     let delay_sec = raft_core.tunable.read().await.compaction_delay_sec;
@@ -1246,7 +1220,7 @@ impl Log {
                     }
                 }
             },
-            CommandB::ClusterConfiguration { membership } => {
+            Command::ClusterConfiguration { membership } => {
                 *self.applied_membership.lock().await = membership;
                 true
             },
@@ -1290,9 +1264,9 @@ impl Log {
 
         log::info!("create new fold snapshot at index {}", new_snapshot_index);
         let cur_snapshot_entry = self.storage.get_entry(cur_snapshot_index).await?.unwrap();
-        if let CommandB::Snapshot {
+        if let Command::Snapshot {
             membership,
-        } = CommandB::deserialize(&cur_snapshot_entry.command)
+        } = Command::deserialize(&cur_snapshot_entry.command)
         {
             let mut base_snapshot_index = cur_snapshot_index; 
             let mut new_membership = membership;
@@ -1303,17 +1277,17 @@ impl Log {
             }
             let mut app_messages = vec![];
             for (i, command) in &commands {
-                match CommandB::deserialize(&command) {
-                    CommandB::ClusterConfiguration { membership } => {
+                match Command::deserialize(&command) {
+                    Command::ClusterConfiguration { membership } => {
                         new_membership = membership;
                     }
-                    CommandB::Req {
+                    Command::Req {
                         core: false,
                         message,
                     } => {
                         app_messages.push(message);
                     }
-                    CommandB::Snapshot {
+                    Command::Snapshot {
                         membership,
                     } => {
                         base_snapshot_index = *i;
@@ -1328,9 +1302,9 @@ impl Log {
             self.storage.put_tag(new_snapshot_index, new_tag).await?;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();
-                e.command = Command::Snapshot {
+                e.command = Command::serialize(&Command::Snapshot {
                     membership: new_membership,
-                }.into_bytes();
+                });
                 e
             };
             let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
