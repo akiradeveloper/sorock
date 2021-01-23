@@ -39,7 +39,7 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
                     let e = crate::LogStreamElem {
                         term,
                         index,
-                        command: command.into(),
+                        command: command,
                     };
                     yield e;
                 },
