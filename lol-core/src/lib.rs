@@ -132,10 +132,10 @@ enum Command<'a> {
 }
 impl <'a> Command<'a> {
     fn serialize(x: &Command) -> Bytes {
-        rmp_serde::to_vec(x).unwrap().into()
+        bincode::serialize(x).unwrap().into()
     }
     fn deserialize(x: &[u8]) -> Command {
-        rmp_serde::from_slice(x).unwrap()
+        bincode::deserialize(x).unwrap()
     }
 }
 #[derive(Clone, Copy)]
