@@ -168,7 +168,7 @@ async fn main() {
 
     let app = ToRaftApp::new(app);
     let core = if let Some(id) = opt.use_persistency {
-        std::fs::create_dir("/tmp/lol");
+        std::fs::create_dir("/tmp/lol").ok();
         let path = format!("/tmp/lol/{}.db", id);
         let path = Path::new(&path);
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
