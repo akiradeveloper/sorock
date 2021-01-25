@@ -15,14 +15,21 @@ impl<A: RaftApp> Thread<A> {
                     let need_work = core.log.last_applied.load(Ordering::SeqCst)
                         < core.log.commit_index.load(Ordering::SeqCst);
                     if need_work {
-                        core.log.advance_last_applied(Arc::clone(&core)).await.unwrap();
+                        core.log
+                            .advance_last_applied(Arc::clone(&core))
+                            .await
+                            .unwrap();
                     }
                     need_work
                 }
             })
             .await
             {}
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.core.log.commit_notify.notified()).await;
+            let _ = tokio::time::timeout(
+                Duration::from_millis(100),
+                self.core.log.commit_notify.notified(),
+            )
+            .await;
         }
     }
 }

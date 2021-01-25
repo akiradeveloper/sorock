@@ -1,8 +1,8 @@
-use integration_tests::kvs::*;
 use integration_tests::cluster::*;
+use integration_tests::kvs::*;
 
-use lol_core::Id;
 use lol_core::connection::{self, gateway};
+use lol_core::Id;
 use std::collections::HashSet;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;

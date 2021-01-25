@@ -1,7 +1,7 @@
 use crate::{ack, Index, RaftApp, RaftCore};
+use bytes::Bytes;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use bytes::Bytes;
 
 pub struct Query {
     pub core: bool,

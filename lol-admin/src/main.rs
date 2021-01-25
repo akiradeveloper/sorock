@@ -31,15 +31,17 @@ enum Sub {
 #[tokio::main]
 async fn main() {
     let opt = Opt::from_args();
-    let endpoint = Endpoint::from_shared(opt.dest_id).unwrap().timeout(Duration::from_secs(5));
+    let endpoint = Endpoint::from_shared(opt.dest_id)
+        .unwrap()
+        .timeout(Duration::from_secs(5));
     let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
-            let req = proto_compiled::AddServerReq { id, };
+            let req = proto_compiled::AddServerReq { id };
             conn.add_server(req).await.unwrap();
         }
         Sub::RemoveServer { id } => {
-            let req = proto_compiled::RemoveServerReq { id, };
+            let req = proto_compiled::RemoveServerReq { id };
             conn.remove_server(req).await.unwrap();
         }
         Sub::ClusterInfo => {
@@ -48,7 +50,11 @@ async fn main() {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let res = conn.request_process_locally(req).await.unwrap().into_inner();
+            let res = conn
+                .request_process_locally(req)
+                .await
+                .unwrap()
+                .into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             let msg = if let core_message::Rep::ClusterInfo {
                 leader_id,

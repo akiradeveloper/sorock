@@ -2,11 +2,11 @@ use super::env::*;
 
 use std::collections::HashSet;
 
+use lol_core::{connection, core_message, proto_compiled};
 use std::sync::Arc;
 use std::time::Duration;
-use lol_core::{connection, core_message, proto_compiled};
-use tonic::transport::channel::Endpoint;
 use tokio::runtime::Builder;
+use tonic::transport::channel::Endpoint;
 
 pub type Result<T> = anyhow::Result<T>;
 pub type EnvRef = Arc<Environment>;
@@ -33,16 +33,20 @@ impl Admin {
             env: Arc::clone(&env),
         }
     }
-    fn block_on<R: Send + 'static>(fut: impl std::future::Future<Output = R> + Send + 'static) -> R {
+    fn block_on<R: Send + 'static>(
+        fut: impl std::future::Future<Output = R> + Send + 'static,
+    ) -> R {
         // since we can't nest a runtime in the same thread this workaround is needed.
         std::thread::spawn(|| {
             let rt = Builder::new_current_thread().enable_all().build().unwrap();
             rt.block_on(fut)
-        }).join().unwrap()
+        })
+        .join()
+        .unwrap()
     }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::AddServerReq { id, };
+        let req = proto_compiled::AddServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
@@ -52,7 +56,7 @@ impl Admin {
     }
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::RemoveServerReq { id, };
+        let req = proto_compiled::RemoveServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
@@ -70,7 +74,8 @@ impl Admin {
         let res = Self::block_on(async move {
             let mut conn = connection::connect(endpoint).await?;
             conn.request_process_locally(req).await
-        })?.into_inner();
+        })?
+        .into_inner();
         let msg = core_message::Rep::deserialize(&res.message).unwrap();
         let msg = if let core_message::Rep::ClusterInfo {
             leader_id,
@@ -97,7 +102,12 @@ impl Admin {
     }
 }
 /// Wait for every node in `live_nodes` recognize the same membership.
-pub fn ensure_membership(timeout: Duration, live_nodes: Vec<u8>, member_nodes: Vec<u8>, env: EnvRef) {
+pub fn ensure_membership(
+    timeout: Duration,
+    live_nodes: Vec<u8>,
+    member_nodes: Vec<u8>,
+    env: EnvRef,
+) {
     let mut leader_can_be = HashSet::new();
     for &id in &live_nodes {
         leader_can_be.insert(Some(env.get_node_id(id)));

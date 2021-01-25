@@ -1,15 +1,29 @@
-use integration_tests::kvs::*;
 use integration_tests::cluster::*;
+use integration_tests::kvs::*;
 
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 #[test]
 fn test_persistency_membership() {
-    let env = env_new(0, kvs_server(vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=0"]));
+    let env = env_new(
+        0,
+        kvs_server(vec![
+            "--use-persistency=0",
+            "--reset-persistency",
+            "--compaction-interval-sec=0",
+        ]),
+    );
     for id in 1..=2 {
         let s = format!("--use-persistency={}", id);
-        env.start(id, kvs_server(vec![&s, "--reset-persistency", "--compaction-interval-sec=0"]));
+        env.start(
+            id,
+            kvs_server(vec![
+                &s,
+                "--reset-persistency",
+                "--compaction-interval-sec=0",
+            ]),
+        );
         thread::sleep(Duration::from_secs(2));
         Admin::to(0, env.clone()).add_server(id).unwrap();
     }
@@ -27,7 +41,7 @@ fn test_persistency_membership() {
         let s = format!("--use-persistency={}", id);
         env.start(id, kvs_server(vec![&s, "--compaction-interval-sec=0"]));
         thread::sleep(Duration::from_secs(2));
-    } 
+    }
     thread::sleep(Duration::from_secs(5));
     // the servers should make a cluster and choose a new leader.
 
@@ -37,7 +51,14 @@ fn test_persistency_membership() {
 
 #[test]
 fn test_persistency_reboot() {
-    let env = env_new(0, kvs_server(vec!["--use-persistency=0", "--reset-persistency", "--compaction-interval-sec=1"]));
+    let env = env_new(
+        0,
+        kvs_server(vec![
+            "--use-persistency=0",
+            "--reset-persistency",
+            "--compaction-interval-sec=1",
+        ]),
+    );
     for _ in 0..10 {
         Client::to(0, env.clone()).set("k", "1").unwrap();
     }
@@ -45,7 +66,10 @@ fn test_persistency_reboot() {
     thread::sleep(Duration::from_secs(5));
 
     env.stop(0);
-    env.start(0, kvs_server(vec!["--use-persistency=0", "--compaction-interval-sec=0"]));
+    env.start(
+        0,
+        kvs_server(vec!["--use-persistency=0", "--compaction-interval-sec=0"]),
+    );
     // wait for boot, calculating commit_index
     thread::sleep(Duration::from_secs(5));
 

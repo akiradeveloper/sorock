@@ -1,6 +1,6 @@
-use crate::{Clock, Term, Index, Id};
-use std::collections::BTreeSet;
+use crate::{Clock, Id, Index, Term};
 use bytes::Bytes;
+use std::collections::BTreeSet;
 
 /// In-memory implementation backed by BTreeMap.
 pub mod memory;
@@ -36,10 +36,10 @@ pub struct Entry {
 #[async_trait::async_trait]
 pub trait RaftStorage: Sync + Send + 'static {
     /// Delete range ..r
-    async fn delete_before(&self, r: Index) -> anyhow::Result<()> ;
+    async fn delete_before(&self, r: Index) -> anyhow::Result<()>;
     /// Save the snapshot entry so snapshot index always advance.
     async fn insert_snapshot(&self, i: Index, e: Entry) -> anyhow::Result<()>;
-    async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()> ;
+    async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
     async fn get_snapshot_index(&self) -> anyhow::Result<Index>;
     async fn get_last_index(&self) -> anyhow::Result<Index>;
@@ -61,9 +61,25 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
 
     // Vote
     let id = "hoge".to_owned();
-    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
-    s.save_ballot(Ballot { cur_term: 1, voted_for: Some(id.clone()) }).await?;
-    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 1, voted_for: Some(id.clone()) });
+    assert_eq!(
+        s.load_ballot().await?,
+        Ballot {
+            cur_term: 0,
+            voted_for: None
+        }
+    );
+    s.save_ballot(Ballot {
+        cur_term: 1,
+        voted_for: Some(id.clone()),
+    })
+    .await?;
+    assert_eq!(
+        s.load_ballot().await?,
+        Ballot {
+            cur_term: 1,
+            voted_for: Some(id.clone())
+        }
+    );
 
     // Tag
     let tag: crate::SnapshotTag = vec![].into();

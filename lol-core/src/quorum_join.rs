@@ -1,6 +1,6 @@
-use std::future::Future;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::StreamExt;
+use std::future::Future;
 
 /// Execute futures and returns ok only when quorum replied ok.
 pub async fn quorum_join(

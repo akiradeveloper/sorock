@@ -8,8 +8,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .compile(&["proto/lol-bridge.proto"], &["proto"])?;
 
     let config = prost_build::Config::new();
-    tonic_build::configure()
-        .compile_with_config(config, &["proto/lol-bridge.proto"], &["proto"])?;
+    tonic_build::configure().compile_with_config(
+        config,
+        &["proto/lol-bridge.proto"],
+        &["proto"],
+    )?;
 
     Ok(())
 }

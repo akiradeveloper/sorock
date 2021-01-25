@@ -10,9 +10,7 @@ impl<A: RaftApp> Thread<A> {
         loop {
             tokio::time::sleep(Duration::from_secs(1)).await;
             let core = Arc::clone(&self.core);
-            let f = async move {
-                core.log.snapshot_queue.run_once(Arc::clone(&core)).await
-            };
+            let f = async move { core.log.snapshot_queue.run_once(Arc::clone(&core)).await };
             let _ = tokio::spawn(f).await;
         }
     }

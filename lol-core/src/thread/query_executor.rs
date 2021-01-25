@@ -22,7 +22,11 @@ impl<A: RaftApp> Thread<A> {
             })
             .await
             {}
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.core.log.apply_notify.notified()).await;
+            let _ = tokio::time::timeout(
+                Duration::from_millis(100),
+                self.core.log.apply_notify.notified(),
+            )
+            .await;
         }
     }
 }

@@ -93,7 +93,10 @@ pub mod gateway {
     }
     /// Execute queries in order until the first `Ok` response.
     /// When all attempts are failed, this function returns `Err`.
-    pub async fn exec<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> anyhow::Result<T>
+    pub async fn exec<D, F, T>(
+        endpoints: impl IntoIterator<Item = D>,
+        f: impl Fn(D) -> F,
+    ) -> anyhow::Result<T>
     where
         F: Future<Output = anyhow::Result<T>>,
     {
@@ -107,7 +110,10 @@ pub mod gateway {
         ))
     }
     /// Execute queries in parallel to get the responses.
-    pub async fn parallel<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> Vec<anyhow::Result<T>>
+    pub async fn parallel<D, F, T>(
+        endpoints: impl IntoIterator<Item = D>,
+        f: impl Fn(D) -> F,
+    ) -> Vec<anyhow::Result<T>>
     where
         F: Future<Output = anyhow::Result<T>>,
     {

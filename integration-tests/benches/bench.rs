@@ -1,14 +1,14 @@
 #![feature(test)]
 
-use integration_tests::kvs::*;
 use integration_tests::cluster::*;
 use integration_tests::env::NodeCommand;
+use integration_tests::kvs::*;
 
+use bytes::Bytes;
+use lol_core::connection::connect;
 use std::thread;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
-use lol_core::connection::connect;
-use bytes::Bytes;
 
 extern crate test;
 
@@ -142,7 +142,7 @@ fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test
     let env = make_cluster(n, command);
     let id = env.get_node_id(0);
 
-    let v = Bytes::from(vec![1;1_000_000]);
+    let v = Bytes::from(vec![1; 1_000_000]);
     b.iter(|| {
         let endpoint = Endpoint::from_shared(id.clone()).unwrap();
         let msg = kvs::Req::SetBytes {
