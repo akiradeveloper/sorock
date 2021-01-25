@@ -1,5 +1,5 @@
-use crate::{RaftApp, MakeSnapshot, Index};
-use crate::snapshot::{SnapshotTag, BytesSnapshot, SnapshotStream};
+use crate::snapshot::{BytesSnapshot, SnapshotStream, SnapshotTag};
+use crate::{Index, MakeSnapshot, RaftApp};
 use async_trait::async_trait;
 
 /// Similar to full-featured RaftApp but restricted:
@@ -7,8 +7,16 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait RaftAppCompat: Sync + Send + 'static {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)>;
-    async fn install_snapshot(&self, snapshot: Option<&[u8]>, apply_index: Index) -> anyhow::Result<()>;
+    async fn apply_message(
+        &self,
+        request: &[u8],
+        apply_index: Index,
+    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)>;
+    async fn install_snapshot(
+        &self,
+        snapshot: Option<&[u8]>,
+        apply_index: Index,
+    ) -> anyhow::Result<()>;
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&[u8]>,
@@ -18,19 +26,21 @@ pub trait RaftAppCompat: Sync + Send + 'static {
 pub struct ToRaftApp<A: RaftAppCompat> {
     compat_app: A,
 }
-impl <A: RaftAppCompat> ToRaftApp<A> {
+impl<A: RaftAppCompat> ToRaftApp<A> {
     pub fn new(compat_app: A) -> Self {
-        Self {
-            compat_app,
-        }
+        Self { compat_app }
     }
 }
 #[async_trait]
-impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
+impl<A: RaftAppCompat> RaftApp for ToRaftApp<A> {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         self.compat_app.process_message(request).await
     }
-    async fn apply_message(&self, request: &[u8], apply_index: Index) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
+    async fn apply_message(
+        &self,
+        request: &[u8],
+        apply_index: Index,
+    ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
         let (res, new_snapshot) = self.compat_app.apply_message(request, apply_index).await?;
         let make_snapshot = match new_snapshot {
             Some(x) => MakeSnapshot::CopySnapshot(x.into()),
@@ -38,9 +48,15 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
         };
         Ok((res, make_snapshot))
     }
-    async fn install_snapshot(&self, snapshot: Option<&SnapshotTag>, apply_index: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(
+        &self,
+        snapshot: Option<&SnapshotTag>,
+        apply_index: Index,
+    ) -> anyhow::Result<()> {
         let y = snapshot.map(|x| x.contents.clone());
-        self.compat_app.install_snapshot(y.as_deref(), apply_index).await
+        self.compat_app
+            .install_snapshot(y.as_deref(), apply_index)
+            .await
     }
     async fn fold_snapshot(
         &self,
@@ -48,16 +64,27 @@ impl <A: RaftAppCompat> RaftApp for ToRaftApp<A> {
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag> {
         let y = old_snapshot.map(|x| x.contents.clone());
-        let new_snapshot = self.compat_app.fold_snapshot(y.as_deref(), requests).await?;
+        let new_snapshot = self
+            .compat_app
+            .fold_snapshot(y.as_deref(), requests)
+            .await?;
         Ok(new_snapshot.into())
     }
-    async fn from_snapshot_stream(&self, st: SnapshotStream, _: Index) -> anyhow::Result<SnapshotTag> {
+    async fn from_snapshot_stream(
+        &self,
+        st: SnapshotStream,
+        _: Index,
+    ) -> anyhow::Result<SnapshotTag> {
         let b = BytesSnapshot::from_snapshot_stream(st).await?;
-        let tag = SnapshotTag { contents: b.contents };
+        let tag = SnapshotTag {
+            contents: b.contents,
+        };
         Ok(tag)
     }
     async fn to_snapshot_stream(&self, x: &SnapshotTag) -> SnapshotStream {
-        let b: BytesSnapshot = BytesSnapshot { contents: x.contents.clone() };
+        let b: BytesSnapshot = BytesSnapshot {
+            contents: x.contents.clone(),
+        };
         b.to_snapshot_stream().await
     }
     async fn delete_resource(&self, _: &SnapshotTag) -> anyhow::Result<()> {

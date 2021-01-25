@@ -6,9 +6,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .out_dir(OUT_DIR)
     //     .compile(&["proto/lol-core.proto"], &["proto"])?;
 
-    let config = prost_build::Config::new();
-    tonic_build::configure()
-        .compile_with_config(config, &["proto/lol-core.proto"], &["proto"])?;
+    let mut config = prost_build::Config::new();
+    config.bytes(&[".lol_core.AppendStreamEntry.command"]);
+    tonic_build::configure().compile_with_config(config, &["proto/lol-core.proto"], &["proto"])?;
 
     Ok(())
 }

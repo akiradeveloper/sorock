@@ -1,13 +1,14 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use lol_core::{Index, Config, RaftCore, TunableConfig};
+use bytes::Bytes;
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
+use lol_core::{Config, Index, RaftCore, TunableConfig};
 use std::collections::BTreeMap;
-use std::sync::Arc;
-use std::time::Duration;
-use structopt::StructOpt;
-use tokio::sync::RwLock;
 use std::path::Path;
+use std::sync::Arc;
+use structopt::StructOpt;
+use tokio::sync::oneshot;
+use tokio::sync::RwLock;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
@@ -29,7 +30,7 @@ struct Opt {
     id: String,
 }
 struct KVS {
-    mem: Arc<RwLock<BTreeMap<String, String>>>,
+    mem: Arc<RwLock<BTreeMap<String, Bytes>>>,
     copy_snapshot_mode: bool,
 }
 #[async_trait]
@@ -40,6 +41,12 @@ impl RaftAppCompat for KVS {
             Some(x) => match x {
                 kvs::Req::Set { key, value } => {
                     let mut writer = self.mem.write().await;
+                    writer.insert(key, Bytes::from(value));
+                    let res = kvs::Rep::Set {};
+                    Ok(kvs::Rep::serialize(&res))
+                }
+                kvs::Req::SetBytes { key, value } => {
+                    let mut writer = self.mem.write().await;
                     writer.insert(key, value);
                     let res = kvs::Rep::Set {};
                     Ok(kvs::Rep::serialize(&res))
@@ -47,14 +54,17 @@ impl RaftAppCompat for KVS {
                 kvs::Req::Get { key } => {
                     let v = self.mem.read().await.get(&key).cloned();
                     let (found, value) = match v {
-                        Some(x) => (true, x),
+                        Some(x) => (true, String::from_utf8(x.as_ref().to_vec()).unwrap()),
                         None => (false, "".to_owned()),
                     };
                     let res = kvs::Rep::Get { found, value };
                     Ok(kvs::Rep::serialize(&res))
                 }
                 kvs::Req::List => {
-                    let values = self.mem.read().await.clone().into_iter().collect();
+                    let mut values = vec![];
+                    for (k, v) in self.mem.read().await.iter() {
+                        values.push((k.clone(), String::from_utf8(v.as_ref().to_vec()).unwrap()));
+                    }
                     let res = kvs::Rep::List { values };
                     Ok(kvs::Rep::serialize(&res))
                 }
@@ -62,10 +72,16 @@ impl RaftAppCompat for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(&self, x: &[u8], _: Index) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn apply_message(
+        &self,
+        x: &[u8],
+        _: Index,
+    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
-            let new_snapshot = kvs::Snapshot { h: self.mem.read().await.clone() };
+            let new_snapshot = kvs::Snapshot {
+                h: self.mem.read().await.clone(),
+            };
             let b = kvs::Snapshot::serialize(&new_snapshot);
             Some(b)
         } else {
@@ -75,8 +91,6 @@ impl RaftAppCompat for KVS {
     }
     async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
-            // emulate heavy install_snapshot
-            tokio::time::delay_for(Duration::from_secs(10)).await;
             let mut h = self.mem.write().await;
             let snapshot = kvs::Snapshot::deserialize(x.as_ref()).unwrap();
             h.clear();
@@ -100,6 +114,9 @@ impl RaftAppCompat for KVS {
             match req {
                 Some(x) => match x {
                     kvs::Req::Set { key, value } => {
+                        old.h.insert(key, Bytes::from(value));
+                    }
+                    kvs::Req::SetBytes { key, value } => {
                         old.h.insert(key, value);
                     }
                     _ => {}
@@ -131,8 +148,12 @@ async fn main() {
     let id = opt.id.clone();
     let url = url::Url::parse(&id).unwrap();
     let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
-    let socket = tokio::net::lookup_host(host_port_str).await.unwrap().next().unwrap();
-    
+    let socket = tokio::net::lookup_host(host_port_str)
+        .await
+        .unwrap()
+        .next()
+        .unwrap();
+
     let config = Config::new(id.clone());
     let mut tunable = TunableConfig::default();
 
@@ -151,13 +172,20 @@ async fn main() {
     env_logger::builder()
         .format(move |buf, record| {
             let ts = buf.timestamp();
-            writeln!(buf, "[{} {}] {}> {}", ts, record.level(), id_cln, record.args())
+            writeln!(
+                buf,
+                "[{} {}] {}> {}",
+                ts,
+                record.level(),
+                id_cln,
+                record.args()
+            )
         })
         .init();
 
     let app = ToRaftApp::new(app);
     let core = if let Some(id) = opt.use_persistency {
-        std::fs::create_dir("/tmp/lol");
+        std::fs::create_dir("/tmp/lol").ok();
         let path = format!("/tmp/lol/{}.db", id);
         let path = Path::new(&path);
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
@@ -174,8 +202,25 @@ async fn main() {
 
     let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
-    let res = builder.add_service(service).serve(socket).await;
+
+    let (tx, rx) = oneshot::channel();
+    let _ = tokio::spawn(wait_for_signal(tx));
+    let res = builder
+        .add_service(service)
+        .serve_with_shutdown(socket, async {
+            rx.await.ok();
+            log::info!("graceful context shutdown");
+        })
+        .await;
     if res.is_err() {
-        eprintln!("failed to start kvs-server error={:?}", res);
+        log::error!("failed to start kvs-server error={:?}", res);
     }
+}
+pub async fn wait_for_signal(tx: oneshot::Sender<()>) -> anyhow::Result<()> {
+    use tokio::signal::unix;
+    let mut stream = unix::signal(unix::SignalKind::interrupt())?;
+    stream.recv().await;
+    log::info!("SIGINT received: shutting down");
+    let _ = tx.send(());
+    Ok(())
 }

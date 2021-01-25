@@ -1,9 +1,9 @@
-use std::collections::{BTreeSet, BTreeMap};
+use super::{Ballot, Entry};
+use crate::Index;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use std::sync::atomic::{AtomicU64, Ordering};
-use super::{Entry, Ballot};
-use crate::Index;
 
 pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,
@@ -17,7 +17,7 @@ impl Storage {
             entries: Arc::new(RwLock::new(BTreeMap::new())),
             ballot: Arc::new(Mutex::new(Ballot::new())),
             snapshot_index: AtomicU64::new(0),
-            tags: Arc::new(RwLock::new(BTreeMap::new()))
+            tags: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 }

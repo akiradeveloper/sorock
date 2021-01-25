@@ -62,7 +62,7 @@ pub mod gateway {
             let rank = if member == awared_leader { 0 } else { 1 };
             v.push((rank, member.to_owned()))
         }
-        v.sort(); // leader first
+        v.sort_by_key(|x| x.0); // leader first
         let mut r = vec![];
         for (_, id) in v {
             r.push(id)
@@ -83,17 +83,20 @@ pub mod gateway {
                     // We don't trust the membership with no leader.
                     if let Some(leader) = leader0 {
                         let sorted = sort(leader, membership);
-                        let _ = tx.broadcast(CurrentMembership { list: sorted });
+                        let _ = tx.send(CurrentMembership { list: sorted });
                     }
                 }
-                tokio::time::delay_for(Duration::from_secs(5)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         });
         rx
     }
     /// Execute queries in order until the first `Ok` response.
     /// When all attempts are failed, this function returns `Err`.
-    pub async fn exec<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> anyhow::Result<T>
+    pub async fn exec<D, F, T>(
+        endpoints: impl IntoIterator<Item = D>,
+        f: impl Fn(D) -> F,
+    ) -> anyhow::Result<T>
     where
         F: Future<Output = anyhow::Result<T>>,
     {
@@ -107,7 +110,10 @@ pub mod gateway {
         ))
     }
     /// Execute queries in parallel to get the responses.
-    pub async fn parallel<D, F, T>(endpoints: impl IntoIterator<Item = D>, f: impl Fn(D) -> F) -> Vec<anyhow::Result<T>>
+    pub async fn parallel<D, F, T>(
+        endpoints: impl IntoIterator<Item = D>,
+        f: impl Fn(D) -> F,
+    ) -> Vec<anyhow::Result<T>>
     where
         F: Future<Output = anyhow::Result<T>>,
     {

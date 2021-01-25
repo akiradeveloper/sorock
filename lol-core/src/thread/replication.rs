@@ -1,4 +1,3 @@
-use super::notification;
 use crate::{ElectionState, Id, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
@@ -6,7 +5,6 @@ use std::time::Duration;
 struct Thread<A: RaftApp> {
     follower_id: Id,
     core: Arc<RaftCore<A>>,
-    subscriber: notification::Subscriber,
 }
 impl<A: RaftApp> Thread<A> {
     async fn run(self) {
@@ -25,16 +23,15 @@ impl<A: RaftApp> Thread<A> {
             })
             .await
             {}
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.subscriber.wait()).await;
+            let _ = tokio::time::timeout(
+                Duration::from_millis(100),
+                self.core.log.append_notify.notified(),
+            )
+            .await;
         }
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
-    let subscriber = core.log.append_notification.lock().await.subscribe();
-    let x = Thread {
-        core,
-        follower_id,
-        subscriber,
-    };
+    let x = Thread { core, follower_id };
     x.run().await
 }

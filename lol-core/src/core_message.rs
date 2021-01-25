@@ -29,18 +29,18 @@ pub enum Rep {
 }
 impl Req {
     pub fn serialize(x: &Self) -> Vec<u8> {
-        rmp_serde::to_vec(x).unwrap()
+        bincode::serialize(x).unwrap()
     }
     pub fn deserialize(x: &[u8]) -> Option<Self> {
-        rmp_serde::from_slice(x).ok()
+        bincode::deserialize(x).ok()
     }
 }
 impl Rep {
     pub fn serialize(x: &Self) -> Vec<u8> {
-        rmp_serde::to_vec(x).unwrap()
+        bincode::serialize(x).unwrap()
     }
     pub fn deserialize(x: &[u8]) -> Option<Self> {
-        rmp_serde::from_slice(x).ok()
+        bincode::deserialize(x).ok()
     }
 }
 

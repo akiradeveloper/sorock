@@ -1,11 +1,13 @@
-use integration::*;
-use lol_core::Id;
+use integration_tests::cluster::*;
+use integration_tests::kvs::*;
+
 use lol_core::connection::{self, gateway};
+use lol_core::Id;
 use std::collections::HashSet;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_gateway() {
     let env = init_cluster(1);
     let mut initial = HashSet::new();
@@ -14,9 +16,9 @@ async fn test_gateway() {
 
     env.start(1, kvs_server(vec![]));
     env.start(2, kvs_server(vec![]));
-    Admin::to(0, env.clone()).add_server(1);
-    Admin::to(0, env.clone()).add_server(2);
-    tokio::time::delay_for(Duration::from_secs(6)).await;
+    Admin::to(0, env.clone()).add_server(1).unwrap();
+    Admin::to(0, env.clone()).add_server(2).unwrap();
+    tokio::time::sleep(Duration::from_secs(6)).await;
 
     let connect = |id| async {
         let endpoint = Endpoint::from_shared(id).unwrap();
@@ -31,7 +33,7 @@ async fn test_gateway() {
 
     env.stop(0);
     env.stop(1);
-    tokio::time::delay_for(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     let endpoints = gateway.borrow().list.clone();
     let r = gateway::exec(endpoints, |id: Id| connect(id)).await;
@@ -39,7 +41,7 @@ async fn test_gateway() {
     assert!(r.is_ok());
 
     env.stop(2);
-    tokio::time::delay_for(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     let endpoints = gateway.borrow().list.clone();
     let r = gateway::exec(endpoints, |id: Id| connect(id)).await;

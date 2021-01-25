@@ -1,5 +1,5 @@
 [package]
-name = "integration"
+name = "integration-tests"
 version = "0.1.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
@@ -7,12 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lol-test = { path = "../lol-test" }
-lol-core = { path = "../lol-core" }
-lol-admin = { path = "../lol-admin" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tonic = "0.4"
 kvs = { path = "../kvs" }
-tokio = { version = "0.2", features = ["macros", "rt-threaded"] }
-tonic = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
+bytes = "1"
+
+lol-core = { path = "../lol-core" }
+lol-admin = { path = "../lol-admin" }

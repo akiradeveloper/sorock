@@ -1,11 +1,11 @@
-use crate::Index;
-use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor, IteratorMode};
-use std::collections::BTreeSet;
-use super::{Entry, Ballot};
-use std::path::{Path, PathBuf};
-use std::cmp::Ordering;
-use tokio::sync::Semaphore;
+use super::{Ballot, Entry};
 use crate::Clock;
+use crate::Index;
+use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, WriteBatch, DB};
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use tokio::sync::Semaphore;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -18,8 +18,7 @@ const CMP: &str = "index_asc";
 struct EntryB {
     prev_clock: (u64, u64),
     this_clock: (u64, u64),
-    #[serde(with = "serde_bytes")]
-    command: Vec<u8>,
+    command: bytes::Bytes,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 struct BallotB {
@@ -31,10 +30,16 @@ struct SnapshotIndexB(u64);
 
 impl From<Vec<u8>> for Entry {
     fn from(x: Vec<u8>) -> Self {
-        let x: EntryB = rmp_serde::from_slice(&x).unwrap();
+        let x: EntryB = bincode::deserialize(&x).unwrap();
         Entry {
-            prev_clock: Clock { term: x.prev_clock.0, index: x.prev_clock.1 },
-            this_clock: Clock { term: x.this_clock.0, index: x.this_clock.1 },
+            prev_clock: Clock {
+                term: x.prev_clock.0,
+                index: x.prev_clock.1,
+            },
+            this_clock: Clock {
+                term: x.this_clock.0,
+                index: x.this_clock.1,
+            },
             command: x.command.into(),
         }
     }
@@ -44,15 +49,15 @@ impl Into<Vec<u8>> for Entry {
         let x = EntryB {
             prev_clock: (self.prev_clock.term, self.prev_clock.index),
             this_clock: (self.this_clock.term, self.this_clock.index),
-            command: self.command.as_ref().into(),
+            command: self.command,
         };
-        rmp_serde::to_vec(&x).unwrap()
+        bincode::serialize(&x).unwrap()
     }
 }
 
 impl From<Vec<u8>> for Ballot {
     fn from(x: Vec<u8>) -> Self {
-        let x: BallotB = rmp_serde::from_slice(&x).unwrap();
+        let x: BallotB = bincode::deserialize(&x).unwrap();
         Ballot {
             cur_term: x.term,
             voted_for: x.voted_for,
@@ -65,28 +70,28 @@ impl Into<Vec<u8>> for Ballot {
             term: self.cur_term,
             voted_for: self.voted_for,
         };
-        rmp_serde::to_vec(&x).unwrap()
+        bincode::serialize(&x).unwrap()
     }
 }
 
 impl From<Vec<u8>> for SnapshotIndexB {
     fn from(x: Vec<u8>) -> Self {
-        rmp_serde::from_slice(&x).unwrap()
+        bincode::deserialize(&x).unwrap()
     }
 }
 impl Into<Vec<u8>> for SnapshotIndexB {
     fn into(self) -> Vec<u8> {
-        rmp_serde::to_vec(&self).unwrap()
+        bincode::serialize(&self).unwrap()
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct IndexKey(u64);
 fn encode_index(i: Index) -> Vec<u8> {
-    rmp_serde::to_vec(&IndexKey(i)).unwrap()
+    bincode::serialize(&IndexKey(i)).unwrap()
 }
 fn decode_index(s: &[u8]) -> Index {
-    let x: IndexKey = rmp_serde::from_slice(s).unwrap();
+    let x: IndexKey = bincode::deserialize(s).unwrap();
     x.0
 }
 fn comparator_fn(x: &[u8], y: &[u8]) -> Ordering {
@@ -195,7 +200,8 @@ impl super::RaftStorage for Storage {
     }
     async fn delete_before(&self, r: Index) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        self.db.delete_range_cf(cf, encode_index(0), encode_index(r))?;
+        self.db
+            .delete_range_cf(cf, encode_index(0), encode_index(r))?;
         Ok(())
     }
     async fn get_last_index(&self) -> Result<Index> {
@@ -204,7 +210,7 @@ impl super::RaftStorage for Storage {
         iter.seek_to_last();
         // The iterator is empty
         if !iter.valid() {
-            return Ok(0)
+            return Ok(0);
         }
         let key = iter.key().unwrap();
         let v = decode_index(key);
@@ -301,7 +307,13 @@ async fn test_rocksdb_persistency() -> Result<()> {
     drop(s);
 
     let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
-    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
+    assert_eq!(
+        s.load_ballot().await?,
+        Ballot {
+            cur_term: 0,
+            voted_for: None
+        }
+    );
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());
     assert!(s.get_tag(3).await?.is_some());

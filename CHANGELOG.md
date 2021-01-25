@@ -1,3 +1,9 @@
+# 0.7.0 (2021-1-25)
+
+- Now based on Tokio 1.0.
+- Stability: Introduce Pre-Vote phase.
+- Performance: Change internal serializer from MessagePack to Bincode.
+
 # 0.6.3 (2021-1-7)
 
 - Revert on-faliure log blocking which was introduced in 0.5.3 (@07465c5)
