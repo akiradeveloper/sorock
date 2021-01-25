@@ -1,9 +1,9 @@
 use super::node::*;
 
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
 use std::collections::HashMap;
 use std::net::TcpListener;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct NodeCommand {
@@ -14,13 +14,13 @@ impl NodeCommand {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            args: vec![]
+            args: vec![],
         }
     }
-    pub fn with_args<'a, I: IntoIterator<Item=&'a str>>(self, args: I) -> Self {
+    pub fn with_args<'a, I: IntoIterator<Item = &'a str>>(self, args: I) -> Self {
         Self {
             name: self.name,
-            args: args.into_iter().map(|x| x.to_owned()).collect()
+            args: args.into_iter().map(|x| x.to_owned()).collect(),
         }
     }
 }

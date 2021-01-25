@@ -1,11 +1,11 @@
-use crate::Index;
-use rocksdb::{DB, Options, WriteBatch, ColumnFamilyDescriptor, IteratorMode};
-use std::collections::BTreeSet;
-use super::{Entry, Ballot};
-use std::path::{Path, PathBuf};
-use std::cmp::Ordering;
-use tokio::sync::Semaphore;
+use super::{Ballot, Entry};
 use crate::Clock;
+use crate::Index;
+use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, WriteBatch, DB};
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use tokio::sync::Semaphore;
 
 const CF_ENTRIES: &str = "entries";
 const CF_CTRL: &str = "ctrl";
@@ -32,8 +32,14 @@ impl From<Vec<u8>> for Entry {
     fn from(x: Vec<u8>) -> Self {
         let x: EntryB = bincode::deserialize(&x).unwrap();
         Entry {
-            prev_clock: Clock { term: x.prev_clock.0, index: x.prev_clock.1 },
-            this_clock: Clock { term: x.this_clock.0, index: x.this_clock.1 },
+            prev_clock: Clock {
+                term: x.prev_clock.0,
+                index: x.prev_clock.1,
+            },
+            this_clock: Clock {
+                term: x.this_clock.0,
+                index: x.this_clock.1,
+            },
             command: x.command.into(),
         }
     }
@@ -194,7 +200,8 @@ impl super::RaftStorage for Storage {
     }
     async fn delete_before(&self, r: Index) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        self.db.delete_range_cf(cf, encode_index(0), encode_index(r))?;
+        self.db
+            .delete_range_cf(cf, encode_index(0), encode_index(r))?;
         Ok(())
     }
     async fn get_last_index(&self) -> Result<Index> {
@@ -203,7 +210,7 @@ impl super::RaftStorage for Storage {
         iter.seek_to_last();
         // The iterator is empty
         if !iter.valid() {
-            return Ok(0)
+            return Ok(0);
         }
         let key = iter.key().unwrap();
         let v = decode_index(key);
@@ -300,7 +307,13 @@ async fn test_rocksdb_persistency() -> Result<()> {
     drop(s);
 
     let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
-    assert_eq!(s.load_ballot().await?, Ballot { cur_term: 0, voted_for: None });
+    assert_eq!(
+        s.load_ballot().await?,
+        Ballot {
+            cur_term: 0,
+            voted_for: None
+        }
+    );
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());
     assert!(s.get_tag(3).await?.is_some());

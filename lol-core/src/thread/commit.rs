@@ -19,7 +19,8 @@ impl<A: RaftApp> Thread<A> {
                         if new_agreement > old_agreement {
                             core.log
                                 .advance_commit_index(new_agreement, Arc::clone(&core))
-                                .await.unwrap();
+                                .await
+                                .unwrap();
                             true
                         } else {
                             false
@@ -33,7 +34,11 @@ impl<A: RaftApp> Thread<A> {
             {}
             // We should timeout and go to next poll because in case of one node cluster,
             // there will be no replication happen and this thread will never wake up.
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.core.log.replication_notify.notified()).await;
+            let _ = tokio::time::timeout(
+                Duration::from_millis(100),
+                self.core.log.replication_notify.notified(),
+            )
+            .await;
         }
     }
 }

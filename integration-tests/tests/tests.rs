@@ -1,6 +1,6 @@
-use integration_tests::kvs::*;
 use integration_tests::cluster::*;
 use integration_tests::env::*;
+use integration_tests::kvs::*;
 
 use std::thread;
 use std::time::Duration;
@@ -74,12 +74,7 @@ fn test_init_cluster_again() {
     let env = init_cluster(1);
     Admin::to(0, env.clone()).remove_server(0).unwrap();
     Admin::to(0, env.clone()).add_server(0).unwrap();
-    ensure_membership(
-        Duration::from_secs(5),
-        vec![0],
-        vec![0],
-        env.clone(),
-    );
+    ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone());
 }
 #[test]
 fn test_one_node_operations() {
@@ -233,7 +228,7 @@ fn test_huge_replication() {
 
     let r = Client::to(0, env.clone()).get("k");
     assert!(r.is_err());
-    
+
     env.stop(2);
     env.start(0, kvs_server(vec![]));
 

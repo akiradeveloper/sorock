@@ -1,36 +1,36 @@
 use crate::connection::{self, Endpoint};
-use crate::{ack, core_message, proto_compiled, Command, ElectionState, Clock, RaftApp, RaftCore};
+use crate::{ack, core_message, proto_compiled, Clock, Command, ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_stream::StreamExt;
 
 use proto_compiled::{
-    raft_server::Raft,
-    AppendEntryRep, AppendEntryReq, GetSnapshotReq,
-    ApplyRep, ApplyReq, CommitRep, CommitReq, ProcessReq, ProcessRep,
-    HeartbeatRep, HeartbeatReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq,
-    AddServerReq, AddServerRep, RemoveServerReq, RemoveServerRep,
+    raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep, AppendEntryReq, ApplyRep,
+    ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep,
+    ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep,
+    TimeoutNowReq,
 };
 // This code is expecting stream in a form
 // Header (Entry Frame+)
 async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
     use proto_compiled::append_entry_req::Elem;
     // Header
-    let (sender_id, prev_log_term, prev_log_index) = if let Some(Ok(chunk)) = out_stream.next().await {
-        let e = chunk.elem.unwrap();
-        if let Elem::Header(proto_compiled::AppendStreamHeader {
-            sender_id,
-            prev_log_index,
-            prev_log_term,
-        }) = e
-        {
-            (sender_id, prev_log_term, prev_log_index)
+    let (sender_id, prev_log_term, prev_log_index) =
+        if let Some(Ok(chunk)) = out_stream.next().await {
+            let e = chunk.elem.unwrap();
+            if let Elem::Header(proto_compiled::AppendStreamHeader {
+                sender_id,
+                prev_log_index,
+                prev_log_term,
+            }) = e
+            {
+                (sender_id, prev_log_term, prev_log_index)
+            } else {
+                unreachable!()
+            }
         } else {
             unreachable!()
-        }
-    } else {
-        unreachable!()
-    };
+        };
     let entries = async_stream::stream! {
         while let Some(Ok(chunk)) = out_stream.next().await {
             let e = chunk.elem.unwrap();
@@ -71,7 +71,10 @@ impl<A: RaftApp> Raft for Server<A> {
         }
         let leader_id = ballot.voted_for.unwrap();
 
-        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
+        if std::matches!(
+            *self.core.election_state.read().await,
+            ElectionState::Leader
+        ) {
             let (ack, rx) = ack::channel_for_apply();
             let req = request.into_inner();
             if req.mutation {
@@ -79,9 +82,14 @@ impl<A: RaftApp> Raft for Server<A> {
                     core: req.core,
                     message: &req.message,
                 };
-                self.core.queue_entry(Command::serialize(&command), Some(ack)).await.unwrap();
+                self.core
+                    .queue_entry(Command::serialize(&command), Some(ack))
+                    .await
+                    .unwrap();
             } else {
-                self.core.register_query(req.core, req.message.into(), ack).await;
+                self.core
+                    .register_query(req.core, req.message.into(), ack)
+                    .await;
             }
             let res = rx.await;
             res.map(|x| tonic::Response::new(proto_compiled::ApplyRep { message: x.0 }))
@@ -104,7 +112,10 @@ impl<A: RaftApp> Raft for Server<A> {
         }
         let leader_id = ballot.voted_for.unwrap();
 
-        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
+        if std::matches!(
+            *self.core.election_state.read().await,
+            ElectionState::Leader
+        ) {
             let (ack, rx) = ack::channel_for_commit();
             let req = request.into_inner();
             let command = if req.core {
@@ -114,22 +125,26 @@ impl<A: RaftApp> Raft for Server<A> {
                         // As there is a gap between this guard and setting new barrier
                         // concurrent requests "can be" accepted but this is ok in practice.
                         if !self.core.allow_new_membership_change() {
-                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                            return Err(tonic::Status::failed_precondition(
+                                "concurrent membership change is not allowed.",
+                            ));
                         }
 
                         let mut membership = self.core.cluster.read().await.membership.clone();
                         membership.insert(id);
                         Command::ClusterConfiguration { membership }
-                    },
+                    }
                     core_message::Req::RemoveServer(id) => {
                         if !self.core.allow_new_membership_change() {
-                            return Err(tonic::Status::failed_precondition("concurrent membership change is not allowed."));
+                            return Err(tonic::Status::failed_precondition(
+                                "concurrent membership change is not allowed.",
+                            ));
                         }
 
                         let mut membership = self.core.cluster.read().await.membership.clone();
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
-                    },
+                    }
                     _ => Command::Req {
                         message: &req.message,
                         core: req.core,
@@ -141,7 +156,10 @@ impl<A: RaftApp> Raft for Server<A> {
                     core: req.core,
                 }
             };
-            self.core.queue_entry(Command::serialize(&command), Some(ack)).await.unwrap();
+            self.core
+                .queue_entry(Command::serialize(&command), Some(ack))
+                .await
+                .unwrap();
             let res = rx.await;
             res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
@@ -163,7 +181,10 @@ impl<A: RaftApp> Raft for Server<A> {
         }
         let leader_id = ballot.voted_for.unwrap();
 
-        if std::matches!(*self.core.election_state.read().await, ElectionState::Leader) {
+        if std::matches!(
+            *self.core.election_state.read().await,
+            ElectionState::Leader
+        ) {
             let req = request.into_inner();
             let res = if req.core {
                 self.core.process_message(&req.message).await
@@ -198,13 +219,23 @@ impl<A: RaftApp> Raft for Server<A> {
         let req = request.into_inner();
         let candidate_term = req.term;
         let candidate_id = req.candidate_id;
-        let candidate_clock = Clock { term: req.last_log_term, index: req.last_log_index };
+        let candidate_clock = Clock {
+            term: req.last_log_term,
+            index: req.last_log_index,
+        };
         let force_vote = req.force_vote;
         let pre_vote = req.pre_vote;
         let vote_granted = self
             .core
-            .receive_vote(candidate_term, candidate_id, candidate_clock, force_vote, pre_vote)
-            .await.unwrap();
+            .receive_vote(
+                candidate_term,
+                candidate_id,
+                candidate_clock,
+                force_vote,
+                pre_vote,
+            )
+            .await
+            .unwrap();
         let res = RequestVoteRep { vote_granted };
         Ok(tonic::Response::new(res))
     }
@@ -228,12 +259,20 @@ impl<A: RaftApp> Raft for Server<A> {
     ) -> Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
         let snapshot_index = req.index;
-        let in_stream = self.core.make_snapshot_stream(snapshot_index).await.unwrap();
+        let in_stream = self
+            .core
+            .make_snapshot_stream(snapshot_index)
+            .await
+            .unwrap();
         if in_stream.is_none() {
-            return Err(tonic::Status::not_found("requested snapshot is not in the inventory"));
+            return Err(tonic::Status::not_found(
+                "requested snapshot is not in the inventory",
+            ));
         }
         let in_stream = in_stream.unwrap();
-        Ok(tonic::Response::new(crate::snapshot::into_out_stream(in_stream)))
+        Ok(tonic::Response::new(crate::snapshot::into_out_stream(
+            in_stream,
+        )))
     }
     async fn send_heartbeat(
         &self,
@@ -245,7 +284,8 @@ impl<A: RaftApp> Raft for Server<A> {
         let leader_commit = req.leader_commit;
         self.core
             .receive_heartbeat(leader_id, term, leader_commit)
-            .await.unwrap();
+            .await
+            .unwrap();
         let res = HeartbeatRep {};
         Ok(tonic::Response::new(res))
     }
@@ -253,7 +293,10 @@ impl<A: RaftApp> Raft for Server<A> {
         &self,
         _: tonic::Request<TimeoutNowReq>,
     ) -> Result<tonic::Response<TimeoutNowRep>, tonic::Status> {
-        if std::matches!(*self.core.election_state.read().await, ElectionState::Follower) {
+        if std::matches!(
+            *self.core.election_state.read().await,
+            ElectionState::Follower
+        ) {
             self.core.try_promote(true).await.unwrap();
         }
         let res = TimeoutNowRep {};
@@ -272,7 +315,8 @@ impl<A: RaftApp> Raft for Server<A> {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let endpoint = Endpoint::from_shared(self.core.id.clone()).unwrap()
+            let endpoint = Endpoint::from_shared(self.core.id.clone())
+                .unwrap()
                 .timeout(Duration::from_secs(5));
             let mut conn = connection::connect(endpoint).await?;
             conn.request_commit(req).await.is_ok()
@@ -293,7 +337,8 @@ impl<A: RaftApp> Raft for Server<A> {
             message: core_message::Req::serialize(&msg),
             core: true,
         };
-        let endpoint = Endpoint::from_shared(self.core.id.clone()).unwrap()
+        let endpoint = Endpoint::from_shared(self.core.id.clone())
+            .unwrap()
             .timeout(Duration::from_secs(5));
         let mut conn = connection::connect(endpoint).await?;
         let ok = conn.request_commit(req).await.is_ok();

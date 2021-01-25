@@ -40,7 +40,11 @@ impl Cluster {
             thread_drop: HashMap::new(),
         }
     }
-    async fn add_server<A: RaftApp>(&mut self, id: Id, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
+    async fn add_server<A: RaftApp>(
+        &mut self,
+        id: Id,
+        core: Arc<RaftCore<A>>,
+    ) -> anyhow::Result<()> {
         if self.membership.contains(&id) {
             return Ok(());
         }
@@ -52,10 +56,8 @@ impl Cluster {
                 id.clone(),
             ));
             tokio::spawn(replication_thread);
-            let heartbeat_thread = dropper.register(crate::thread::heartbeat::run(
-                Arc::clone(&core),
-                id.clone(),
-            ));
+            let heartbeat_thread =
+                dropper.register(crate::thread::heartbeat::run(Arc::clone(&core), id.clone()));
             tokio::spawn(heartbeat_thread);
             self.thread_drop.insert(id.clone(), dropper);
 
@@ -75,7 +77,11 @@ impl Cluster {
         self.peers.remove(&id);
         self.thread_drop.remove(&id);
     }
-    pub async fn set_membership<A: RaftApp>(&mut self, goal: &HashSet<Id>, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
+    pub async fn set_membership<A: RaftApp>(
+        &mut self,
+        goal: &HashSet<Id>,
+        core: Arc<RaftCore<A>>,
+    ) -> anyhow::Result<()> {
         let cur = &self.membership;
         let (to_add, to_remove) = diff_set(cur, goal);
         // $4.4
@@ -90,7 +96,10 @@ impl Cluster {
         Ok(())
     }
 }
-fn diff_set<T: Clone + Eq + std::hash::Hash>(cur: &HashSet<T>, goal: &HashSet<T>) -> (HashSet<T>, HashSet<T>) {
+fn diff_set<T: Clone + Eq + std::hash::Hash>(
+    cur: &HashSet<T>,
+    goal: &HashSet<T>,
+) -> (HashSet<T>, HashSet<T>) {
     let mut intersection = HashSet::new();
     for id in cur.intersection(goal) {
         intersection.insert(id.clone());
@@ -102,9 +111,9 @@ fn diff_set<T: Clone + Eq + std::hash::Hash>(cur: &HashSet<T>, goal: &HashSet<T>
 #[test]
 fn test_diff_set() {
     use std::iter::FromIterator;
-    let cur = HashSet::from_iter(vec![1,2,3,4]);
-    let goal = HashSet::from_iter(vec![3,4,5,6]);
+    let cur = HashSet::from_iter(vec![1, 2, 3, 4]);
+    let goal = HashSet::from_iter(vec![3, 4, 5, 6]);
     let (to_add, to_remove) = diff_set(&cur, &goal);
-    assert_eq!(to_add, HashSet::from_iter(vec![5,6]));
-    assert_eq!(to_remove, HashSet::from_iter(vec![1,2]));
+    assert_eq!(to_add, HashSet::from_iter(vec![5, 6]));
+    assert_eq!(to_remove, HashSet::from_iter(vec![1, 2]));
 }

@@ -11,10 +11,10 @@ use futures::stream;
 use futures::StreamExt;
 use lol_core::connection::{self, gateway};
 use lol_core::{core_message, proto_compiled};
-use tonic::transport::channel::Endpoint;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::watch;
+use tonic::transport::channel::Endpoint;
 
 #[derive(Clap)]
 struct Opts {
@@ -45,7 +45,9 @@ async fn main() -> anyhow::Result<()> {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let endpoint = Endpoint::from_shared(id)
+                .unwrap()
+                .timeout(Duration::from_secs(1));
             let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -97,7 +99,9 @@ async fn main() -> anyhow::Result<()> {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let endpoint = Endpoint::from_shared(id)
+                .unwrap()
+                .timeout(Duration::from_secs(1));
             let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -155,7 +159,9 @@ async fn main() -> anyhow::Result<()> {
                 message: core_message::Req::serialize(&msg),
                 core: true,
             };
-            let endpoint = Endpoint::from_shared(id).unwrap().timeout(Duration::from_secs(1));
+            let endpoint = Endpoint::from_shared(id)
+                .unwrap()
+                .timeout(Duration::from_secs(1));
             let mut conn = connection::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();

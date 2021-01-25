@@ -20,4 +20,4 @@ RUN echo $PATH
 
 RUN rustup install nightly
 
-RUN rustup default 1.48.0
+RUN rustup default 1.49.0

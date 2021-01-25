@@ -1,5 +1,5 @@
-use integration_tests::kvs::*;
 use integration_tests::cluster::*;
+use integration_tests::kvs::*;
 
 use std::thread;
 use std::time::Duration;
@@ -81,9 +81,7 @@ fn test_yield_leadership() {
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();
     assert_eq!(cluster_info.leader_id, Some(env.get_node_id(0)));
 
-    Admin::to(0, env.clone())
-        .remove_server(0)
-        .unwrap();
+    Admin::to(0, env.clone()).remove_server(0).unwrap();
     thread::sleep(Duration::from_millis(100));
     let cluster_info = Admin::to(1, env.clone()).cluster_info().unwrap();
     assert!(cluster_info.leader_id.is_some());

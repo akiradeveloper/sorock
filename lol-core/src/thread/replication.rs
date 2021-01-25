@@ -23,14 +23,15 @@ impl<A: RaftApp> Thread<A> {
             })
             .await
             {}
-            let _ = tokio::time::timeout(Duration::from_millis(100), self.core.log.append_notify.notified()).await;
+            let _ = tokio::time::timeout(
+                Duration::from_millis(100),
+                self.core.log.append_notify.notified(),
+            )
+            .await;
         }
     }
 }
 pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
-    let x = Thread {
-        core,
-        follower_id,
-    };
+    let x = Thread { core, follower_id };
     x.run().await
 }

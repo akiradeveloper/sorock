@@ -1,7 +1,7 @@
 use crate::{RaftApp, RaftCore};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use std::sync::atomic::Ordering;
 
 struct Thread<A: RaftApp> {
     core: Arc<RaftCore<A>>,
@@ -23,7 +23,8 @@ impl<A: RaftApp> Thread<A> {
                 let new_snapshot_index = core.log.last_applied.load(Ordering::SeqCst);
                 core.log
                     .create_fold_snapshot(new_snapshot_index, Arc::clone(&core))
-                    .await.unwrap();
+                    .await
+                    .unwrap();
             };
             let _ = tokio::spawn(f).await;
         }
