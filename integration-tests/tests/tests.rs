@@ -1,4 +1,6 @@
-use integration::*;
+use integration_tests::kvs::*;
+use integration_tests::cluster::*;
+use integration_tests::env::*;
 
 use std::thread;
 use std::time::Duration;
@@ -30,9 +32,9 @@ fn test_pause() {
 fn test_add_existing_node() {
     let env = init_cluster(1);
     for _ in 0..100 {
-        Admin::to(0, env.clone()).add_server(0);
+        Admin::to(0, env.clone()).add_server(0).unwrap();
     }
-    assert_cluster(Duration::from_secs(5), vec![0], vec![0], env.clone())
+    ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone())
 }
 #[test]
 fn test_env_drop() {
@@ -46,17 +48,17 @@ fn test_env_drop() {
 #[test]
 fn test_create_three_nodes_cluster() {
     let env = init_cluster(1);
-    assert_cluster(Duration::from_secs(5), vec![0], vec![0], env.clone());
+    ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone());
 
     env.start(1, kvs_server(vec![]));
 
-    Admin::to(0, env.clone()).add_server(1);
-    assert_cluster(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
+    Admin::to(0, env.clone()).add_server(1).unwrap();
+    ensure_membership(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
 
     env.start(2, kvs_server(vec![]));
 
-    Admin::to(1, env.clone()).add_server(2);
-    assert_cluster(
+    Admin::to(1, env.clone()).add_server(2).unwrap();
+    ensure_membership(
         Duration::from_secs(5),
         vec![0, 1, 2],
         vec![0, 1, 2],
@@ -72,7 +74,7 @@ fn test_init_cluster_again() {
     let env = init_cluster(1);
     Admin::to(0, env.clone()).remove_server(0).unwrap();
     Admin::to(0, env.clone()).add_server(0).unwrap();
-    assert_cluster(
+    ensure_membership(
         Duration::from_secs(5),
         vec![0],
         vec![0],
@@ -94,11 +96,11 @@ fn test_two_nodes_operations() {
 
     env.start(1, kvs_server(vec![]));
 
-    Admin::to(0, env.clone()).add_server(1);
-    assert_cluster(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
+    Admin::to(0, env.clone()).add_server(1).unwrap();
+    ensure_membership(Duration::from_secs(5), vec![0, 1], vec![0, 1], env.clone());
 
-    Client::to(0, env.clone()).set("a", "1");
-    Client::to(1, env.clone()).set("b", "1");
+    Client::to(0, env.clone()).set("a", "1").unwrap();
+    Client::to(1, env.clone()).set("b", "1").unwrap();
 }
 #[test]
 fn test_three_nodes_operations() {
@@ -115,7 +117,7 @@ fn test_16_nodes_operations() {
     let env = init_cluster(16);
     for i in 1..100 {
         let x = format!("{}", i);
-        Client::to(0, env.clone()).set(&x, &x);
+        Client::to(0, env.clone()).set(&x, &x).unwrap();
         assert!(eventually(Duration::from_secs(5), Some(x.clone()), || {
             Client::to(0, env.clone()).get(&x).unwrap().0
         }))
@@ -162,7 +164,7 @@ fn test_slow_node_catch_up() {
     let e1 = env.clone();
     let client = thread::spawn(move || {
         for _ in 0..2000 {
-            Client::to(0, e1.clone()).set("a", "1");
+            Client::to(0, e1.clone()).set("a", "1").unwrap();
         }
     });
     for _ in 0..4 {
@@ -171,17 +173,17 @@ fn test_slow_node_catch_up() {
         thread::sleep(Duration::from_secs(5));
         env.unpause(2);
     }
-    client.join();
+    client.join().unwrap();
 }
 #[test]
 fn test_add_new_node() {
     let env = init_cluster(2);
     for _ in 1..1000 {
-        Client::to(0, env.clone()).set("a", "1");
+        Client::to(0, env.clone()).set("a", "1").unwrap();
     }
     thread::sleep(Duration::from_secs(10));
     env.start(2, kvs_server(vec![]));
-    Admin::to(0, env.clone()).add_server(2);
+    Admin::to(0, env.clone()).add_server(2).unwrap();
     thread::sleep(Duration::from_secs(5));
     env.stop(1);
     let r = Client::to(0, env.clone()).get("a");
@@ -191,13 +193,13 @@ fn test_add_new_node() {
 fn test_replicate_fast_snapshot_to_slow_node() {
     let env = init_cluster(3);
     for _ in 1..500 {
-        Client::to(0, env.clone()).set("a", "1");
+        Client::to(0, env.clone()).set("a", "1").unwrap();
     }
 
     // ND2 can't receive entries
     env.pause(2);
     for _ in 1..500 {
-        Client::to(0, env.clone()).set("a", "1");
+        Client::to(0, env.clone()).set("a", "1").unwrap();
     }
 
     // wait for a new snapshot to be made
@@ -265,17 +267,17 @@ fn test_huge_request() {
 }
 #[test]
 fn test_copy_snapshot() {
-    let env = Environment::new(0, kvs_server(vec!["--copy-snapshot-mode"]));
-    Client::to(0, env.clone()).set_rep("k", "1", 1);
-    Client::to(0, env.clone()).set_rep("k", "2", 1);
-    Client::to(0, env.clone()).set_rep("k", "3", 1);
-    Client::to(0, env.clone()).set_rep("k", "2", 1);
+    let env = env_new(0, kvs_server(vec!["--copy-snapshot-mode"]));
+    Client::to(0, env.clone()).set_rep("k", "1", 1).unwrap();
+    Client::to(0, env.clone()).set_rep("k", "2", 1).unwrap();
+    Client::to(0, env.clone()).set_rep("k", "3", 1).unwrap();
+    Client::to(0, env.clone()).set_rep("k", "2", 1).unwrap();
     // snapshot inserted
     thread::sleep(Duration::from_secs(3));
 
     // add ND1 into the cluster
     env.start(1, kvs_server(vec![]));
-    Admin::to(0, env.clone()).add_server(1);
+    Admin::to(0, env.clone()).add_server(1).unwrap();
     // snapshot is replicated
     thread::sleep(Duration::from_secs(3));
 

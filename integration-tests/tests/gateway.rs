@@ -1,4 +1,6 @@
-use integration::*;
+use integration_tests::kvs::*;
+use integration_tests::cluster::*;
+
 use lol_core::Id;
 use lol_core::connection::{self, gateway};
 use std::collections::HashSet;
@@ -14,8 +16,8 @@ async fn test_gateway() {
 
     env.start(1, kvs_server(vec![]));
     env.start(2, kvs_server(vec![]));
-    Admin::to(0, env.clone()).add_server(1);
-    Admin::to(0, env.clone()).add_server(2);
+    Admin::to(0, env.clone()).add_server(1).unwrap();
+    Admin::to(0, env.clone()).add_server(2).unwrap();
     tokio::time::sleep(Duration::from_secs(6)).await;
 
     let connect = |id| async {
