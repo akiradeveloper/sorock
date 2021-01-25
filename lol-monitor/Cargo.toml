@@ -13,11 +13,11 @@ default = ["termion"]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 tokio-stream = "0.1"
-tui = "*"
+tui = "0.14"
 termion = { version = "1.5", optional = true }
 anyhow = "1.0"
 futures = "0.3"
-clap = "3.0.0-beta.1"
+clap = "3.0.0-beta.2"
 async-stream = "0.3"
 
 lol-core = { path = "../lol-core" }

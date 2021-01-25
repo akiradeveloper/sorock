@@ -19,7 +19,7 @@ tokio-stream = "0.1"
 tonic = "0.4"
 bytes = { version = "1", features = ["serde"] }
 prost = "0.7"
-rand = "0.7"
+rand = "0.8"
 async-trait = "0.1"
 async-stream = "0.3"
 futures = "0.3"
@@ -34,7 +34,7 @@ phi-detector = "0.3"
 rocksdb = { version = "0.15", optional = true }
 
 [build-dependencies]
-tonic-build = { git = "https://github.com/hyperium/tonic.git", branch = "master" }
+tonic-build = "0.4"
 prost-build = "0.7"
 
 [features]
