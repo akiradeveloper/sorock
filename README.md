@@ -8,7 +8,7 @@
 
 A Raft implementation in Rust language. To support this project please give it a ⭐
 
-[Documentation](https://akiradeveloper.github.io/lol/)
+[Documentation (mdBook)](https://akiradeveloper.github.io/lol/)
 
 ## Features
 
