@@ -1,6 +1,8 @@
 #![feature(test)]
 
-use integration::*;
+use integration_tests::kvs::*;
+use integration_tests::cluster::*;
+use integration_tests::env::NodeCommand;
 
 use std::thread;
 use std::time::Duration;
