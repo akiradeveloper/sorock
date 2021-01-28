@@ -58,7 +58,9 @@ impl Environment {
         // followed by the rest of the parameters.
 
         // Id can be host:port. it is resolved by the server.
+        let prof_file = format!("cov/{}.profraw", crate::get_seqid());
         let child = std::process::Command::new(command.name)
+            .env("LLVM_PROFILE_FILE", prof_file)
             .arg(&format!("http://localhost:{}", port))
             .args(command.args)
             .spawn()
