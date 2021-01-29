@@ -34,6 +34,12 @@ tonic::transport::Server::builder()
   .serve(socket).await;
 ```
 
+## Related Projects
+
+- [lol-perf](https://github.com/akiradeveloper/lol-perf): Performance analysis project which utilizes [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph)
+and [cargo-profiler](https://github.com/svenstaro/cargo-profiler).
+- [lol-book](https://github.com/akiradeveloper/lol-book): Documentation project which utilizes [mdbook](https://github.com/rust-lang/mdBook).
+
 ## Development
 
 Use docker container to make an dev environment on your computer.
