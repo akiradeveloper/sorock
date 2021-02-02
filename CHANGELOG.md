@@ -1,13 +1,19 @@
+# 0.7.1 (2021-2-2)
+
+- Use JoinHandle#abort to abort the running thread. (#159)
+- Add code coverage measurement. (#161)
+
 # 0.7.0 (2021-1-25)
 
-- Now based on Tokio 1.0.
-- Stability: Introduce Pre-Vote phase.
-- Performance: Change internal serializer from MessagePack to Bincode.
+- Now based on Tokio 1.0. (#144)
+- Stability Improvement: Introduce Pre-Vote phase. (#139)
+- Use prost's new feature to generate Bytes as bytes. (#150)
+- Performance Inprovement: Change internal serializer from MessagePack to Bincode. (#152)
 
 # 0.6.3 (2021-1-7)
 
 - Revert on-faliure log blocking which was introduced in 0.5.3 (@07465c5)
-- Refactor code about cluster membership.
+- Refactor code about cluster membership. (#133)
 - Update documents.
 
 # 0.6.2 (2020-12-10)
