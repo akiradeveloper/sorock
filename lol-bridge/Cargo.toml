@@ -1,6 +1,6 @@
 [package]
 name = "lol-bridge"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
