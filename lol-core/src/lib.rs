@@ -348,6 +348,20 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::HealthCheck { ok: true };
                 Ok(core_message::Rep::serialize(&res))
             }
+            core_message::Req::TuneConfigInfo => {
+                match self.tunable.try_read() {
+                    Ok(tunable) => {
+                        let res = core_message::Rep::TuneConfigInfo {
+                            compaction_delay_sec: tunable.compaction_delay_sec,
+                            compaction_interval_sec: tunable.compaction_interval_sec,
+                        };
+                        Ok(core_message::Rep::serialize(&res))
+                    },
+                    Err(_) => {
+                        Err(anyhow!("cannot read tunable config: tunable state in raft core is poisoned"))
+                    }
+                }
+            }
             _ => Err(anyhow!("the message not supported")),
         }
     }

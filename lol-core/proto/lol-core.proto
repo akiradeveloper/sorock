@@ -81,6 +81,13 @@ message RemoveServerReq {
 }
 message RemoveServerRep {}
 
+message TunableConfigReq {
+    uint64 compaction_delay_sec = 1;
+    uint64 compaction_interval_sec = 2;
+}
+
+message TunableConfigRep {}
+
 service Raft {
     rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
     rpc SendAppendEntry (stream AppendEntryReq) returns (AppendEntryRep);
@@ -93,4 +100,5 @@ service Raft {
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
     rpc AddServer (AddServerReq) returns (AddServerRep);
     rpc RemoveServer (RemoveServerReq) returns (RemoveServerRep);
+    rpc TuneConfig (TunableConfigReq) returns (TunableConfigRep);
 }

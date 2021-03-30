@@ -8,6 +8,7 @@ pub enum Req {
     ClusterInfo,
     LogInfo,
     HealthCheck,
+    TuneConfigInfo,
 }
 /// Reply
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -25,7 +26,10 @@ pub enum Rep {
     HealthCheck {
         ok: bool,
     },
-    // TODO: Tune
+    TuneConfigInfo {
+        compaction_delay_sec: u64,
+        compaction_interval_sec: u64,
+    }
 }
 impl Req {
     pub fn serialize(x: &Self) -> Vec<u8> {
