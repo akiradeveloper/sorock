@@ -348,10 +348,10 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::HealthCheck { ok: true };
                 Ok(core_message::Rep::serialize(&res))
             }
-            core_message::Req::TuneConfigInfo => {
+            core_message::Req::TunableConfigInfo => {
                 match self.tunable.try_read() {
                     Ok(tunable) => {
-                        let res = core_message::Rep::TuneConfigInfo {
+                        let res = core_message::Rep::TunableConfigInfo {
                             compaction_delay_sec: tunable.compaction_delay_sec,
                             compaction_interval_sec: tunable.compaction_interval_sec,
                         };

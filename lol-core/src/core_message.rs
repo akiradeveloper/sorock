@@ -8,7 +8,7 @@ pub enum Req {
     ClusterInfo,
     LogInfo,
     HealthCheck,
-    TuneConfigInfo,
+    TunableConfigInfo,
 }
 /// Reply
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -26,7 +26,7 @@ pub enum Rep {
     HealthCheck {
         ok: bool,
     },
-    TuneConfigInfo {
+    TunableConfigInfo {
         compaction_delay_sec: u64,
         compaction_interval_sec: u64,
     }

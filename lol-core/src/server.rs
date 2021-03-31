@@ -60,15 +60,15 @@ pub struct Server<A: RaftApp> {
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
 
-    async fn tune_config(
+    async fn tunable_config(
         &self,
         request: tonic::Request<TunableConfigReq>,
     ) -> Result<tonic::Response<TunableConfigRep>, tonic::Status> {
         let req: TunableConfigReq = request.into_inner();
         match self.core.tunable.try_write() {
             Ok(mut tunable) => {
-                (*tunable).compaction_delay_sec = req.compaction_delay_sec;
-                (*tunable).compaction_interval_sec = req.compaction_interval_sec;
+                req.compaction_delay_sec.map(|value| (*tunable).compaction_delay_sec = value);
+                req.compaction_interval_sec.map(|value| (*tunable).compaction_interval_sec = value);
                 Ok(tonic::Response::new(proto_compiled::TunableConfigRep { }))
             },
             Err(poisoned_error) => {

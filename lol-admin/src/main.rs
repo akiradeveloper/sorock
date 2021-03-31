@@ -78,7 +78,7 @@ async fn main() {
             conn.timeout_now(req).await.unwrap();
         }
         Sub::TunableConfigInfo => {
-            let msg = core_message::Req::TuneConfigInfo;
+            let msg = core_message::Req::TunableConfigInfo;
             let req = proto_compiled::ProcessReq {
                 message: core_message::Req::serialize(&msg),
                 core: true,
