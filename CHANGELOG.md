@@ -1,3 +1,8 @@
+# 0.7.2 (2021-4-1)
+
+- Implement Tune message. (#173)
+- Fix error handling. (#168)
+
 # 0.7.1 (2021-2-2)
 
 - Use JoinHandle#abort to abort the running thread. (#159)
