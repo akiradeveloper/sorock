@@ -30,8 +30,8 @@ let storage = ...; // Choose a backend from lol_core::storage
 let core = RaftCore::new(app, storage, config, ...);
 let service = lol_core::make_service(core);
 tonic::transport::Server::builder()
-  .add_service(service)
-  .serve(socket).await;
+    .add_service(service)
+    .serve(socket).await;
 ```
 
 ## Related Projects
