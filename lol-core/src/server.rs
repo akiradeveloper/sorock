@@ -8,7 +8,7 @@ use proto_compiled::{
     raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep, AppendEntryReq, ApplyRep,
     ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep,
     ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep,
-    TimeoutNowReq,
+    TimeoutNowReq, TunableConfigReq, TunableConfigRep
 };
 // This code is expecting stream in a form
 // Header (Entry Frame+)
@@ -59,6 +59,26 @@ pub struct Server<A: RaftApp> {
 }
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
+
+    async fn tunable_config(
+        &self,
+        request: tonic::Request<TunableConfigReq>,
+    ) -> Result<tonic::Response<TunableConfigRep>, tonic::Status> {
+        let req: TunableConfigReq = request.into_inner();
+        match self.core.tunable.try_write() {
+            Ok(mut tunable) => {
+                req.compaction_delay_sec.map(|value| (*tunable).compaction_delay_sec = value);
+                req.compaction_interval_sec.map(|value| (*tunable).compaction_interval_sec = value);
+                Ok(tonic::Response::new(proto_compiled::TunableConfigRep { }))
+            },
+            Err(poisoned_error) => {
+                Err(tonic::Status::internal(
+                    format!("cannot update tunable configuration: state is poisoned({})", poisoned_error)
+                ))
+            }
+        }
+    }
+
     async fn request_apply(
         &self,
         request: tonic::Request<ApplyReq>,
