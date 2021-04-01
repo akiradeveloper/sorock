@@ -10,7 +10,7 @@ edition = "2018"
 default = ["termion"]
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 tokio-stream = "0.1"
 tui = "0.14"
