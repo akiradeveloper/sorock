@@ -8,7 +8,7 @@ use proto_compiled::{
     raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep, AppendEntryReq, ApplyRep,
     ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep,
     ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep,
-    TimeoutNowReq, TunableConfigReq, TunableConfigRep
+    TimeoutNowReq, TuneConfigReq, TuneConfigRep
 };
 // This code is expecting stream in a form
 // Header (Entry Frame+)
@@ -59,17 +59,16 @@ pub struct Server<A: RaftApp> {
 }
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
-
-    async fn tunable_config(
+    async fn tune_config(
         &self,
-        request: tonic::Request<TunableConfigReq>,
-    ) -> Result<tonic::Response<TunableConfigRep>, tonic::Status> {
-        let req: TunableConfigReq = request.into_inner();
+        request: tonic::Request<TuneConfigReq>,
+    ) -> Result<tonic::Response<TuneConfigRep>, tonic::Status> {
+        let req: TuneConfigReq = request.into_inner();
         match self.core.tunable.try_write() {
             Ok(mut tunable) => {
                 req.compaction_delay_sec.map(|value| (*tunable).compaction_delay_sec = value);
                 req.compaction_interval_sec.map(|value| (*tunable).compaction_interval_sec = value);
-                Ok(tonic::Response::new(proto_compiled::TunableConfigRep { }))
+                Ok(tonic::Response::new(proto_compiled::TuneConfigRep {}))
             },
             Err(poisoned_error) => {
                 Err(tonic::Status::internal(
@@ -78,7 +77,6 @@ impl<A: RaftApp> Raft for Server<A> {
             }
         }
     }
-
     async fn request_apply(
         &self,
         request: tonic::Request<ApplyReq>,
