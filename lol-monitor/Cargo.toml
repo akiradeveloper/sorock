@@ -1,6 +1,6 @@
 [package]
 name = "lol-monitor"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ edition = "2018"
 default = ["termion"]
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 tokio-stream = "0.1"
 tui = "0.14"

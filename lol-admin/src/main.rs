@@ -27,6 +27,8 @@ enum Sub {
     ClusterInfo,
     #[structopt(name = "timeout-now")]
     TimeoutNow,
+    #[structopt(name = "tunable-config")]
+    TunableConfigInfo
 }
 #[tokio::main]
 async fn main() {
@@ -74,6 +76,20 @@ async fn main() {
         Sub::TimeoutNow => {
             let req = proto_compiled::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
+        }
+        Sub::TunableConfigInfo => {
+            let msg = core_message::Req::TunableConfigInfo;
+            let req = proto_compiled::ProcessReq {
+                message: core_message::Req::serialize(&msg),
+                core: true,
+            };
+            let res = conn
+                .request_process_locally(req)
+                .await
+                .unwrap()
+                .into_inner();
+            let msg = core_message::Rep::deserialize(&res.message).unwrap();
+            println!("{}", serde_json::to_string(&msg).unwrap())
         }
     }
 }

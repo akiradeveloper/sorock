@@ -1,13 +1,13 @@
 [package]
 name = "lol-admin"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 structopt = "0.3"
 serde = { version = "1.0", features = ["derive"] }

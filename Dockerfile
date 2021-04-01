@@ -18,6 +18,6 @@ RUN echo $HOME
 ENV PATH=/home/${USER}/.cargo/bin:$PATH
 RUN echo $PATH
 
+RUN rustup install 1.51.0
 RUN rustup install nightly
-
-RUN rustup default 1.49.0
+RUN rustup default 1.51.0

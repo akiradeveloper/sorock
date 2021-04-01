@@ -348,6 +348,20 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::HealthCheck { ok: true };
                 Ok(core_message::Rep::serialize(&res))
             }
+            core_message::Req::TunableConfigInfo => {
+                match self.tunable.try_read() {
+                    Ok(tunable) => {
+                        let res = core_message::Rep::TunableConfigInfo {
+                            compaction_delay_sec: tunable.compaction_delay_sec,
+                            compaction_interval_sec: tunable.compaction_interval_sec,
+                        };
+                        Ok(core_message::Rep::serialize(&res))
+                    },
+                    Err(_) => {
+                        Err(anyhow!("cannot read tunable config: tunable state in raft core is poisoned"))
+                    }
+                }
+            }
             _ => Err(anyhow!("the message not supported")),
         }
     }
@@ -1168,19 +1182,18 @@ impl Log {
                     snapshot_index
                 );
 
+                // Snapshot resource is not defined with snapshot_index=1.
                 if sender_id != core.id && snapshot_index > 1 {
-                    let res = core.fetch_snapshot(snapshot_index, sender_id.clone()).await;
-                    if res.is_err() {
-                        log::error!(
-                            "could not fetch app snapshot (idx={}) from sender {}",
-                            snapshot_index,
-                            sender_id
-                        );
-                        return Ok(TryInsertResult::Rejected);
+                    if let Err(e) = core.fetch_snapshot(snapshot_index, sender_id.clone()).await {
+                        log::error!("could not fetch app snapshot (idx={}) from sender {}", snapshot_index, sender_id);
+                        return Err(e);
                     }
                 }
+                if let Err(e) = self.insert_snapshot(entry).await {
+                    log::error!("could not insert snapshot entry (idx={})", snapshot_index);
+                    return Err(e);
+                }
 
-                self.insert_snapshot(entry).await?;
                 self.commit_index
                     .store(snapshot_index - 1, Ordering::SeqCst);
                 self.last_applied
