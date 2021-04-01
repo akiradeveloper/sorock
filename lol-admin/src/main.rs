@@ -89,7 +89,7 @@ async fn main() {
                 .unwrap()
                 .into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            println!("TunableConfig response : {}", serde_json::to_string(&msg).unwrap())
+            println!("{}", serde_json::to_string(&msg).unwrap())
         }
     }
 }
