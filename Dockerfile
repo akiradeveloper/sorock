@@ -1,4 +1,4 @@
-FROM 'centos:7'
+FROM 'centos:8'
 WORKDIR '/lol-root'
 
 RUN yum install -y sudo gcc iputils bind-utils make
@@ -18,6 +18,6 @@ RUN echo $HOME
 ENV PATH=/home/${USER}/.cargo/bin:$PATH
 RUN echo $PATH
 
-RUN rustup install 1.51.0
+RUN rustup install 1.54.0
 RUN rustup install nightly
-RUN rustup default 1.51.0
+RUN rustup default 1.54.0
