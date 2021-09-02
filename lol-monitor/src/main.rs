@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::watch;
 use tonic::transport::channel::Endpoint;
+use lol_core::proto_compiled::raft_client::RaftClient;
 
 #[derive(Clap)]
 struct Opts {
@@ -48,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
             let endpoint = Endpoint::from_shared(id)
                 .unwrap()
                 .timeout(Duration::from_secs(1));
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn.request_process(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::ClusterInfo {
@@ -102,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
             let endpoint = Endpoint::from_shared(id)
                 .unwrap()
                 .timeout(Duration::from_secs(1));
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::LogInfo {
@@ -162,7 +163,7 @@ async fn main() -> anyhow::Result<()> {
             let endpoint = Endpoint::from_shared(id)
                 .unwrap()
                 .timeout(Duration::from_secs(1));
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn.request_process_locally(req).await?.into_inner();
             let msg = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::HealthCheck { ok } = msg {

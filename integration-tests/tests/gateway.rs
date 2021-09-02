@@ -2,6 +2,7 @@ use integration_tests::cluster::*;
 use integration_tests::kvs::*;
 
 use lol_core::connection::{self, gateway};
+use lol_core::proto_compiled::raft_client::RaftClient;
 use lol_core::Id;
 use std::collections::HashSet;
 use std::time::Duration;
@@ -22,7 +23,7 @@ async fn test_gateway() {
 
     let connect = |id| async {
         let endpoint = Endpoint::from_shared(id).unwrap();
-        connection::connect(endpoint).await?;
+        RaftClient::connect(endpoint).await?;
         Ok(())
     };
 

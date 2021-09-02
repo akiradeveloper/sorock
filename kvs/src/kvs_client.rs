@@ -1,4 +1,5 @@
 use lol_core::proto_compiled;
+use lol_core::proto_compiled::raft_client::RaftClient;
 use std::time::Duration;
 use structopt::StructOpt;
 use tonic::transport::channel::Endpoint;
@@ -36,7 +37,7 @@ async fn main() {
     let endpoint = Endpoint::from_shared(opt.id)
         .unwrap()
         .timeout(Duration::from_secs(5));
-    let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
+    let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::Get { key } => {
             let msg = kvs::Req::Get { key };

@@ -22,6 +22,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
+use proto_compiled::raft_client::RaftClient;
 
 mod ack;
 /// Simple and backward-compatible RaftApp trait.
@@ -613,11 +614,12 @@ impl<A: RaftApp> RaftCore<A> {
             .prepare_replication_stream(old_progress.next_index, old_progress.next_index + n)
             .await?;
 
-        let res = async {
+        let res: anyhow::Result<_> = async {
             let endpoint = Endpoint::from_shared(follower_id.clone()).unwrap();
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = RaftClient::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
-            conn.send_append_entry(out_stream).await
+            let res = conn.send_append_entry(out_stream).await?;
+            Ok(res)
         }
         .await;
 
@@ -682,7 +684,7 @@ impl<A: RaftApp> RaftCore<A> {
         //
         // Fetching snapshot can take very long then setting timeout is not appropriate here.
         let endpoint = Endpoint::from_shared(to).unwrap();
-        let mut conn = connection::connect(endpoint).await?;
+        let mut conn = RaftClient::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
         };
@@ -863,12 +865,13 @@ impl<A: RaftApp> RaftCore<A> {
                     // We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
                     pre_vote,
                 };
-                let res = async {
+                let res: anyhow::Result<_> = async {
                     let endpoint = Endpoint::from_shared(endpoint)
                         .unwrap()
                         .timeout(vote_timeout);
-                    let mut conn = connection::connect(endpoint).await?;
-                    conn.request_vote(req).await
+                    let mut conn = RaftClient::connect(endpoint).await?;
+                    let res = conn.request_vote(req).await?;
+                    Ok(res)
                 }
                 .await;
                 match res {
@@ -973,7 +976,7 @@ impl<A: RaftApp> RaftCore<A> {
                 leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
         };
-        if let Ok(mut conn) = connection::connect(endpoint).await {
+        if let Ok(mut conn) = RaftClient::connect(endpoint).await {
             let res = conn.send_heartbeat(req).await;
             if res.is_err() {
                 log::warn!("heartbeat to {} failed", follower_id);
@@ -1049,7 +1052,7 @@ impl<A: RaftApp> RaftCore<A> {
     fn send_timeout_now(&self, id: Id) {
         tokio::spawn(async move {
             let endpoint = Endpoint::from_shared(id).unwrap();
-            if let Ok(mut conn) = connection::connect(endpoint).await {
+            if let Ok(mut conn) = RaftClient::connect(endpoint).await {
                 let req = proto_compiled::TimeoutNowReq {};
                 let _ = conn.timeout_now(req).await;
             }
