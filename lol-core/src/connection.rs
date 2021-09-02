@@ -6,6 +6,8 @@ use tokio::sync::watch;
 pub(crate) use tonic::transport::Endpoint;
 
 pub type RaftClient = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
+
+#[deprecated(since = "0.7.3", note = "Use RaftClient::connect directly")]
 pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
     let uri = endpoint.uri().clone();
     proto_compiled::raft_client::RaftClient::connect(endpoint)
