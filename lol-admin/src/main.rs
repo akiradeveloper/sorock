@@ -1,4 +1,4 @@
-use lol_core::{core_message, proto_compiled};
+use lol_core::{core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::time::Duration;
 use structopt::StructOpt;
 use tonic::transport::channel::Endpoint;
@@ -28,7 +28,7 @@ enum Sub {
     #[structopt(name = "timeout-now")]
     TimeoutNow,
     #[structopt(name = "tunable-config")]
-    TunableConfigInfo
+    TunableConfigInfo,
 }
 #[tokio::main]
 async fn main() {
@@ -36,7 +36,7 @@ async fn main() {
     let endpoint = Endpoint::from_shared(opt.dest_id)
         .unwrap()
         .timeout(Duration::from_secs(5));
-    let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
+    let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
             let req = proto_compiled::AddServerReq { id };

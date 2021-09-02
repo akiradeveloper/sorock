@@ -2,6 +2,7 @@ FROM 'rust:1.54.0'
 WORKDIR '/work'
 RUN rustup component add rustfmt
 RUN rustup install nightly
+RUN rustup component add rustfmt --toolchain nightly
 RUN apt-get update && \
 	apt-get install -y ruby clang && \
 	apt-get install -y build-essential && \

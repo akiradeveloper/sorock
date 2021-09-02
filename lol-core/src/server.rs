@@ -1,15 +1,28 @@
-use crate::connection::{self, Endpoint};
+use crate::connection::Endpoint;
 use crate::{ack, core_message, proto_compiled, Clock, Command, ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_stream::StreamExt;
 
 use proto_compiled::{
-    raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep, AppendEntryReq, ApplyRep,
-    ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep,
-    ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep,
-    TimeoutNowReq, TuneConfigReq, TuneConfigRep
+    raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
+    AppendEntryReq, ApplyRep, ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep,
+    HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep,
+    RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
+async fn connect(
+    endpoint: Endpoint,
+) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
+    let uri = endpoint.uri().clone();
+    proto_compiled::raft_client::RaftClient::connect(endpoint)
+        .await
+        .map_err(|_| {
+            tonic::Status::new(
+                tonic::Code::Unavailable,
+                format!("failed to connect to {}", uri),
+            )
+        })
+}
 // This code is expecting stream in a form
 // Header (Entry Frame+)
 async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> crate::LogStream {
@@ -66,15 +79,16 @@ impl<A: RaftApp> Raft for Server<A> {
         let req: TuneConfigReq = request.into_inner();
         match self.core.tunable.try_write() {
             Ok(mut tunable) => {
-                req.compaction_delay_sec.map(|value| (*tunable).compaction_delay_sec = value);
-                req.compaction_interval_sec.map(|value| (*tunable).compaction_interval_sec = value);
+                req.compaction_delay_sec
+                    .map(|value| (*tunable).compaction_delay_sec = value);
+                req.compaction_interval_sec
+                    .map(|value| (*tunable).compaction_interval_sec = value);
                 Ok(tonic::Response::new(proto_compiled::TuneConfigRep {}))
-            },
-            Err(poisoned_error) => {
-                Err(tonic::Status::internal(
-                    format!("cannot update tunable configuration: state is poisoned({})", poisoned_error)
-                ))
             }
+            Err(poisoned_error) => Err(tonic::Status::internal(format!(
+                "cannot update tunable configuration: state is poisoned({})",
+                poisoned_error
+            ))),
         }
     }
     async fn request_apply(
@@ -114,7 +128,7 @@ impl<A: RaftApp> Raft for Server<A> {
                 .map_err(|_| tonic::Status::cancelled("failed to apply the request"))
         } else {
             let endpoint = Endpoint::from_shared(leader_id).unwrap();
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = connect(endpoint).await?;
             conn.request_apply(request).await
         }
     }
@@ -183,7 +197,7 @@ impl<A: RaftApp> Raft for Server<A> {
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
         } else {
             let endpoint = Endpoint::from_shared(leader_id).unwrap();
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = connect(endpoint).await?;
             conn.request_commit(request).await
         }
     }
@@ -213,7 +227,7 @@ impl<A: RaftApp> Raft for Server<A> {
                 .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
         } else {
             let endpoint = Endpoint::from_shared(leader_id).unwrap();
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = connect(endpoint).await?;
             conn.request_process(request).await
         }
     }
@@ -336,7 +350,7 @@ impl<A: RaftApp> Raft for Server<A> {
             let endpoint = Endpoint::from_shared(self.core.id.clone())
                 .unwrap()
                 .timeout(Duration::from_secs(5));
-            let mut conn = connection::connect(endpoint).await?;
+            let mut conn = connect(endpoint).await?;
             conn.request_commit(req).await.is_ok()
         };
         if ok {
@@ -358,7 +372,7 @@ impl<A: RaftApp> Raft for Server<A> {
         let endpoint = Endpoint::from_shared(self.core.id.clone())
             .unwrap()
             .timeout(Duration::from_secs(5));
-        let mut conn = connection::connect(endpoint).await?;
+        let mut conn = connect(endpoint).await?;
         let ok = conn.request_commit(req).await.is_ok();
         if ok {
             Ok(tonic::Response::new(RemoveServerRep {}))

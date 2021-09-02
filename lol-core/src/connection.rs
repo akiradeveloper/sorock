@@ -1,21 +1,22 @@
 use crate::proto_compiled;
+use crate::proto_compiled::raft_client::RaftClient;
 use crate::Id;
 use std::time::Duration;
 use tokio::sync::watch;
 
 pub(crate) use tonic::transport::Endpoint;
 
-pub type RaftClient = proto_compiled::raft_client::RaftClient<tonic::transport::Channel>;
-pub async fn connect(endpoint: Endpoint) -> Result<RaftClient, tonic::Status> {
+#[deprecated(since = "0.7.3", note = "Use RaftClient::connect directly")]
+pub async fn connect(
+    endpoint: Endpoint,
+) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
     let uri = endpoint.uri().clone();
-    proto_compiled::raft_client::RaftClient::connect(endpoint)
-        .await
-        .map_err(|_| {
-            tonic::Status::new(
-                tonic::Code::Unavailable,
-                format!("failed to connect to {}", uri),
-            )
-        })
+    RaftClient::connect(endpoint).await.map_err(|_| {
+        tonic::Status::new(
+            tonic::Code::Unavailable,
+            format!("failed to connect to {}", uri),
+        )
+    })
 }
 
 /// The purpose of gateway is to track the cluster members.
@@ -41,7 +42,7 @@ pub mod gateway {
                 message: core_message::Req::serialize(&req),
             };
             let endpoint = Endpoint::from_shared(id)?;
-            let mut conn = connect(endpoint).await?;
+            let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn.request_process(req).await?.into_inner();
             let res = core_message::Rep::deserialize(&res.message).unwrap();
             if let core_message::Rep::ClusterInfo {

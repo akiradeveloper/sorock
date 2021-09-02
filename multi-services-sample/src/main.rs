@@ -1,5 +1,8 @@
 use clap::Clap;
-use lol_core::{Index, RaftApp, compat::{RaftAppCompat, ToRaftApp}};
+use lol_core::{
+    compat::{RaftAppCompat, ToRaftApp},
+    Index, RaftApp,
+};
 use std::sync::Arc;
 
 tonic::include_proto!("my_service");
@@ -73,7 +76,9 @@ async fn run_server() {
 
     // Raft service
     let svc1 = {
-        let app = MyRaftApp { my_app: Arc::clone(&my_app), };
+        let app = MyRaftApp {
+            my_app: Arc::clone(&my_app),
+        };
         let app = ToRaftApp::new(app);
         let storage = lol_core::storage::memory::Storage::new();
         let config = lol_core::Config::new("http://localhost:50000".to_owned());
@@ -84,7 +89,9 @@ async fn run_server() {
 
     // Non-Raft service
     let svc2 = {
-        let svc = MyServer { my_app: Arc::clone(&my_app), };
+        let svc = MyServer {
+            my_app: Arc::clone(&my_app),
+        };
         my_service_server::MyServiceServer::new(svc)
     };
 
@@ -99,17 +106,28 @@ async fn run_server() {
 }
 
 async fn run_client() {
-    let mut cli1 = { 
+    let mut cli1 = {
         let endpoint = tonic::transport::Endpoint::from_static("http://localhost:50000");
-        lol_core::proto_compiled::raft_client::RaftClient::connect(endpoint).await.unwrap()
+        lol_core::proto_compiled::raft_client::RaftClient::connect(endpoint)
+            .await
+            .unwrap()
     };
     let mut cli2 = {
         let endpoint = tonic::transport::Endpoint::from_static("http://localhost:50000");
-        my_service_client::MyServiceClient::connect(endpoint).await.unwrap()
+        my_service_client::MyServiceClient::connect(endpoint)
+            .await
+            .unwrap()
     };
-    
-    let req1 = lol_core::proto_compiled::ProcessReq { message: vec![0;100], core: false };
-    let rep1 = cli1.request_process_locally(req1).await.unwrap().into_inner();
+
+    let req1 = lol_core::proto_compiled::ProcessReq {
+        message: vec![0; 100],
+        core: false,
+    };
+    let rep1 = cli1
+        .request_process_locally(req1)
+        .await
+        .unwrap()
+        .into_inner();
 
     let req2 = DoubleReq { x: 5 };
     let rep2 = cli2.double(req2).await.unwrap().into_inner();
@@ -119,8 +137,15 @@ async fn run_client() {
     let rep3 = cli2.plus_one(req3).await.unwrap().into_inner();
     println!("=> {}", rep3.r);
 
-    let req4 = lol_core::proto_compiled::ProcessReq { message: vec![0;200], core: false };
-    let rep4 = cli1.request_process_locally(req4).await.unwrap().into_inner();
+    let req4 = lol_core::proto_compiled::ProcessReq {
+        message: vec![0; 200],
+        core: false,
+    };
+    let rep4 = cli1
+        .request_process_locally(req4)
+        .await
+        .unwrap()
+        .into_inner();
 }
 
 #[tokio::main]
