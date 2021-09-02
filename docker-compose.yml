@@ -3,4 +3,4 @@ services:
   dev:
     image: lol:dev
     volumes:
-      - .:/lol-root
+      - .:/work

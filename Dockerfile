@@ -1,23 +1,16 @@
-FROM 'centos:8'
-WORKDIR '/lol-root'
-
-RUN yum install -y sudo gcc iputils bind-utils make
-RUN yum install -y ruby
-RUN yum install -y clang gcc-c++
+FROM 'rust:1.54.0'
+WORKDIR '/work'
+RUN rustup component add rustfmt
+RUN rustup install nightly
+RUN apt-get update && \
+	apt-get install -y ruby clang && \
+	apt-get install -y build-essential && \
+	apt-get install -y iputils-ping net-tools sudo
 
 ARG USER
 ARG UID
-RUN groupadd ${USER}
-RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${USER} -G wheel,root ${USER}
+ARG GID
+RUN groupadd -g ${GID} ${USER}
+RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${GID} -G root ${USER}
 RUN echo '%wheel ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER ${USER}
-
-RUN curl https://sh.rustup.rs -sSf >> ${HOME}/rustup.rs
-RUN sh ${HOME}/rustup.rs -y
-RUN echo $HOME
-ENV PATH=/home/${USER}/.cargo/bin:$PATH
-RUN echo $PATH
-
-RUN rustup install 1.54.0
-RUN rustup install nightly
-RUN rustup default 1.54.0
