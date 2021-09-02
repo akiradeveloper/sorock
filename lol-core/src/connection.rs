@@ -7,16 +7,16 @@ use tokio::sync::watch;
 pub(crate) use tonic::transport::Endpoint;
 
 #[deprecated(since = "0.7.3", note = "Use RaftClient::connect directly")]
-pub async fn connect(endpoint: Endpoint) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
+pub async fn connect(
+    endpoint: Endpoint,
+) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
     let uri = endpoint.uri().clone();
-    RaftClient::connect(endpoint)
-        .await
-        .map_err(|_| {
-            tonic::Status::new(
-                tonic::Code::Unavailable,
-                format!("failed to connect to {}", uri),
-            )
-        })
+    RaftClient::connect(endpoint).await.map_err(|_| {
+        tonic::Status::new(
+            tonic::Code::Unavailable,
+            format!("failed to connect to {}", uri),
+        )
+    })
 }
 
 /// The purpose of gateway is to track the cluster members.

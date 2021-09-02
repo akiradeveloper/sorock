@@ -29,7 +29,7 @@ pub enum Rep {
     TunableConfigInfo {
         compaction_delay_sec: u64,
         compaction_interval_sec: u64,
-    }
+    },
 }
 impl Req {
     pub fn serialize(x: &Self) -> Vec<u8> {

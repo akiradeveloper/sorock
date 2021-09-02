@@ -17,12 +17,12 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::stream::StreamExt;
+use proto_compiled::raft_client::RaftClient;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
-use proto_compiled::raft_client::RaftClient;
 
 mod ack;
 /// Simple and backward-compatible RaftApp trait.
@@ -349,20 +349,18 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::HealthCheck { ok: true };
                 Ok(core_message::Rep::serialize(&res))
             }
-            core_message::Req::TunableConfigInfo => {
-                match self.tunable.try_read() {
-                    Ok(tunable) => {
-                        let res = core_message::Rep::TunableConfigInfo {
-                            compaction_delay_sec: tunable.compaction_delay_sec,
-                            compaction_interval_sec: tunable.compaction_interval_sec,
-                        };
-                        Ok(core_message::Rep::serialize(&res))
-                    },
-                    Err(_) => {
-                        Err(anyhow!("cannot read tunable config: tunable state in raft core is poisoned"))
-                    }
+            core_message::Req::TunableConfigInfo => match self.tunable.try_read() {
+                Ok(tunable) => {
+                    let res = core_message::Rep::TunableConfigInfo {
+                        compaction_delay_sec: tunable.compaction_delay_sec,
+                        compaction_interval_sec: tunable.compaction_interval_sec,
+                    };
+                    Ok(core_message::Rep::serialize(&res))
                 }
-            }
+                Err(_) => Err(anyhow!(
+                    "cannot read tunable config: tunable state in raft core is poisoned"
+                )),
+            },
             _ => Err(anyhow!("the message not supported")),
         }
     }
@@ -1188,7 +1186,11 @@ impl Log {
                 // Snapshot resource is not defined with snapshot_index=1.
                 if sender_id != core.id && snapshot_index > 1 {
                     if let Err(e) = core.fetch_snapshot(snapshot_index, sender_id.clone()).await {
-                        log::error!("could not fetch app snapshot (idx={}) from sender {}", snapshot_index, sender_id);
+                        log::error!(
+                            "could not fetch app snapshot (idx={}) from sender {}",
+                            snapshot_index,
+                            sender_id
+                        );
                         return Err(e);
                     }
                 }

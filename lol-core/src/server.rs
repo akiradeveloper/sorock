@@ -5,13 +5,14 @@ use std::time::Duration;
 use tokio_stream::StreamExt;
 
 use proto_compiled::{
-    raft_client::RaftClient,
-    raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep, AppendEntryReq, ApplyRep,
-    ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep,
-    ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep,
-    TimeoutNowReq, TuneConfigReq, TuneConfigRep
+    raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
+    AppendEntryReq, ApplyRep, ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep,
+    HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep,
+    RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
-async fn connect(endpoint: Endpoint) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
+async fn connect(
+    endpoint: Endpoint,
+) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
     let uri = endpoint.uri().clone();
     proto_compiled::raft_client::RaftClient::connect(endpoint)
         .await
@@ -78,15 +79,16 @@ impl<A: RaftApp> Raft for Server<A> {
         let req: TuneConfigReq = request.into_inner();
         match self.core.tunable.try_write() {
             Ok(mut tunable) => {
-                req.compaction_delay_sec.map(|value| (*tunable).compaction_delay_sec = value);
-                req.compaction_interval_sec.map(|value| (*tunable).compaction_interval_sec = value);
+                req.compaction_delay_sec
+                    .map(|value| (*tunable).compaction_delay_sec = value);
+                req.compaction_interval_sec
+                    .map(|value| (*tunable).compaction_interval_sec = value);
                 Ok(tonic::Response::new(proto_compiled::TuneConfigRep {}))
-            },
-            Err(poisoned_error) => {
-                Err(tonic::Status::internal(
-                    format!("cannot update tunable configuration: state is poisoned({})", poisoned_error)
-                ))
             }
+            Err(poisoned_error) => Err(tonic::Status::internal(format!(
+                "cannot update tunable configuration: state is poisoned({})",
+                poisoned_error
+            ))),
         }
     }
     async fn request_apply(

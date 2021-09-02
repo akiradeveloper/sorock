@@ -28,7 +28,7 @@ enum Sub {
     #[structopt(name = "timeout-now")]
     TimeoutNow,
     #[structopt(name = "tunable-config")]
-    TunableConfigInfo
+    TunableConfigInfo,
 }
 #[tokio::main]
 async fn main() {

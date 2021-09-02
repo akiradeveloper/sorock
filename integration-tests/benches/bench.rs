@@ -5,10 +5,10 @@ use integration_tests::env::NodeCommand;
 use integration_tests::kvs::*;
 
 use bytes::Bytes;
+use lol_core::proto_compiled::raft_client::RaftClient;
 use std::thread;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
-use lol_core::proto_compiled::raft_client::RaftClient;
 
 extern crate test;
 
@@ -27,11 +27,12 @@ fn do_bench_commit(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_commit(lol_core::proto_compiled::CommitReq {
-                core: false,
-                message: msg,
-            })
-            .await?;
+            let res = conn
+                .request_commit(lol_core::proto_compiled::CommitReq {
+                    core: false,
+                    message: msg,
+                })
+                .await?;
             Ok(res)
         });
         assert!(r.is_ok());
@@ -69,12 +70,13 @@ fn do_bench_apply(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_apply(lol_core::proto_compiled::ApplyReq {
-                core: false,
-                mutation: true,
-                message: msg,
-            })
-            .await?;
+            let res = conn
+                .request_apply(lol_core::proto_compiled::ApplyReq {
+                    core: false,
+                    mutation: true,
+                    message: msg,
+                })
+                .await?;
             Ok(res)
         });
         assert!(r.is_ok());
@@ -112,12 +114,13 @@ fn do_bench_query(n: u8, b: &mut test::Bencher) {
         let msg = kvs::Req::serialize(&msg);
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_apply(lol_core::proto_compiled::ApplyReq {
-                core: false,
-                mutation: false,
-                message: msg,
-            })
-            .await?;
+            let res = conn
+                .request_apply(lol_core::proto_compiled::ApplyReq {
+                    core: false,
+                    mutation: false,
+                    message: msg,
+                })
+                .await?;
             Ok(res)
         });
         assert!(r.is_ok());
@@ -155,11 +158,12 @@ fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test
         let msg = kvs::Req::serialize(&msg);
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_commit(lol_core::proto_compiled::CommitReq {
-                core: false,
-                message: msg,
-            })
-            .await?;
+            let res = conn
+                .request_commit(lol_core::proto_compiled::CommitReq {
+                    core: false,
+                    message: msg,
+                })
+                .await?;
             Ok(res)
         });
         assert!(r.is_ok());

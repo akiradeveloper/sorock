@@ -10,12 +10,12 @@ use app::App;
 use futures::stream;
 use futures::StreamExt;
 use lol_core::connection::{self, gateway};
+use lol_core::proto_compiled::raft_client::RaftClient;
 use lol_core::{core_message, proto_compiled};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::watch;
 use tonic::transport::channel::Endpoint;
-use lol_core::proto_compiled::raft_client::RaftClient;
 
 #[derive(Clap)]
 struct Opts {
