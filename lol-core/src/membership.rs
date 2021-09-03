@@ -56,7 +56,8 @@ impl Cluster {
                 id.clone(),
             ));
             dropper.register_abort_on_drop(replication_thread);
-            let heartbeat_thread = tokio::spawn(crate::thread::heartbeat::run(Arc::clone(&core), id.clone()));
+            let heartbeat_thread =
+                tokio::spawn(crate::thread::heartbeat::run(Arc::clone(&core), id.clone()));
             dropper.register_abort_on_drop(heartbeat_thread);
             self.thread_drop.insert(id.clone(), dropper);
 

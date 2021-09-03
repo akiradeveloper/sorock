@@ -1,42 +1,42 @@
-use lol_core::{core_message, proto_compiled};
+use clap::Clap;
+use lol_core::{core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::time::Duration;
-use structopt::StructOpt;
 use tonic::transport::channel::Endpoint;
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "lol-admin")]
-struct Opt {
-    #[structopt(name = "DEST_ID")]
+#[derive(Clap, Debug)]
+#[clap(name = "lol-admin")]
+struct Opts {
+    #[clap(name = "DEST_ID")]
     dest_id: String,
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     sub: Sub,
 }
-#[derive(Debug, StructOpt)]
+#[derive(Clap, Debug)]
 enum Sub {
-    #[structopt(name = "add-server")]
+    #[clap(name = "add-server")]
     AddServer {
-        #[structopt(name = "ID")]
+        #[clap(name = "ID")]
         id: String,
     },
-    #[structopt(name = "remove-server")]
+    #[clap(name = "remove-server")]
     RemoveServer {
-        #[structopt(name = "ID")]
+        #[clap(name = "ID")]
         id: String,
     },
-    #[structopt(name = "cluster-info")]
+    #[clap(name = "cluster-info")]
     ClusterInfo,
-    #[structopt(name = "timeout-now")]
+    #[clap(name = "timeout-now")]
     TimeoutNow,
-    #[structopt(name = "tunable-config")]
-    TunableConfigInfo
+    #[clap(name = "tunable-config")]
+    TunableConfigInfo,
 }
 #[tokio::main]
 async fn main() {
-    let opt = Opt::from_args();
+    let opt = Opts::parse();
     let endpoint = Endpoint::from_shared(opt.dest_id)
         .unwrap()
         .timeout(Duration::from_secs(5));
-    let mut conn = lol_core::connection::connect(endpoint).await.unwrap();
+    let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
             let req = proto_compiled::AddServerReq { id };

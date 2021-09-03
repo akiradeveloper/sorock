@@ -2,11 +2,30 @@
 
 A toolset to add/remove cluster nodes.
 
-## How to use
+## Usage
 
-lol-admin $receiver
+```
+$ lol-admin --help
+lol-admin
 
-followed by sub command.
+USAGE:
+    lol-admin <DEST_ID> <SUBCOMMAND>
+
+ARGS:
+    <DEST_ID>
+
+FLAGS:
+    -h, --help       Print help information
+    -V, --version    Print version information
+
+SUBCOMMANDS:
+    add-server
+    cluster-info
+    help              Print this message or the help of the given subcommand(s)
+    remove-server
+    timeout-now
+    tunable-config
+```
 
 ## Sub command
 

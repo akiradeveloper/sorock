@@ -1,0 +1,20 @@
+[package]
+name = "multi-services-sample"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tonic-build = "0.5"
+prost-build = "0.8"
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+tonic = "0.5"
+prost = "0.8"
+tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
+clap = "3.0.0-beta.4"
+
+lol-core = { path = "../lol-core" }

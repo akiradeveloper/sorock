@@ -2,7 +2,7 @@ use super::env::*;
 
 use std::collections::HashSet;
 
-use lol_core::{connection, core_message, proto_compiled};
+use lol_core::{connection, core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Builder;
@@ -49,8 +49,9 @@ impl Admin {
         let req = proto_compiled::AddServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = connection::connect(endpoint).await?;
-            conn.add_server(req).await
+            let mut conn = RaftClient::connect(endpoint).await?;
+            let res = conn.add_server(req).await?;
+            Result::Ok(res)
         })?;
         Ok(())
     }
@@ -59,8 +60,9 @@ impl Admin {
         let req = proto_compiled::RemoveServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = connection::connect(endpoint).await?;
-            conn.remove_server(req).await
+            let mut conn = RaftClient::connect(endpoint).await?;
+            let res = conn.remove_server(req).await?;
+            Result::Ok(res)
         })?;
         Ok(())
     }
@@ -72,8 +74,9 @@ impl Admin {
         };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
-            let mut conn = connection::connect(endpoint).await?;
-            conn.request_process_locally(req).await
+            let mut conn = RaftClient::connect(endpoint).await?;
+            let res = conn.request_process_locally(req).await?;
+            Result::Ok(res)
         })?
         .into_inner();
         let msg = core_message::Rep::deserialize(&res.message).unwrap();
@@ -95,8 +98,9 @@ impl Admin {
         let req = proto_compiled::TimeoutNowReq {};
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
-            let mut conn = connection::connect(endpoint).await?;
-            conn.timeout_now(req).await
+            let mut conn = RaftClient::connect(endpoint).await?;
+            let res = conn.timeout_now(req).await?;
+            Result::Ok(res)
         })?;
         Ok(())
     }

@@ -17,6 +17,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::stream::StreamExt;
+use proto_compiled::raft_client::RaftClient;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -26,10 +27,15 @@ use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
 mod ack;
 /// Simple and backward-compatible RaftApp trait.
 pub mod compat;
+#[deprecated(since = "0.7.3", note = "Use gateway")]
 /// Utilities for connection.
 pub mod connection;
 /// The request and response that RaftCore talks.
 pub mod core_message;
+#[cfg(feature = "gateway")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
+/// Utilities to interact with the cluster.
+pub mod gateway;
 mod membership;
 mod query_queue;
 mod quorum_join;
@@ -348,20 +354,18 @@ impl<A: RaftApp> RaftCore<A> {
                 let res = core_message::Rep::HealthCheck { ok: true };
                 Ok(core_message::Rep::serialize(&res))
             }
-            core_message::Req::TunableConfigInfo => {
-                match self.tunable.try_read() {
-                    Ok(tunable) => {
-                        let res = core_message::Rep::TunableConfigInfo {
-                            compaction_delay_sec: tunable.compaction_delay_sec,
-                            compaction_interval_sec: tunable.compaction_interval_sec,
-                        };
-                        Ok(core_message::Rep::serialize(&res))
-                    },
-                    Err(_) => {
-                        Err(anyhow!("cannot read tunable config: tunable state in raft core is poisoned"))
-                    }
+            core_message::Req::TunableConfigInfo => match self.tunable.try_read() {
+                Ok(tunable) => {
+                    let res = core_message::Rep::TunableConfigInfo {
+                        compaction_delay_sec: tunable.compaction_delay_sec,
+                        compaction_interval_sec: tunable.compaction_interval_sec,
+                    };
+                    Ok(core_message::Rep::serialize(&res))
                 }
-            }
+                Err(_) => Err(anyhow!(
+                    "cannot read tunable config: tunable state in raft core is poisoned"
+                )),
+            },
             _ => Err(anyhow!("the message not supported")),
         }
     }
@@ -613,11 +617,14 @@ impl<A: RaftApp> RaftCore<A> {
             .prepare_replication_stream(old_progress.next_index, old_progress.next_index + n)
             .await?;
 
-        let res = async {
-            let endpoint = Endpoint::from_shared(follower_id.clone()).unwrap();
-            let mut conn = connection::connect(endpoint).await?;
+        let res: anyhow::Result<_> = async {
+            let endpoint = Endpoint::from_shared(follower_id.clone())
+                .unwrap()
+                .connect_timeout(Duration::from_secs(5));
+            let mut conn = RaftClient::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
-            conn.send_append_entry(out_stream).await
+            let res = conn.send_append_entry(out_stream).await?;
+            Ok(res)
         }
         .await;
 
@@ -678,11 +685,11 @@ impl<A: RaftApp> RaftCore<A> {
 // Snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        // TODO: Setting connection timeout can be appropriate
-        //
-        // Fetching snapshot can take very long then setting timeout is not appropriate here.
-        let endpoint = Endpoint::from_shared(to).unwrap();
-        let mut conn = connection::connect(endpoint).await?;
+        let endpoint = Endpoint::from_shared(to)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(5));
+
+        let mut conn = RaftClient::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
         };
@@ -838,8 +845,6 @@ impl<A: RaftApp> RaftCore<A> {
             .unwrap()
             .this_clock;
 
-        let vote_timeout = Duration::from_secs(5);
-
         // Let's get remaining votes out of others.
         let mut vote_requests = vec![];
         for endpoint in others {
@@ -863,12 +868,13 @@ impl<A: RaftApp> RaftCore<A> {
                     // We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
                     pre_vote,
                 };
-                let res = async {
+                let res: anyhow::Result<_> = async {
                     let endpoint = Endpoint::from_shared(endpoint)
                         .unwrap()
-                        .timeout(vote_timeout);
-                    let mut conn = connection::connect(endpoint).await?;
-                    conn.request_vote(req).await
+                        .timeout(Duration::from_secs(5));
+                    let mut conn = RaftClient::connect(endpoint).await?;
+                    let res = conn.request_vote(req).await?;
+                    Ok(res)
                 }
                 .await;
                 match res {
@@ -973,7 +979,7 @@ impl<A: RaftApp> RaftCore<A> {
                 leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
         };
-        if let Ok(mut conn) = connection::connect(endpoint).await {
+        if let Ok(mut conn) = RaftClient::connect(endpoint).await {
             let res = conn.send_heartbeat(req).await;
             if res.is_err() {
                 log::warn!("heartbeat to {} failed", follower_id);
@@ -1048,8 +1054,10 @@ impl<A: RaftApp> RaftCore<A> {
     }
     fn send_timeout_now(&self, id: Id) {
         tokio::spawn(async move {
-            let endpoint = Endpoint::from_shared(id).unwrap();
-            if let Ok(mut conn) = connection::connect(endpoint).await {
+            let endpoint = Endpoint::from_shared(id)
+                .unwrap()
+                .timeout(Duration::from_secs(5));
+            if let Ok(mut conn) = RaftClient::connect(endpoint).await {
                 let req = proto_compiled::TimeoutNowReq {};
                 let _ = conn.timeout_now(req).await;
             }
@@ -1185,7 +1193,11 @@ impl Log {
                 // Snapshot resource is not defined with snapshot_index=1.
                 if sender_id != core.id && snapshot_index > 1 {
                     if let Err(e) = core.fetch_snapshot(snapshot_index, sender_id.clone()).await {
-                        log::error!("could not fetch app snapshot (idx={}) from sender {}", snapshot_index, sender_id);
+                        log::error!(
+                            "could not fetch app snapshot (idx={}) from sender {}",
+                            snapshot_index,
+                            sender_id
+                        );
                         return Err(e);
                     }
                 }

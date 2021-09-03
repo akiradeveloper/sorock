@@ -1,6 +1,6 @@
 [package]
 name = "lol-core"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -13,12 +13,12 @@ keywords = ["raft"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.4", features = ["macros", "fs"] }
+tokio = { version = "1.10", features = ["macros", "fs"] }
 tokio-util = { version = "0.6", features = ["codec", "time"] }
 tokio-stream = "0.1"
-tonic = "0.4"
+tonic = "0.5"
 bytes = { version = "1", features = ["serde"] }
-prost = "0.7"
+prost = "0.8"
 rand = "0.8"
 async-trait = "0.1"
 async-stream = "0.3"
@@ -31,14 +31,18 @@ anyhow = "1.0"
 sync_wrapper = "0.1"
 phi-detector = "0.3"
 
-rocksdb = { version = "0.15", optional = true }
+tower = { version = "0.4.8", optional = true }
+http = { version = "0.2", optional = true }
+
+rocksdb = { version = "0.17", optional = true }
 
 [build-dependencies]
-tonic-build = "0.4"
-prost-build = "0.7"
+tonic-build = "0.5"
+prost-build = "0.8"
 
 [features]
-full = ["persistency"]
+full = ["gateway", "persistency"]
+gateway = ["tower", "http"]
 persistency = ["rocksdb"]
 
 [package.metadata.docs.rs]

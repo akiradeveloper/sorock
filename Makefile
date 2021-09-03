@@ -1,5 +1,5 @@
 docker-build:
-	docker build -t lol:dev --build-arg USER=${USER} --build-arg UID=`id -u` - < Dockerfile
+	docker build -t lol:dev --build-arg USER=${USER} --build-arg UID=`id -u` --build-arg GID=`id -g` - < Dockerfile
 
 .PHONY: install
 install:

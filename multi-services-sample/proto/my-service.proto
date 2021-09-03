@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package my_service;
+
+message PlusOneReq {
+    uint64 x = 1;
+}
+message PlusOneRep {
+    uint64 r = 1;
+}
+message DoubleReq {
+    uint64 x = 1;
+}
+message DoubleRep {
+    uint64 r = 1;
+}
+
+service MyService {
+    rpc PlusOne (PlusOneReq) returns (PlusOneRep);
+    rpc Double (DoubleReq) returns (DoubleRep);
+}
