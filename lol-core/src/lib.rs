@@ -31,6 +31,8 @@ pub mod compat;
 pub mod connection;
 /// The request and response that RaftCore talks.
 pub mod core_message;
+#[cfg(feature = "gateway")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
 pub mod gateway;
 mod membership;
 mod query_queue;
