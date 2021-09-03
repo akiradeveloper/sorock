@@ -85,6 +85,11 @@ message TuneConfigReq {
     optional uint64 compaction_interval_sec = 2;
 }
 message TuneConfigRep {}
+message ClusterInfoReq {}
+message ClusterInfoRep {
+    optional string leader_id = 1;
+    repeated string membership = 2;
+}
 
 service Raft {
     rpc RequestVote (RequestVoteReq) returns (RequestVoteRep);
@@ -99,4 +104,5 @@ service Raft {
     rpc AddServer (AddServerReq) returns (AddServerRep);
     rpc RemoveServer (RemoveServerReq) returns (RemoveServerRep);
     rpc TuneConfig (TuneConfigReq) returns (TuneConfigRep);
+    rpc RequestClusterInfo (ClusterInfoReq) returns (ClusterInfoRep);
 }
