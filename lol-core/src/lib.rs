@@ -33,6 +33,7 @@ pub mod connection;
 pub mod core_message;
 #[cfg(feature = "gateway")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
+/// Utilities to interact with the cluster.
 pub mod gateway;
 mod membership;
 mod query_queue;
