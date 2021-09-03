@@ -16,6 +16,8 @@ keywords = ["raft"]
 tokio = { version = "1.10", features = ["macros", "fs"] }
 tokio-util = { version = "0.6", features = ["codec", "time"] }
 tokio-stream = "0.1"
+tower = "0.4.8"
+http = "0.2"
 tonic = "0.5"
 bytes = { version = "1", features = ["serde"] }
 prost = "0.8"

@@ -2,11 +2,31 @@ use integration_tests::cluster::*;
 use integration_tests::kvs::*;
 
 use lol_core::connection::{self, gateway};
-use lol_core::proto_compiled::raft_client::RaftClient;
+use lol_core::gateway as gateway_v2;
+use lol_core::proto_compiled::{raft_client::RaftClient, ClusterInfoReq};
 use lol_core::Id;
 use std::collections::HashSet;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gateway_v2() {
+    let env = init_cluster(1);
+    let connector = gateway_v2::Connector::new(|id| Endpoint::from_shared(id).unwrap());
+    let gateway = connector.connect(env.get_node_id(0));
+    env.start(1, kvs_server(vec![]));
+    env.start(2, kvs_server(vec![]));
+    Admin::to(0, env.clone()).add_server(1).unwrap();
+    Admin::to(0, env.clone()).add_server(2).unwrap();
+    tokio::time::sleep(Duration::from_secs(6)).await;
+
+    let mut cli1 = RaftClient::new(gateway.clone());
+    let mut cli2 = RaftClient::new(gateway);
+    let res = cli1.request_cluster_info(ClusterInfoReq {}).await;
+    assert!(res.is_ok());
+    let res = cli2.request_cluster_info(ClusterInfoReq {}).await;
+    assert!(res.is_ok());
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gateway() {

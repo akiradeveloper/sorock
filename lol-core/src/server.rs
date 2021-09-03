@@ -6,9 +6,10 @@ use tokio_stream::StreamExt;
 
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
-    AppendEntryReq, ApplyRep, ApplyReq, CommitRep, CommitReq, GetSnapshotReq, HeartbeatRep,
-    HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep, RemoveServerReq, RequestVoteRep,
-    RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq, ClusterInfoReq, ClusterInfoRep
+    AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
+    GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep,
+    RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep,
+    TuneConfigReq,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -78,7 +79,7 @@ impl<A: RaftApp> Raft for Server<A> {
     ) -> Result<tonic::Response<ClusterInfoRep>, tonic::Status> {
         let leader_id = match self.core.load_ballot().await {
             Ok(x) => x.voted_for,
-            Err(_) => return Err(tonic::Status::internal("could not get ballot"))
+            Err(_) => return Err(tonic::Status::internal("could not get ballot")),
         };
         let rep = ClusterInfoRep {
             leader_id,
