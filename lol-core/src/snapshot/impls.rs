@@ -1,6 +1,6 @@
 use super::{util, SnapshotStream};
-use std::path::{Path, PathBuf};
 use bytes::Bytes;
+use std::path::{Path, PathBuf};
 
 /// Basic snapshot type which is just a byte sequence.
 pub struct BytesSnapshot {
