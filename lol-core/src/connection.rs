@@ -6,7 +6,6 @@ use tokio::sync::watch;
 
 pub(crate) use tonic::transport::Endpoint;
 
-#[deprecated(since = "0.7.3", note = "Use RaftClient::connect directly")]
 pub async fn connect(
     endpoint: Endpoint,
 ) -> Result<RaftClient<tonic::transport::Channel>, tonic::Status> {
@@ -70,7 +69,6 @@ pub mod gateway {
         }
         r
     }
-    #[deprecated(since = "0.7.3", note = "Use new lol_core::gateway")]
     /// Start to watch the cluster membership.
     pub fn watch(initial: HashSet<Id>) -> watch::Receiver<CurrentMembership> {
         let init_value = CurrentMembership {
