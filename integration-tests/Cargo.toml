@@ -15,5 +15,5 @@ serde_json = "1.0"
 anyhow = "1.0"
 bytes = "1"
 
-lol-core = { path = "../lol-core" }
+lol-core = { path = "../lol-core", features = ["gateway"] }
 lol-admin = { path = "../lol-admin" }
