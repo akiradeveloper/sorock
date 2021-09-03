@@ -27,6 +27,7 @@ use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
 mod ack;
 /// Simple and backward-compatible RaftApp trait.
 pub mod compat;
+#[deprecated(since = "0.7.3", note = "Use gateway")]
 /// Utilities for connection.
 pub mod connection;
 /// The request and response that RaftCore talks.
