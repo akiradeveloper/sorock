@@ -1,4 +1,4 @@
-use crate::snapshot::{BytesSnapshot, SnapshotStream, SnapshotTag};
+use crate::snapshot::{impls::BytesSnapshot, SnapshotStream, SnapshotTag};
 use crate::{Index, MakeSnapshot, RaftApp};
 use async_trait::async_trait;
 

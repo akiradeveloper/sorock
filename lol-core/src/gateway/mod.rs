@@ -21,6 +21,9 @@ impl Connector {
     }
 }
 
+/// Gateway is like `Channel` but updates the destination when cluster membership is changed.
+/// With Gateway, users don't need to remember the current membership but can transparently
+/// interact with the cluster through the current leader.
 #[derive(Clone)]
 pub struct Gateway {
     chan: Channel,

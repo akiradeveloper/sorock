@@ -1,3 +1,10 @@
+# 0.7.3 (2021-9-3)
+
+- Implement new Gateway. (#199)
+- Connection timeout in sending user data. (#202)
+- Add ClusterInfo RPC.
+- Dependency update.
+
 # 0.7.2 (2021-4-1)
 
 - Implement Tune message. (#173)
