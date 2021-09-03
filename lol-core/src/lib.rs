@@ -31,6 +31,7 @@ pub mod compat;
 pub mod connection;
 /// The request and response that RaftCore talks.
 pub mod core_message;
+pub mod gateway;
 mod membership;
 mod query_queue;
 mod quorum_join;
