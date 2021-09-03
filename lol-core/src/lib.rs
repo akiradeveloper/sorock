@@ -616,7 +616,9 @@ impl<A: RaftApp> RaftCore<A> {
             .await?;
 
         let res: anyhow::Result<_> = async {
-            let endpoint = Endpoint::from_shared(follower_id.clone()).unwrap();
+            let endpoint = Endpoint::from_shared(follower_id.clone())
+                .unwrap()
+                .connect_timeout(Duration::from_secs(5));
             let mut conn = RaftClient::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
             let res = conn.send_append_entry(out_stream).await?;
@@ -681,10 +683,10 @@ impl<A: RaftApp> RaftCore<A> {
 // Snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        // TODO: Setting connection timeout can be appropriate
-        //
-        // Fetching snapshot can take very long then setting timeout is not appropriate here.
-        let endpoint = Endpoint::from_shared(to).unwrap();
+        let endpoint = Endpoint::from_shared(to)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(5));
+
         let mut conn = RaftClient::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
             index: snapshot_index,
@@ -841,8 +843,6 @@ impl<A: RaftApp> RaftCore<A> {
             .unwrap()
             .this_clock;
 
-        let vote_timeout = Duration::from_secs(5);
-
         // Let's get remaining votes out of others.
         let mut vote_requests = vec![];
         for endpoint in others {
@@ -869,7 +869,7 @@ impl<A: RaftApp> RaftCore<A> {
                 let res: anyhow::Result<_> = async {
                     let endpoint = Endpoint::from_shared(endpoint)
                         .unwrap()
-                        .timeout(vote_timeout);
+                        .timeout(Duration::from_secs(5));
                     let mut conn = RaftClient::connect(endpoint).await?;
                     let res = conn.request_vote(req).await?;
                     Ok(res)
@@ -1052,7 +1052,9 @@ impl<A: RaftApp> RaftCore<A> {
     }
     fn send_timeout_now(&self, id: Id) {
         tokio::spawn(async move {
-            let endpoint = Endpoint::from_shared(id).unwrap();
+            let endpoint = Endpoint::from_shared(id)
+                .unwrap()
+                .timeout(Duration::from_secs(5));
             if let Ok(mut conn) = RaftClient::connect(endpoint).await {
                 let req = proto_compiled::TimeoutNowReq {};
                 let _ = conn.timeout_now(req).await;
