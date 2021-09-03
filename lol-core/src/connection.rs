@@ -70,6 +70,7 @@ pub mod gateway {
         }
         r
     }
+    #[deprecated(since = "0.7.3", note = "Use new lol_core::gateway")]
     /// Start to watch the cluster membership.
     pub fn watch(initial: HashSet<Id>) -> watch::Receiver<CurrentMembership> {
         let init_value = CurrentMembership {
