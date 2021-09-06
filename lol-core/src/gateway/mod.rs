@@ -75,10 +75,10 @@ impl Gateway {
                                     }
                                     Change::Remove(_) => {}
                                 }
-                                break;
                             }
                             Err(TrySendError::Full(_)) => {
                                 change_queue.push_front(change);
+                                break;
                             }
                             Err(TrySendError::Closed(_)) => {
                                 break 'outer;
