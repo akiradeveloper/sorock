@@ -31,6 +31,21 @@ enum Sub {
     TunableConfigInfo,
     #[clap(name = "status")]
     Status,
+    #[clap(name = "config")]
+    Config {
+        #[clap(subcommand)]
+        sub: ConfigSub
+    }
+}
+#[derive(Clap, Debug)]
+enum ConfigSub {
+    #[clap(name = "set")]
+    Set {
+        compaction_delay_sec: Option<u64>,
+        compaction_interval_sec: Option<u64>,
+    },
+    #[clap(name = "get")]
+    Get,
 }
 #[tokio::main]
 async fn main() {
@@ -80,6 +95,26 @@ async fn main() {
                 last_log_index: rep.last_log_index,
             };
             println!("{}", serde_json::to_string(&res).unwrap());
+        },
+        Sub::Config { sub} => {
+            match sub {
+                ConfigSub::Get => {
+                    let req = proto_compiled::GetConfigReq {};
+                    let rep = conn.get_config(req).await.unwrap().into_inner();
+                    let res = lol_admin::Config {
+                        compaction_delay_sec: rep.compaction_delay_sec,
+                        compaction_interval_sec: rep.compaction_interval_sec,
+                    };
+                    println!("{}", serde_json::to_string(&res).unwrap());
+                },
+                ConfigSub::Set { compaction_delay_sec, compaction_interval_sec }=> {
+                    let req = proto_compiled::TuneConfigReq {
+                        compaction_delay_sec,
+                        compaction_interval_sec,
+                    };
+                    conn.tune_config(req).await.unwrap();
+                },
+            }
         }
     }
 }
