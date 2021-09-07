@@ -41,7 +41,9 @@ enum Sub {
 enum ConfigSub {
     #[clap(name = "set")]
     Set {
+        #[clap(long)]
         compaction_delay_sec: Option<u64>,
+        #[clap(long)]
         compaction_interval_sec: Option<u64>,
     },
     #[clap(name = "get")]
