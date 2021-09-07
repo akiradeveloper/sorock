@@ -85,6 +85,11 @@ message TuneConfigReq {
     optional uint64 compaction_interval_sec = 2;
 }
 message TuneConfigRep {}
+message GetConfigReq {}
+message GetConfigRep {
+    uint64 compaction_delay_sec = 1;
+    uint64 compaction_interval_sec = 2;
+}
 message ClusterInfoReq {}
 message ClusterInfoRep {
     optional string leader_id = 1;
@@ -112,6 +117,7 @@ service Raft {
     rpc AddServer (AddServerReq) returns (AddServerRep);
     rpc RemoveServer (RemoveServerReq) returns (RemoveServerRep);
     rpc TuneConfig (TuneConfigReq) returns (TuneConfigRep);
+    rpc GetConfig (GetConfigReq) returns (GetConfigRep);
     rpc RequestClusterInfo (ClusterInfoReq) returns (ClusterInfoRep);
     rpc Status (StatusReq) returns (StatusRep);
 }

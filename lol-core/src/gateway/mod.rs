@@ -68,14 +68,12 @@ impl Gateway {
                             Change::Remove(k) => Change::Remove(k.clone()),
                         };
                         match tx.try_send(msg) {
-                            Ok(()) => {
-                                match change {
-                                    Change::Insert(k, _) => {
-                                        cur_leader = Some(k.clone());
-                                    }
-                                    Change::Remove(_) => {}
+                            Ok(()) => match change {
+                                Change::Insert(k, _) => {
+                                    cur_leader = Some(k.clone());
                                 }
-                            }
+                                Change::Remove(_) => {}
+                            },
                             Err(TrySendError::Full(_)) => {
                                 change_queue.push_front(change);
                                 break;

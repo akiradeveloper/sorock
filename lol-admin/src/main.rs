@@ -29,6 +29,25 @@ enum Sub {
     TimeoutNow,
     #[clap(name = "tunable-config")]
     TunableConfigInfo,
+    #[clap(name = "status")]
+    Status,
+    #[clap(name = "config")]
+    Config {
+        #[clap(subcommand)]
+        sub: ConfigSub,
+    },
+}
+#[derive(Clap, Debug)]
+enum ConfigSub {
+    #[clap(name = "set")]
+    Set {
+        #[clap(long)]
+        compaction_delay_sec: Option<u64>,
+        #[clap(long)]
+        compaction_interval_sec: Option<u64>,
+    },
+    #[clap(name = "get")]
+    Get,
 }
 #[tokio::main]
 async fn main() {
@@ -47,49 +66,58 @@ async fn main() {
             conn.remove_server(req).await.unwrap();
         }
         Sub::ClusterInfo => {
-            let msg = core_message::Req::ClusterInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
+            let req = proto_compiled::ClusterInfoReq {};
+            let rep = conn.request_cluster_info(req).await.unwrap().into_inner();
+            let res = lol_admin::ClusterInfo {
+                leader_id: rep.leader_id,
+                membership: rep.membership,
             };
-            let res = conn
-                .request_process_locally(req)
-                .await
-                .unwrap()
-                .into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            let msg = if let core_message::Rep::ClusterInfo {
-                leader_id,
-                membership,
-            } = msg
-            {
-                lol_admin::ClusterInfo {
-                    leader_id,
-                    membership,
-                }
-            } else {
-                unreachable!()
-            };
-            let json = serde_json::to_string(&msg).unwrap();
-            println!("{}", json);
+            println!("{}", serde_json::to_string(&res).unwrap());
         }
         Sub::TimeoutNow => {
             let req = proto_compiled::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
         Sub::TunableConfigInfo => {
-            let msg = core_message::Req::TunableConfigInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
+            let req = proto_compiled::GetConfigReq {};
+            let rep = conn.get_config(req).await.unwrap().into_inner();
+            let res = lol_admin::Config {
+                compaction_delay_sec: rep.compaction_delay_sec,
+                compaction_interval_sec: rep.compaction_interval_sec,
             };
-            let res = conn
-                .request_process_locally(req)
-                .await
-                .unwrap()
-                .into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            println!("{}", serde_json::to_string(&msg).unwrap())
+            println!("{}", serde_json::to_string(&res).unwrap());
         }
+        Sub::Status => {
+            let req = proto_compiled::StatusReq {};
+            let rep = conn.status(req).await.unwrap().into_inner();
+            let res = lol_admin::Status {
+                snapshot_index: rep.snapshot_index,
+                last_applied: rep.last_applied,
+                commit_index: rep.commit_index,
+                last_log_index: rep.last_log_index,
+            };
+            println!("{}", serde_json::to_string(&res).unwrap());
+        }
+        Sub::Config { sub } => match sub {
+            ConfigSub::Get => {
+                let req = proto_compiled::GetConfigReq {};
+                let rep = conn.get_config(req).await.unwrap().into_inner();
+                let res = lol_admin::Config {
+                    compaction_delay_sec: rep.compaction_delay_sec,
+                    compaction_interval_sec: rep.compaction_interval_sec,
+                };
+                println!("{}", serde_json::to_string(&res).unwrap());
+            }
+            ConfigSub::Set {
+                compaction_delay_sec,
+                compaction_interval_sec,
+            } => {
+                let req = proto_compiled::TuneConfigReq {
+                    compaction_delay_sec,
+                    compaction_interval_sec,
+                };
+                conn.tune_config(req).await.unwrap();
+            }
+        },
     }
 }
