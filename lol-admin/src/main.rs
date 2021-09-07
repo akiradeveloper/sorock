@@ -49,30 +49,24 @@ async fn main() {
         Sub::ClusterInfo => {
             let req = proto_compiled::ClusterInfoReq {};
             let rep = conn.request_cluster_info(req).await.unwrap().into_inner();
-            let info = lol_admin::ClusterInfo {
+            let res = lol_admin::ClusterInfo {
                 leader_id: rep.leader_id,
                 membership: rep.membership,
             };
-            let json = serde_json::to_string(&info).unwrap();
-            println!("{}", json);
+            println!("{}", serde_json::to_string(&res).unwrap());
         }
         Sub::TimeoutNow => {
             let req = proto_compiled::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
         Sub::TunableConfigInfo => {
-            let msg = core_message::Req::TunableConfigInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
+            let req = proto_compiled::GetConfigReq {};
+            let rep = conn.get_config(req).await.unwrap().into_inner();
+            let res = lol_admin::Config {
+                compaction_delay_sec: rep.compaction_delay_sec,
+                compaction_interval_sec: rep.compaction_interval_sec,
             };
-            let res = conn
-                .request_process_locally(req)
-                .await
-                .unwrap()
-                .into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            println!("{}", serde_json::to_string(&msg).unwrap())
+            println!("{}", serde_json::to_string(&res).unwrap());
         }
     }
 }
