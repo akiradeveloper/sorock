@@ -1,4 +1,4 @@
-# multi-services-sample
+# multi-services
 
 When you build a Raft app, you often want to add services outside of lol's Raft capabilities.
 

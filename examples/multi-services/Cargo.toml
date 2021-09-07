@@ -17,4 +17,4 @@ prost = "0.8"
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
 clap = "3.0.0-beta.4"
 
-lol-core = { path = "../lol-core" }
+lol-core = { path = "../../lol-core" }

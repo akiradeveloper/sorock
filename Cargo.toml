@@ -8,5 +8,7 @@ members = [
     # internal
     "kvs",
     "integration-tests",
-    "multi-services-sample",
+
+    # examples
+    "examples/multi-services",
 ]
