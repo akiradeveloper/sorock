@@ -9,7 +9,7 @@ use proto_compiled::{
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
     GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep,
     RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep,
-    TuneConfigReq, StatusReq, StatusRep,
+    TuneConfigReq, StatusReq, StatusRep, GetConfigReq, GetConfigRep,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -73,6 +73,25 @@ pub struct Server<A: RaftApp> {
 }
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
+    async fn get_config(
+        &self,
+        _: tonic::Request<GetConfigReq>,
+    ) -> Result<tonic::Response<GetConfigRep>, tonic::Status> { 
+        let core = &self.core;
+        match core.tunable.try_read() {
+            Ok(tunable) => {
+                let rep = GetConfigRep {
+                    compaction_delay_sec: tunable.compaction_delay_sec,
+                    compaction_interval_sec: tunable.compaction_interval_sec,
+                };
+                Ok(tonic::Response::new(rep))
+            }
+            Err(poisoned_error) => Err(tonic::Status::internal(format!(
+                "cannot update tunable configuration: state is poisoned({})",
+                poisoned_error
+            ))), 
+        }
+    }
     async fn status(
         &self,
         _: tonic::Request<StatusReq>,
