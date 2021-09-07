@@ -9,7 +9,7 @@ use proto_compiled::{
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
     GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep,
     RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep,
-    TuneConfigReq,
+    TuneConfigReq, StatusReq, StatusRep,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -73,6 +73,20 @@ pub struct Server<A: RaftApp> {
 }
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
+    async fn status(
+        &self,
+        _: tonic::Request<StatusReq>,
+    ) -> Result<tonic::Response<StatusRep>, tonic::Status> { 
+        use std::sync::atomic::Ordering;
+        let core = &self.core;
+        let rep = StatusRep {
+            snapshot_index: core.log.get_snapshot_index().await.unwrap(),
+            last_applied: core.log.last_applied.load(Ordering::SeqCst),
+            commit_index: core.log.commit_index.load(Ordering::SeqCst),
+            last_log_index: core.log.get_last_log_index().await.unwrap(),
+        };
+        Ok(tonic::Response::new(rep))
+    }
     async fn request_cluster_info(
         &self,
         _: tonic::Request<ClusterInfoReq>,

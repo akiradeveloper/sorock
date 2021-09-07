@@ -20,4 +20,4 @@ futures = "0.3"
 clap = "3.0.0-beta.4"
 async-stream = "0.3"
 
-lol-core = { path = "../lol-core" }
+lol-core = { path = "../lol-core", features = ["gateway"] }

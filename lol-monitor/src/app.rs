@@ -3,13 +3,19 @@ use futures::stream::Stream;
 use futures::StreamExt;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Clone, Debug)]
-pub struct Membership {
+#[derive(Clone, Debug, Default)]
+pub struct ClusterStatus {
     pub leader_id: Option<String>,
-    pub membership: Vec<String>,
+    pub data: HashMap<String, NodeStatus>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
+pub struct NodeStatus {
+    pub log_info: Option<LogInfo>,
+    pub health_ok: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct LogInfo {
     pub snapshot_index: u64,
     pub last_applied: u64,
@@ -17,29 +23,18 @@ pub struct LogInfo {
     pub last_log_index: u64,
 }
 
-#[derive(Clone, Debug)]
-pub struct HealthCheck {
-    pub ok: bool,
-}
-
-pub struct App<S1, S2, S3> {
+pub struct App<S> {
     pub running: bool,
-    membership_channel: S1,
-    loginfo_channel: S2,
-    health_check_channel: S3,
+    data_stream: S,
 }
-impl<S1, S2, S3> App<S1, S2, S3>
+impl<S> App<S>
 where
-    S1: Stream<Item = Membership> + Unpin,
-    S2: Stream<Item = HashMap<String, LogInfo>> + Unpin,
-    S3: Stream<Item = HashSet<String>> + Unpin,
+    S: Stream<Item = ClusterStatus> + Unpin,
 {
-    pub async fn new(s1: S1, s2: S2, s3: S3) -> Self {
+    pub async fn new(s: S) -> Self {
         Self {
             running: true,
-            membership_channel: s1,
-            loginfo_channel: s2,
-            health_check_channel: s3,
+            data_stream: s,
         }
     }
     pub fn on_key(&mut self, c: char) {
@@ -49,28 +44,16 @@ where
         }
     }
     pub async fn make_model(&mut self) -> ui::Model {
-        let membership = self.membership_channel.next().await.unwrap_or(Membership {
+        let cur_status = self.data_stream.next().await.unwrap_or(ClusterStatus {
             leader_id: None,
-            membership: vec![],
+            data: HashMap::new(),
         });
-        let loginfos = self.loginfo_channel.next().await.unwrap_or(HashMap::new());
-        let health_checks = self
-            .health_check_channel
-            .next()
-            .await
-            .unwrap_or(HashSet::new());
-
-        let n = membership.membership.len();
+        
         let mut members = vec![];
-        for i in 0..n {
-            let id = membership.membership[i].to_owned();
-            let alive = health_checks.contains(&id);
-            let loginfo = loginfos.get(&id).unwrap_or(&LogInfo {
-                snapshot_index: 0,
-                last_applied: 0,
-                commit_index: 0,
-                last_log_index: 0,
-            });
+        for (id, node_status) in &cur_status.data {
+            let id = id.to_owned();
+            let alive = node_status.health_ok;
+            let loginfo = node_status.log_info.unwrap_or(LogInfo::default());
             members.push(ui::Member {
                 id: id,
                 alive,
@@ -81,7 +64,7 @@ where
         }
         // the leader is first and slow nodes succeed.
         members.sort_by_key(|x| {
-            if let Some(leader_id) = &membership.leader_id {
+            if let Some(leader_id) = &cur_status.leader_id {
                 if &x.id == leader_id {
                     -1 as i64
                 } else {
