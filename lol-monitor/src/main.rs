@@ -34,20 +34,25 @@ async fn main() -> anyhow::Result<()> {
 
     let events = event::Events::new();
 
-    let connector = lol_core::gateway::Connector::new(|id| { Endpoint::from_shared(id).unwrap() });
+    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from_shared(id).unwrap());
     let gateway = connector.connect(opts.id);
 
     let data_stream_0 = stream::unfold(gateway.clone(), |gateway| async move {
         let mut cli = RaftClient::new(gateway.clone());
 
-        let cluster_info = cli.request_cluster_info(proto_compiled::ClusterInfoReq {}).await.ok()?.into_inner();
+        let cluster_info = cli
+            .request_cluster_info(proto_compiled::ClusterInfoReq {})
+            .await
+            .ok()?
+            .into_inner();
 
         let endpoints = cluster_info.membership.clone();
         let mut futs = vec![];
         for id in endpoints.clone() {
             let fut = async move {
                 let res: anyhow::Result<_> = {
-                    let endpoint = Endpoint::from_shared(id.clone())?.timeout(Duration::from_secs(3));
+                    let endpoint =
+                        Endpoint::from_shared(id.clone())?.timeout(Duration::from_secs(3));
                     let mut conn = RaftClient::connect(endpoint).await?;
                     let req = proto_compiled::StatusReq {};
                     let status = conn.status(req).await?.into_inner();
@@ -68,11 +73,14 @@ async fn main() -> anyhow::Result<()> {
         for (id, x) in endpoints.into_iter().zip(results) {
             match x {
                 Ok(log_info) => {
-                    h.insert(id, app::NodeStatus {
-                        log_info: Some(log_info),
-                        health_ok: true,
-                    });
-                },
+                    h.insert(
+                        id,
+                        app::NodeStatus {
+                            log_info: Some(log_info),
+                            health_ok: true,
+                        },
+                    );
+                }
                 Err(_) => {
                     h.insert(id, app::NodeStatus::default());
                 }

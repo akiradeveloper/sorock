@@ -48,7 +48,7 @@ where
             leader_id: None,
             data: HashMap::new(),
         });
-        
+
         let mut members = vec![];
         for (id, node_status) in &cur_status.data {
             let id = id.to_owned();
