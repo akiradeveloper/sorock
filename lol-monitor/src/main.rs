@@ -47,33 +47,16 @@ async fn main() -> anyhow::Result<()> {
         for id in endpoints.clone() {
             let fut = async move {
                 let res: anyhow::Result<_> = {
-                    let msg = core_message::Req::LogInfo;
-                    let req = proto_compiled::ProcessReq {
-                        message: core_message::Req::serialize(&msg),
-                        core: true,
-                    };
-                    let endpoint = Endpoint::from_shared(id.clone())
-                        .unwrap()
-                        .timeout(Duration::from_secs(3));
+                    let endpoint = Endpoint::from_shared(id.clone())?.timeout(Duration::from_secs(3));
                     let mut conn = RaftClient::connect(endpoint).await?;
-                    let res = conn.request_process_locally(req).await?.into_inner();
-                    let msg = core_message::Rep::deserialize(&res.message).unwrap();
-                    if let core_message::Rep::LogInfo {
-                        snapshot_index,
-                        last_applied,
-                        commit_index,
-                        last_log_index,
-                    } = msg
-                    {
-                        Ok(app::LogInfo {
-                            snapshot_index,
-                            last_applied,
-                            commit_index,
-                            last_log_index,
-                        })
-                    } else {
-                        unreachable!()
-                    }
+                    let req = proto_compiled::StatusReq {};
+                    let status = conn.status(req).await?.into_inner();
+                    Ok(app::LogInfo {
+                        snapshot_index: status.snapshot_index,
+                        last_applied: status.last_applied,
+                        commit_index: status.commit_index,
+                        last_log_index: status.last_log_index,
+                    })
                 };
                 res
             };
