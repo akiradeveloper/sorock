@@ -47,30 +47,13 @@ async fn main() {
             conn.remove_server(req).await.unwrap();
         }
         Sub::ClusterInfo => {
-            let msg = core_message::Req::ClusterInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
+            let req = proto_compiled::ClusterInfoReq {};
+            let rep = conn.request_cluster_info(req).await.unwrap().into_inner();
+            let info = lol_admin::ClusterInfo {
+                leader_id: rep.leader_id,
+                membership: rep.membership,
             };
-            let res = conn
-                .request_process_locally(req)
-                .await
-                .unwrap()
-                .into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            let msg = if let core_message::Rep::ClusterInfo {
-                leader_id,
-                membership,
-            } = msg
-            {
-                lol_admin::ClusterInfo {
-                    leader_id,
-                    membership,
-                }
-            } else {
-                unreachable!()
-            };
-            let json = serde_json::to_string(&msg).unwrap();
+            let json = serde_json::to_string(&info).unwrap();
             println!("{}", json);
         }
         Sub::TimeoutNow => {
