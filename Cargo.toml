@@ -6,10 +6,10 @@ members = [
     "lol-monitor",
 
     # internal
-    "kvs",
     "integration-tests",
 
     # examples
+    "examples/kvs",
     "examples/multi-services",
     "examples/counter",
 ]
