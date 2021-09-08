@@ -1,5 +1,4 @@
-# FROM 'ubuntu:21.04'
-FROM 'rust:1.54-bullseye'
+FROM 'ubuntu:21.04'
 
 WORKDIR '/lol_root/codecov'
 
@@ -8,6 +7,8 @@ RUN apt-get update && apt-get install -y \
 	llvm \
 	curl sudo less \
 	build-essential clang
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ARG USER
 ARG UID
