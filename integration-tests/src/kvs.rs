@@ -68,17 +68,17 @@ impl Client {
             .run()
             .map(|_| ())
     }
-    pub fn get(&self, k: &str) -> Result<kvs::Get> {
+    pub fn get(&self, k: &str) -> Result<kvs::client::Get> {
         self.command()
             .args(&["get", k])
             .run()
-            .map(|buf| serde_json::from_slice::<kvs::Get>(&buf).unwrap())
+            .map(|buf| serde_json::from_slice::<kvs::client::Get>(&buf).unwrap())
     }
-    pub fn list(&self) -> Result<kvs::List> {
+    pub fn list(&self) -> Result<kvs::client::List> {
         self.command()
             .arg("list")
             .run()
-            .map(|buf| serde_json::from_slice::<kvs::List>(&buf).unwrap())
+            .map(|buf| serde_json::from_slice::<kvs::client::List>(&buf).unwrap())
     }
 }
 pub fn init_cluster(n: u8) -> EnvRef {

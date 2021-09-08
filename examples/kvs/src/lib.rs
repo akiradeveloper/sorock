@@ -1,10 +1,4 @@
 use bytes::Bytes;
-use std::collections::BTreeMap;
-
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
-pub struct Get(pub Option<String>);
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
-pub struct List(pub Vec<(String, String)>);
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
@@ -18,10 +12,6 @@ pub enum Rep {
     Set {},
     Get { found: bool, value: String },
     List { values: Vec<(String, String)> },
-}
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
-pub struct Snapshot {
-    pub h: BTreeMap<String, Bytes>,
 }
 impl Req {
     pub fn serialize(msg: &Req) -> Vec<u8> {
@@ -39,11 +29,10 @@ impl Rep {
         bincode::deserialize(b).ok()
     }
 }
-impl Snapshot {
-    pub fn serialize(msg: &Snapshot) -> Vec<u8> {
-        bincode::serialize(msg).unwrap()
-    }
-    pub fn deserialize(b: &[u8]) -> Option<Snapshot> {
-        bincode::deserialize(b).ok()
-    }
+
+pub mod client {
+    #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+    pub struct Get(pub Option<String>);
+    #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+    pub struct List(pub Vec<(String, String)>);
 }
