@@ -1,3 +1,8 @@
+# 0.7.4 (2021-9-8)
+
+- Add atomic-counter example. (#213)
+- Add new APIs.
+
 # 0.7.3 (2021-9-3)
 
 - Implement new Gateway. (#199)
