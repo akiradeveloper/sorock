@@ -1,5 +1,6 @@
 use futures::StreamExt;
 
+/// Basic implementations.
 pub mod impls;
 mod queue;
 pub(crate) use queue::*;

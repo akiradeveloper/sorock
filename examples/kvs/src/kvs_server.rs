@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
+use kvs::{Rep, Req};
 use lol_core::compat::{RaftAppCompat, ToRaftApp};
 use lol_core::{Config, Index, RaftCore, TunableConfig};
 use std::collections::BTreeMap;
@@ -9,7 +10,6 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
-use kvs::{Req, Rep};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]

@@ -1,5 +1,5 @@
 [package]
-name = "counter"
+name = "atomic-counter"
 version = "0.1.0"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2018"
@@ -19,5 +19,5 @@ rand = { version = "0.8", features = ["std_rng"] }
 lol-core = { path = "../../lol-core" }
 
 [[bin]]
-name = "counter"
+name = "atomic-counter"
 path = "src/main.rs"

@@ -1,9 +1,9 @@
+use kvs::{Rep, Req};
 use lol_core::proto_compiled;
 use lol_core::proto_compiled::raft_client::RaftClient;
 use std::time::Duration;
 use structopt::StructOpt;
 use tonic::transport::channel::Endpoint;
-use kvs::{Req, Rep};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-client")]

@@ -1,10 +1,10 @@
+use atomic_counter::{Rep, Req};
 use bytes::Bytes;
 use lol_core::snapshot::{impls::BytesSnapshot, SnapshotTag};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use counter::{Req, Rep};
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Tag(pub Bytes);
@@ -21,11 +21,11 @@ impl Tag {
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Resource(pub u64);
 
-struct Counter {
+struct MyApp {
     v: AtomicU64,
     snapshot_inventory: Arc<RwLock<HashMap<Tag, Resource>>>,
 }
-impl Counter {
+impl MyApp {
     pub fn new() -> Self {
         Self {
             v: AtomicU64::new(0),
@@ -34,7 +34,7 @@ impl Counter {
     }
 }
 #[tonic::async_trait]
-impl lol_core::RaftApp for Counter {
+impl lol_core::RaftApp for MyApp {
     async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let req = Req::deserialize(&request).unwrap();
         match req {
