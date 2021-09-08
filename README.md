@@ -44,7 +44,7 @@ and [cargo-profiler](https://github.com/svenstaro/cargo-profiler).
 
 Use docker container to make an dev environment on your computer.
 
-- `make docker-build` to build the docker image
+- `make` to build the docker image
 - `./dev` to start the container
 
 then
