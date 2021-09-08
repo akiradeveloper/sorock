@@ -1,7 +1,7 @@
 # Code Coverage
 
 LLVM provides source-based code coverage.
-We can use this to measure lol's code coeverage by integration-tests.
+We can use this to measure lol's code coverage by integration-tests.
 
 ## Usage
 
