@@ -30,6 +30,7 @@ pub mod compat;
 #[deprecated(since = "0.7.3", note = "Use gateway")]
 /// Utilities for connection.
 pub mod connection;
+#[deprecated(since = "0.7.4")]
 /// The request and response that RaftCore talks.
 pub mod core_message;
 #[cfg(feature = "gateway")]
