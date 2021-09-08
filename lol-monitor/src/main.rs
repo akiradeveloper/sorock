@@ -19,6 +19,7 @@ use tonic::transport::channel::Endpoint;
 
 #[derive(Clap)]
 struct Opts {
+    #[clap(name = "ID", about = "Some node in the cluster.")]
     id: String,
 }
 
