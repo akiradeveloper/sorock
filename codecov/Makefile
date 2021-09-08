@@ -5,9 +5,9 @@ docker-build:
 
 install:
 	cd ${LOL_ROOT} && cargo install --path lol-admin
-	cd ${LOL_ROOT} && cargo install --path kvs --bin kvs-client
+	cd ${LOL_ROOT} && cargo install --path examples/kvs --bin kvs-client
 	# We only concern the code coverage by kvs-server, not by clients.
-	cd ${LOL_ROOT} && RUSTFLAGS="-Zinstrument-coverage" cargo +nightly install --debug --path kvs --bin kvs-server
+	cd ${LOL_ROOT} && RUSTFLAGS="-Zinstrument-coverage" cargo +nightly install --debug --path examples/kvs --bin kvs-server
 
 clean_cov_files:
 	cd ${LOL_ROOT} && rm -rf integration-tests/cov

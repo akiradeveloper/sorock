@@ -9,6 +9,7 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
+use kvs::{Req, Rep};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
@@ -29,6 +30,18 @@ struct Opt {
     #[structopt(name = "ID")]
     id: String,
 }
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+pub struct Snapshot {
+    pub h: BTreeMap<String, Bytes>,
+}
+impl Snapshot {
+    pub fn serialize(msg: &Snapshot) -> Vec<u8> {
+        bincode::serialize(msg).unwrap()
+    }
+    pub fn deserialize(b: &[u8]) -> Option<Snapshot> {
+        bincode::deserialize(b).ok()
+    }
+}
 struct KVS {
     mem: Arc<RwLock<BTreeMap<String, Bytes>>>,
     copy_snapshot_mode: bool,
@@ -36,37 +49,37 @@ struct KVS {
 #[async_trait]
 impl RaftAppCompat for KVS {
     async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let msg = kvs::Req::deserialize(&x);
+        let msg = Req::deserialize(&x);
         match msg {
             Some(x) => match x {
-                kvs::Req::Set { key, value } => {
+                Req::Set { key, value } => {
                     let mut writer = self.mem.write().await;
                     writer.insert(key, Bytes::from(value));
-                    let res = kvs::Rep::Set {};
-                    Ok(kvs::Rep::serialize(&res))
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
                 }
-                kvs::Req::SetBytes { key, value } => {
+                Req::SetBytes { key, value } => {
                     let mut writer = self.mem.write().await;
                     writer.insert(key, value);
-                    let res = kvs::Rep::Set {};
-                    Ok(kvs::Rep::serialize(&res))
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
                 }
-                kvs::Req::Get { key } => {
+                Req::Get { key } => {
                     let v = self.mem.read().await.get(&key).cloned();
                     let (found, value) = match v {
                         Some(x) => (true, String::from_utf8(x.as_ref().to_vec()).unwrap()),
                         None => (false, "".to_owned()),
                     };
-                    let res = kvs::Rep::Get { found, value };
-                    Ok(kvs::Rep::serialize(&res))
+                    let res = Rep::Get { found, value };
+                    Ok(Rep::serialize(&res))
                 }
-                kvs::Req::List => {
+                Req::List => {
                     let mut values = vec![];
                     for (k, v) in self.mem.read().await.iter() {
                         values.push((k.clone(), String::from_utf8(v.as_ref().to_vec()).unwrap()));
                     }
-                    let res = kvs::Rep::List { values };
-                    Ok(kvs::Rep::serialize(&res))
+                    let res = Rep::List { values };
+                    Ok(Rep::serialize(&res))
                 }
             },
             None => Err(anyhow!("the message not supported")),
@@ -79,10 +92,10 @@ impl RaftAppCompat for KVS {
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let res = self.process_message(x).await?;
         let new_snapshot = if self.copy_snapshot_mode {
-            let new_snapshot = kvs::Snapshot {
+            let new_snapshot = Snapshot {
                 h: self.mem.read().await.clone(),
             };
-            let b = kvs::Snapshot::serialize(&new_snapshot);
+            let b = Snapshot::serialize(&new_snapshot);
             Some(b)
         } else {
             None
@@ -92,7 +105,7 @@ impl RaftAppCompat for KVS {
     async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
         if let Some(x) = x {
             let mut h = self.mem.write().await;
-            let snapshot = kvs::Snapshot::deserialize(x.as_ref()).unwrap();
+            let snapshot = Snapshot::deserialize(x.as_ref()).unwrap();
             h.clear();
             for (k, v) in snapshot.h {
                 h.insert(k, v);
@@ -106,17 +119,17 @@ impl RaftAppCompat for KVS {
         xs: Vec<&[u8]>,
     ) -> anyhow::Result<Vec<u8>> {
         let mut old = old_snapshot
-            .map(|x| kvs::Snapshot::deserialize(x.as_ref()).unwrap())
-            .unwrap_or(kvs::Snapshot { h: BTreeMap::new() });
+            .map(|x| Snapshot::deserialize(x.as_ref()).unwrap())
+            .unwrap_or(Snapshot { h: BTreeMap::new() });
 
         for x in xs {
-            let req = kvs::Req::deserialize(&x);
+            let req = Req::deserialize(&x);
             match req {
                 Some(x) => match x {
-                    kvs::Req::Set { key, value } => {
+                    Req::Set { key, value } => {
                         old.h.insert(key, Bytes::from(value));
                     }
-                    kvs::Req::SetBytes { key, value } => {
+                    Req::SetBytes { key, value } => {
                         old.h.insert(key, value);
                     }
                     _ => {}
@@ -124,7 +137,7 @@ impl RaftAppCompat for KVS {
                 None => {}
             }
         }
-        let b = kvs::Snapshot::serialize(&old);
+        let b = Snapshot::serialize(&old);
         Ok(b)
     }
 }
