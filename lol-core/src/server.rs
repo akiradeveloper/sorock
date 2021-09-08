@@ -7,9 +7,9 @@ use tokio_stream::StreamExt;
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
-    GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq, RemoveServerRep,
-    RemoveServerReq, RequestVoteRep, RequestVoteReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep,
-    TuneConfigReq,
+    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq,
+    RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq,
+    TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -73,6 +73,39 @@ pub struct Server<A: RaftApp> {
 }
 #[tonic::async_trait]
 impl<A: RaftApp> Raft for Server<A> {
+    async fn get_config(
+        &self,
+        _: tonic::Request<GetConfigReq>,
+    ) -> Result<tonic::Response<GetConfigRep>, tonic::Status> {
+        let core = &self.core;
+        match core.tunable.try_read() {
+            Ok(tunable) => {
+                let rep = GetConfigRep {
+                    compaction_delay_sec: tunable.compaction_delay_sec,
+                    compaction_interval_sec: tunable.compaction_interval_sec,
+                };
+                Ok(tonic::Response::new(rep))
+            }
+            Err(poisoned_error) => Err(tonic::Status::internal(format!(
+                "cannot update tunable configuration: state is poisoned({})",
+                poisoned_error
+            ))),
+        }
+    }
+    async fn status(
+        &self,
+        _: tonic::Request<StatusReq>,
+    ) -> Result<tonic::Response<StatusRep>, tonic::Status> {
+        use std::sync::atomic::Ordering;
+        let core = &self.core;
+        let rep = StatusRep {
+            snapshot_index: core.log.get_snapshot_index().await.unwrap(),
+            last_applied: core.log.last_applied.load(Ordering::SeqCst),
+            commit_index: core.log.commit_index.load(Ordering::SeqCst),
+            last_log_index: core.log.get_last_log_index().await.unwrap(),
+        };
+        Ok(tonic::Response::new(rep))
+    }
     async fn request_cluster_info(
         &self,
         _: tonic::Request<ClusterInfoReq>,

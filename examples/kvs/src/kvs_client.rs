@@ -1,3 +1,4 @@
+use kvs::{Rep, Req};
 use lol_core::proto_compiled;
 use lol_core::proto_compiled::raft_client::RaftClient;
 use std::time::Duration;
@@ -40,8 +41,8 @@ async fn main() {
     let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::Get { key } => {
-            let msg = kvs::Req::Get { key };
-            let msg = kvs::Req::serialize(&msg);
+            let msg = Req::Get { key };
+            let msg = Req::serialize(&msg);
             let res = conn
                 .request_apply(proto_compiled::ApplyReq {
                     core: false,
@@ -51,12 +52,12 @@ async fn main() {
                 .await
                 .unwrap()
                 .into_inner();
-            let res = kvs::Rep::deserialize(&res.message).unwrap();
-            let res = if let kvs::Rep::Get { found, value } = res {
+            let res = Rep::deserialize(&res.message).unwrap();
+            let res = if let Rep::Get { found, value } = res {
                 if found {
-                    kvs::Get(Some(value))
+                    kvs::client::Get(Some(value))
                 } else {
-                    kvs::Get(None)
+                    kvs::client::Get(None)
                 }
             } else {
                 unreachable!()
@@ -69,11 +70,11 @@ async fn main() {
             for _ in 0..rep {
                 value_rep.push_str(&value)
             }
-            let msg = kvs::Req::Set {
+            let msg = Req::Set {
                 key,
                 value: value_rep,
             };
-            let msg = kvs::Req::serialize(&msg);
+            let msg = Req::serialize(&msg);
             conn.request_commit(proto_compiled::CommitReq {
                 core: false,
                 message: msg,
@@ -83,8 +84,8 @@ async fn main() {
             println!("OK");
         }
         Sub::List => {
-            let msg = kvs::Req::List;
-            let msg = kvs::Req::serialize(&msg);
+            let msg = Req::List;
+            let msg = Req::serialize(&msg);
             let res = conn
                 .request_apply(proto_compiled::ApplyReq {
                     core: false,
@@ -94,9 +95,9 @@ async fn main() {
                 .await
                 .unwrap()
                 .into_inner();
-            let res = kvs::Rep::deserialize(&res.message).unwrap();
-            let res = if let kvs::Rep::List { values } = res {
-                kvs::List(values)
+            let res = Rep::deserialize(&res.message).unwrap();
+            let res = if let Rep::List { values } = res {
+                kvs::client::List(values)
             } else {
                 unreachable!()
             };

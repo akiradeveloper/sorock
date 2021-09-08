@@ -19,6 +19,7 @@ use tonic::transport::channel::Endpoint;
 
 #[derive(Clap)]
 struct Opts {
+    #[clap(name = "ID", about = "Some node in the cluster.")]
     id: String,
 }
 
@@ -34,175 +35,84 @@ async fn main() -> anyhow::Result<()> {
 
     let events = event::Events::new();
 
-    let mut initial = HashSet::new();
-    initial.insert(opts.id);
-    let gateway = gateway::watch(initial);
+    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from_shared(id).unwrap());
+    let gateway = connector.connect(opts.id);
 
-    let s1_0 = stream::unfold(gateway.clone(), |gateway| async move {
-        let endpoints = gateway.borrow().list.clone();
-        let res = gateway::exec(endpoints, |id| async move {
-            let msg = core_message::Req::ClusterInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
+    let data_stream_0 = stream::unfold(gateway.clone(), |gateway| async move {
+        let mut cli = RaftClient::new(gateway.clone());
+
+        let cluster_info = cli
+            .request_cluster_info(proto_compiled::ClusterInfoReq {})
+            .await
+            .ok()?
+            .into_inner();
+
+        let endpoints = cluster_info.membership.clone();
+        let mut futs = vec![];
+        for id in endpoints.clone() {
+            let fut = async move {
+                let res: anyhow::Result<_> = {
+                    let endpoint =
+                        Endpoint::from_shared(id.clone())?.timeout(Duration::from_secs(3));
+                    let mut conn = RaftClient::connect(endpoint).await?;
+                    let req = proto_compiled::StatusReq {};
+                    let status = conn.status(req).await?.into_inner();
+                    Ok(app::LogInfo {
+                        snapshot_index: status.snapshot_index,
+                        last_applied: status.last_applied,
+                        commit_index: status.commit_index,
+                        last_log_index: status.last_log_index,
+                    })
+                };
+                res
             };
-            let endpoint = Endpoint::from_shared(id)
-                .unwrap()
-                .timeout(Duration::from_secs(1));
-            let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_process(req).await?.into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            if let core_message::Rep::ClusterInfo {
-                leader_id,
-                membership,
-            } = msg
-            {
-                Ok(app::Membership {
-                    leader_id,
-                    membership,
-                })
-            } else {
-                unreachable!()
-            }
-        })
-        .await;
-        match res {
-            Ok(x) => Some((x, gateway)),
-            Err(_) => None,
+            futs.push(fut);
         }
+        let results = futures::future::join_all(futs).await;
+
+        let mut h = HashMap::new();
+        for (id, x) in endpoints.into_iter().zip(results) {
+            match x {
+                Ok(log_info) => {
+                    h.insert(
+                        id,
+                        app::NodeStatus {
+                            log_info: Some(log_info),
+                            health_ok: true,
+                        },
+                    );
+                }
+                Err(_) => {
+                    h.insert(id, app::NodeStatus::default());
+                }
+            }
+        }
+
+        let mut res = app::ClusterStatus::default();
+        res.leader_id = cluster_info.leader_id;
+        res.data = h;
+        Some((res, gateway))
     });
-    let (tx1, s1_1) = watch::channel(app::Membership {
+    let (tx1, data_stream_1) = watch::channel(app::ClusterStatus {
         leader_id: None,
-        membership: vec![],
+        data: HashMap::new(),
     });
     tokio::spawn(async move {
-        tokio::pin!(s1_0);
-        while let Some(x) = s1_0.next().await {
+        tokio::pin!(data_stream_0);
+        while let Some(x) = data_stream_0.next().await {
             tx1.send(x);
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
-    let it1 = std::iter::repeat_with(|| s1_1.borrow().clone());
-    let s1 = async_stream::stream! {
-        for x in it1.into_iter() {
+    let it = std::iter::repeat_with(|| data_stream_1.borrow().clone());
+    let data_stream = async_stream::stream! {
+        for x in it.into_iter() {
             yield x
         }
     };
-    tokio::pin!(s1);
+    tokio::pin!(data_stream);
 
-    let s2_0 = stream::unfold(gateway.clone(), |gateway| async move {
-        let mut h = HashMap::new();
-
-        let endpoints = gateway.borrow().list.clone();
-        let res = gateway::parallel(endpoints.clone(), |id| async move {
-            let msg = core_message::Req::LogInfo;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
-            };
-            let endpoint = Endpoint::from_shared(id)
-                .unwrap()
-                .timeout(Duration::from_secs(1));
-            let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_process_locally(req).await?.into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            if let core_message::Rep::LogInfo {
-                snapshot_index,
-                last_applied,
-                commit_index,
-                last_log_index,
-            } = msg
-            {
-                Ok(app::LogInfo {
-                    snapshot_index,
-                    last_applied,
-                    commit_index,
-                    last_log_index,
-                })
-            } else {
-                unreachable!()
-            }
-        })
-        .await;
-
-        let n = endpoints.len();
-        for i in 0..n {
-            let id = &endpoints[i];
-            if let Ok(x) = &res[i] {
-                h.insert(id.to_owned(), x.clone());
-            }
-        }
-        Some((h, gateway))
-    });
-    let (tx2, s2_1) = watch::channel(HashMap::new());
-    tokio::spawn(async move {
-        tokio::pin!(s2_0);
-        while let Some(x) = s2_0.next().await {
-            tx2.send(x);
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    });
-    let it2 = std::iter::repeat_with(|| s2_1.borrow().clone());
-    let s2 = async_stream::stream! {
-        for x in it2.into_iter() {
-            yield x
-        }
-    };
-    tokio::pin!(s2);
-
-    let s3_0 = stream::unfold(gateway.clone(), |gateway| async move {
-        let mut h = HashSet::new();
-
-        let endpoints = gateway.borrow().list.clone();
-        let res = gateway::parallel(endpoints.clone(), |id| async move {
-            let msg = core_message::Req::HealthCheck;
-            let req = proto_compiled::ProcessReq {
-                message: core_message::Req::serialize(&msg),
-                core: true,
-            };
-            let endpoint = Endpoint::from_shared(id)
-                .unwrap()
-                .timeout(Duration::from_secs(1));
-            let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_process_locally(req).await?.into_inner();
-            let msg = core_message::Rep::deserialize(&res.message).unwrap();
-            if let core_message::Rep::HealthCheck { ok } = msg {
-                Ok(app::HealthCheck { ok })
-            } else {
-                unreachable!()
-            }
-        })
-        .await;
-
-        let n = endpoints.len();
-        for i in 0..n {
-            let id = &endpoints[i];
-            if let Ok(app::HealthCheck { ok }) = &res[i] {
-                if *ok {
-                    h.insert(id.to_owned());
-                }
-            }
-        }
-        Some((h, gateway))
-    });
-    let (tx3, s3_1) = watch::channel(HashSet::new());
-    tokio::spawn(async move {
-        tokio::pin!(s3_0);
-        while let Some(x) = s3_0.next().await {
-            tx3.send(x);
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    });
-    let it3 = std::iter::repeat_with(|| s3_1.borrow().clone());
-    let s3 = async_stream::stream! {
-        for x in it3.into_iter() {
-            yield x
-        }
-    };
-    tokio::pin!(s3);
-
-    let mut app = App::new(s1, s2, s3).await;
-
+    let mut app = App::new(data_stream).await;
     loop {
         if !app.running {
             break;

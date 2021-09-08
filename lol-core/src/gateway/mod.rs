@@ -9,6 +9,7 @@ use tower::discover::Change;
 
 mod service;
 
+/// Gateway builder.
 pub struct Connector {
     f: Box<dyn Fn(Id) -> Endpoint + 'static + Send>,
 }
@@ -68,17 +69,15 @@ impl Gateway {
                             Change::Remove(k) => Change::Remove(k.clone()),
                         };
                         match tx.try_send(msg) {
-                            Ok(()) => {
-                                match change {
-                                    Change::Insert(k, _) => {
-                                        cur_leader = Some(k.clone());
-                                    }
-                                    Change::Remove(_) => {}
+                            Ok(()) => match change {
+                                Change::Insert(k, _) => {
+                                    cur_leader = Some(k.clone());
                                 }
-                                break;
-                            }
+                                Change::Remove(_) => {}
+                            },
                             Err(TrySendError::Full(_)) => {
                                 change_queue.push_front(change);
+                                break;
                             }
                             Err(TrySendError::Closed(_)) => {
                                 break 'outer;

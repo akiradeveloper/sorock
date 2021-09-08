@@ -3,16 +3,26 @@
 A tui software to monitor the cluster status such as
 membership, replication progress, server health, etc.
 
-## How to launch
+## Usage
 
-lol-monitor $receiver
+```
+USAGE:
+    lol-monitor <ID>
 
-$receiver should be one of the node in the cluster.
+ARGS:
+    <ID>    Some node in the cluster.
 
-After lol-monitor launches and successfully connected to the cluster,
-the connection is maintained unless all node in the cluster is removed.
-This is because lol-monitor tracks the membership information periodically.
+FLAGS:
+    -h, --help       Print help information
+    -V, --version    Print version information
+```
 
-## Key command
+## Screenshot
 
-- q: quit
+![](lol-monitor.png)
+
+## Test
+
+1. ./dev
+2. cd lol-monitor
+3. make test

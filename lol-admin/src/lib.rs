@@ -1,10 +1,19 @@
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, Clone, Eq)]
+#[derive(serde::Serialize)]
 pub struct ClusterInfo {
     pub leader_id: Option<String>,
     pub membership: Vec<String>,
 }
-impl PartialEq for ClusterInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.leader_id == other.leader_id && self.membership == other.membership
-    }
+
+#[derive(serde::Serialize)]
+pub struct Config {
+    pub compaction_delay_sec: u64,
+    pub compaction_interval_sec: u64,
+}
+
+#[derive(serde::Serialize)]
+pub struct Status {
+    pub snapshot_index: u64,
+    pub last_applied: u64,
+    pub commit_index: u64,
+    pub last_log_index: u64,
 }
