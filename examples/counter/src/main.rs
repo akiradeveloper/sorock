@@ -4,34 +4,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-enum Req {
-    IncAndGet,
-    Get,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-enum Rep {
-    IncAndGet(u64),
-    Get(u64),
-}
-impl Req {
-    pub fn serialize(msg: &Req) -> Vec<u8> {
-        bincode::serialize(msg).unwrap()
-    }
-    pub fn deserialize(b: &[u8]) -> Option<Self> {
-        bincode::deserialize(b).ok()
-    }
-}
-impl Rep {
-    pub fn serialize(msg: &Rep) -> Vec<u8> {
-        bincode::serialize(msg).unwrap()
-    }
-    pub fn deserialize(b: &[u8]) -> Option<Self> {
-        bincode::deserialize(b).ok()
-    }
-}
+use counter::{Req, Rep};
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Tag(pub Bytes);
@@ -194,4 +167,5 @@ impl lol_core::RaftApp for Counter {
         Ok(())
     }
 }
+
 fn main() {}
