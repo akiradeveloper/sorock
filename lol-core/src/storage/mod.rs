@@ -10,6 +10,8 @@ pub mod memory;
 #[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
 pub mod disk;
 
+/// Serialized Ballot.
+/// Ballot is a record of the previous vote.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ballot {
     pub(crate) cur_term: Term,
@@ -24,6 +26,7 @@ impl Ballot {
     }
 }
 
+/// Serialized log entry.
 #[derive(Clone)]
 pub struct Entry {
     pub(crate) prev_clock: Clock,

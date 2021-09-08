@@ -9,6 +9,7 @@ use tower::discover::Change;
 
 mod service;
 
+/// Gateway builder.
 pub struct Connector {
     f: Box<dyn Fn(Id) -> Endpoint + 'static + Send>,
 }
