@@ -11,5 +11,5 @@ members = [
     # examples
     "examples/kvs",
     "examples/multi-services",
-    "examples/counter",
+    "examples/atomic-counter",
 ]
