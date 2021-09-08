@@ -3,8 +3,8 @@ docker-build:
 
 .PHONY: install
 install:
-	cargo install --path kvs --bin kvs-server
-	cargo install --path kvs --bin kvs-client
+	cargo install --path examples/kvs --bin kvs-server
+	cargo install --path examples/kvs --bin kvs-client
 	cargo install --path lol-admin
 	cargo install --path lol-monitor
 
