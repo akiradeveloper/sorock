@@ -1,7 +1,6 @@
 use crate::Id;
 
 /// Request
-#[deprecated]
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum Req {
     AddServer(Id),

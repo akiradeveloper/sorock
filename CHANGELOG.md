@@ -1,6 +1,11 @@
+# 0.7.5 (2021-9-8)
+
+- Fix doc.
+
 # 0.7.4 (2021-9-8)
 
 - Add atomic-counter example. (#213)
+- Fix a bug in gateway. (#207)
 - Add new APIs.
 
 # 0.7.3 (2021-9-3)

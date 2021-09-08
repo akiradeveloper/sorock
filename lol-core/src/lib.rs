@@ -30,6 +30,7 @@ pub mod compat;
 #[deprecated(since = "0.7.3", note = "Use gateway")]
 /// Utilities for connection.
 pub mod connection;
+#[deprecated(since = "0.7.4")]
 /// The request and response that RaftCore talks.
 pub mod core_message;
 #[cfg(feature = "gateway")]
@@ -1547,6 +1548,7 @@ impl Log {
     }
 }
 
+/// A Raft implementation of `tower::Service`.
 pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
 
 /// Lift `RaftCore` to `Service`.
