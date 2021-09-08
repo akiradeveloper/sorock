@@ -1,24 +1,25 @@
-from 'ubuntu:21.04'
-WORKDIR '/lol-root/coverage'
+FROM 'ubuntu:21.04'
+
+WORKDIR '/lol_root/codecov'
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update
-RUN apt-get install -y llvm
-RUN apt-get install -y curl sudo less
-RUN apt-get install -y build-essential
+RUN apt-get update && apt-get install -y \
+	llvm \
+	curl sudo less \
+	build-essential clang
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ARG USER
 ARG UID
-RUN groupadd ${USER}
-RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${USER} -G sudo ${USER}
+ARG GID
+RUN groupadd -g ${GID} ${USER}
+RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${GID} -G sudo ${USER}
+RUN echo '%wheel ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER ${USER}
 
-RUN curl https://sh.rustup.rs -sSf >> ${HOME}/rustup.rs
-RUN sh ${HOME}/rustup.rs -y
-RUN echo $HOME
-ENV PATH=/home/${USER}/.cargo/bin:$PATH
-RUN echo $PATH
-
 RUN rustup install nightly
-RUN rustup component add --toolchain nightly llvm-tools-preview
+RUN rustup default nightly
+RUN rustup component add llvm-tools-preview
+RUN rustup component add rustfmt
 RUN cargo install rustfilt 

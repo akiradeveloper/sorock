@@ -1,19 +1,19 @@
-LOL_ROOT=..
-
 docker-build:
-	docker build -t lol:cov --build-arg USER=${USER} --build-arg UID=`id -u` - < Dockerfile
+	docker build -t lol:cov --build-arg USER=${USER} --build-arg UID=`id -u` --build-arg GID=`id -g` - < Dockerfile
 
+report:
+	sh script/cov_report.sh
+
+.PHONY: install
 install:
-	cd ${LOL_ROOT} && cargo install --path lol-admin
-	cd ${LOL_ROOT} && cargo install --path examples/kvs --bin kvs-client
+	cd ..; cargo install --path lol-admin
+	cd ..; cargo install --path examples/kvs --bin kvs-client
 	# We only concern the code coverage by kvs-server, not by clients.
-	cd ${LOL_ROOT} && RUSTFLAGS="-Zinstrument-coverage" cargo +nightly install --debug --path examples/kvs --bin kvs-server
+	cd ..; RUSTFLAGS="-Zinstrument-coverage" cargo install --debug --path examples/kvs --bin kvs-server
 
+.PHONY: install
 clean_cov_files:
-	cd ${LOL_ROOT} && rm -rf integration-tests/cov
+	cd ..; rm -rf integration-tests/cov
 
 test: clean_cov_files install
-	cd ${LOL_ROOT} && cargo test -- --test-threads=1
-
-cov_report:
-	docker-compose run cov sh script/cov_report.sh
+	cd ..; cargo test -- --test-threads=1
