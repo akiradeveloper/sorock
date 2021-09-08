@@ -1548,6 +1548,7 @@ impl Log {
     }
 }
 
+/// A Raft implementation of `tower::Service`.
 pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
 
 /// Lift `RaftCore` to `Service`.
