@@ -11,4 +11,5 @@ members = [
 
     # examples
     "examples/multi-services",
+    "examples/counter",
 ]
