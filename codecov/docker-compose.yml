@@ -3,4 +3,4 @@ services:
   cov:
     image: lol:cov
     volumes:
-      - ..:/lol-root
+      - ..:/lol_root
