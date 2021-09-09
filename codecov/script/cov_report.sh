@@ -1,8 +1,7 @@
-LOL_ROOT=..
-OUTPUT=/tmp/merged.profdata
+MERGED=/tmp/merged.profdata
 
-llvm-profdata-11 merge ${LOL_ROOT}/integration-tests/cov/*.profraw -o ${OUTPUT}
-llvm-cov-11 report ${LOL_ROOT}/target/debug/kvs-server \
+llvm-profdata merge ../integration-tests/cov/*.profraw -o ${MERGED}
+llvm-cov report /tmp/cargo-target/debug/kvs-server \
     -Xdemangler=rustfilt \
-    -instr-profile=${OUTPUT} \
+    -instr-profile=${MERGED} \
     --ignore-filename-regex="(.cargo|rustc)" 
