@@ -1202,9 +1202,9 @@ impl Log {
                         return Err(e);
                     }
                 }
-                if let Err(e) = self.insert_snapshot(entry).await {
-                    log::error!("could not insert snapshot entry (idx={})", snapshot_index);
-                    return Err(e);
+                let inserted = self.snapshot_queue.insert(entry, Duration::from_millis(0)).await;
+                if !inserted.await {
+                    anyhow::bail!("failed to insert snapshot entry (idx={})", snapshot_index);
                 }
 
                 self.commit_index
@@ -1387,9 +1387,9 @@ impl Log {
                                         delay_sec
                                     );
 
-                                    self.snapshot_queue
+                                    let _ = self.snapshot_queue
                                         .insert(
-                                            snapshot::InsertSnapshot { e: snapshot_entry },
+                                            snapshot_entry,
                                             delay,
                                         )
                                         .await;
@@ -1505,8 +1505,8 @@ impl Log {
                 e
             };
             let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
-            self.snapshot_queue
-                .insert(snapshot::InsertSnapshot { e: new_snapshot }, delay)
+            let _ = self.snapshot_queue
+                .insert(new_snapshot, delay)
                 .await;
             Ok(())
         } else {
