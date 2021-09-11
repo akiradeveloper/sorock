@@ -342,7 +342,7 @@ impl<A: RaftApp> RaftCore<A> {
             }
             core_message::Req::LogInfo => {
                 let res = core_message::Rep::LogInfo {
-                    snapshot_index: self.log.get_snapshot_index().await?,
+                    snapshot_index: self.log.get_snapshot_index(),
                     last_applied: self.log.last_applied.load(Ordering::SeqCst),
                     commit_index: self.log.commit_index.load(Ordering::SeqCst),
                     last_log_index: self.log.get_last_log_index().await?,
@@ -595,7 +595,7 @@ impl<A: RaftApp> RaftCore<A> {
 
         // The entries to send could be deleted due to previous compactions.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.log.get_snapshot_index().await?;
+        let cur_snapshot_index = self.log.get_snapshot_index();
         if old_progress.next_index < cur_snapshot_index {
             log::warn!(
                 "entry not found at next_index (idx={}) for {}",
@@ -1124,8 +1124,8 @@ impl Log {
     async fn get_last_log_index(&self) -> anyhow::Result<Index> {
         self.storage.get_last_index().await
     }
-    async fn get_snapshot_index(&self) -> anyhow::Result<Index> {
-        Ok(self.snapshot_index.load(Ordering::SeqCst))
+    fn get_snapshot_index(&self) -> Index {
+        self.snapshot_index.load(Ordering::SeqCst)
     }
     async fn append_new_entry(
         &self,
@@ -1459,7 +1459,7 @@ impl Log {
 
         let _token = self.compaction_token.acquire().await;
 
-        let cur_snapshot_index = self.get_snapshot_index().await?;
+        let cur_snapshot_index = self.get_snapshot_index();
 
         if new_snapshot_index <= cur_snapshot_index {
             return Ok(());
@@ -1519,7 +1519,7 @@ impl Log {
         }
     }
     async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
-        let r = self.get_snapshot_index().await?;
+        let r = self.get_snapshot_index();
         log::debug!("gc .. {}", r);
 
         // Delete old snapshots
