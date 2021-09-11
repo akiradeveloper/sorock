@@ -260,21 +260,18 @@ impl<A: RaftApp> RaftCore<A> {
     async fn find_last_membership<S: RaftStorage>(
         storage: &S,
     ) -> anyhow::Result<(Index, HashSet<Id>)> {
-        let from = storage.get_snapshot_index().await?;
-        if from == 0 {
-            return Ok((0, HashSet::new()));
-        }
-        let to = storage.get_last_index().await?;
-        assert!(from <= to);
+        let last = storage.get_last_index().await?;
         let mut ret = (0, HashSet::new());
-        for i in from..=to {
+        for i in (1..=last).rev() {
             let e = storage.get_entry(i).await?.unwrap();
             match Command::deserialize(&e.command) {
                 Command::Snapshot { membership } => {
                     ret = (i, membership);
+                    break;
                 }
                 Command::ClusterConfiguration { membership } => {
                     ret = (i, membership);
+                    break;
                 }
                 _ => {}
             }
