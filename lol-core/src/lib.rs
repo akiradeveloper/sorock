@@ -290,6 +290,7 @@ impl<A: RaftApp> RaftCore<A> {
             }),
         };
         self.log.insert_snapshot(snapshot).await?;
+
         let mut membership = HashSet::new();
         membership.insert(self.id.clone());
         let add_server = Entry {
@@ -1069,6 +1070,7 @@ struct Log {
     storage: Box<dyn RaftStorage>,
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
+    snapshot_index: AtomicU64, // Monotonic
     last_applied: AtomicU64, // Monotonic
     commit_index: AtomicU64, // Monotonic
 
@@ -1100,6 +1102,7 @@ impl Log {
             storage,
             ack_chans: RwLock::new(BTreeMap::new()),
 
+            snapshot_index: snapshot_index.into(),
             last_applied: start_index.into(),
             commit_index: start_index.into(),
 
@@ -1122,7 +1125,7 @@ impl Log {
         self.storage.get_last_index().await
     }
     async fn get_snapshot_index(&self) -> anyhow::Result<Index> {
-        self.storage.get_snapshot_index().await
+        Ok(self.snapshot_index.load(Ordering::SeqCst))
     }
     async fn append_new_entry(
         &self,
@@ -1254,7 +1257,9 @@ impl Log {
         Ok(())
     }
     async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
+        let new_snapshot_index = e.this_clock.index;
         self.storage.insert_snapshot(e.this_clock.index, e).await?;
+        self.snapshot_index.fetch_max(new_snapshot_index, Ordering::SeqCst);
         Ok(())
     }
     async fn advance_commit_index<A: RaftApp>(
