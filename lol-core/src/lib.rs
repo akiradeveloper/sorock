@@ -1087,7 +1087,7 @@ struct Log {
 }
 impl Log {
     async fn new<S: RaftStorage>(storage: S) -> Self {
-        let snapshot_index = match Self::find_last_snapshot_index(&storage).await.expect("failed to find initial snapshot index") {
+        let snapshot_index = match storage::find_last_snapshot_index(&storage).await.expect("failed to find initial snapshot index") {
             Some(x) => x,
             None => 0,
         };
@@ -1120,19 +1120,6 @@ impl Log {
 
             apply_error_seq: 0.into(),
         }
-    }
-    async fn find_last_snapshot_index<S: RaftStorage>(storage: &S) -> anyhow::Result<Option<Index>> {
-        let last = storage.get_last_index().await?;
-        for i in (1..=last).rev() {
-            let e = storage.get_entry(i).await?.unwrap();
-            match Command::deserialize(&e.command) {
-                Command::Snapshot { .. } => {
-                    return Ok(Some(i))
-                }
-                _ => {}
-            }
-        }
-        Ok(None)
     }
     async fn get_last_log_index(&self) -> anyhow::Result<Index> {
         self.storage.get_last_index().await
