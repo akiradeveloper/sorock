@@ -1,16 +1,13 @@
 use super::{Ballot, Entry};
-use crate::Clock;
-use crate::Index;
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, WriteBatch, DB};
+use crate::{Clock, Command, Index};
+use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
-use tokio::sync::Semaphore;
 
 const CF_ENTRIES: &str = "entries";
-const CF_CTRL: &str = "ctrl";
 const CF_TAGS: &str = "tags";
-const SNAPSHOT_INDEX: &str = "snapshot_index";
+const CF_CTRL: &str = "ctrl";
 const BALLOT: &str = "ballot";
 const CMP: &str = "index_asc";
 
@@ -138,9 +135,6 @@ impl StorageBuilder {
         let cf = db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = initial_ballot.into();
         db.put_cf(&cf, BALLOT, b).unwrap();
-
-        let b: Vec<u8> = SnapshotIndexB(0).into();
-        db.put_cf(&cf, SNAPSHOT_INDEX, b).unwrap();
     }
     fn open_db(&self) -> DB {
         let db_opts = Options::default();
@@ -161,14 +155,10 @@ impl StorageBuilder {
 
 pub struct Storage {
     db: DB,
-    snapshot_lock: Semaphore,
 }
 impl Storage {
     fn new(db: DB) -> Self {
-        Self {
-            db,
-            snapshot_lock: Semaphore::new(1),
-        }
+        Self { db }
     }
 }
 use anyhow::Result;
@@ -217,20 +207,7 @@ impl super::RaftStorage for Storage {
         Ok(v)
     }
     async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        let _token = self.snapshot_lock.acquire().await;
-        let cur_snapshot_index = self.get_snapshot_index().await?;
-        if i > cur_snapshot_index {
-            let cf1 = self.db.cf_handle(CF_ENTRIES).unwrap();
-            let cf2 = self.db.cf_handle(CF_CTRL).unwrap();
-            let mut batch = WriteBatch::default();
-            let b: Vec<u8> = e.into();
-            batch.put_cf(&cf1, encode_index(i), b);
-            let b: Vec<u8> = SnapshotIndexB(i).into();
-            batch.put_cf(&cf2, SNAPSHOT_INDEX, b);
-            // Should we set_sync true here? or WAL saves our data on crash?
-            self.db.write(batch)?;
-        }
-        Ok(())
+        unreachable!()
     }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
@@ -244,10 +221,7 @@ impl super::RaftStorage for Storage {
         Ok(b.map(|x| x.into()))
     }
     async fn get_snapshot_index(&self) -> Result<Index> {
-        let cf = self.db.cf_handle(CF_CTRL).unwrap();
-        let b = self.db.get_cf(&cf, SNAPSHOT_INDEX)?.unwrap();
-        let x: SnapshotIndexB = b.into();
-        Ok(x.0)
+        unreachable!()
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
@@ -280,33 +254,40 @@ async fn test_rocksdb_storage() -> Result<()> {
 
 #[tokio::test]
 async fn test_rocksdb_persistency() -> Result<()> {
-    use bytes::Bytes;
+    use super::RaftStorage;
 
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
-    let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
+    let s = builder.open();
 
     let e = Entry {
         prev_clock: Clock { term: 0, index: 0 },
         this_clock: Clock { term: 0, index: 0 },
-        command: Bytes::new(),
+        command: Command::serialize(&Command::Noop),
+    };
+    let sn = Entry {
+        prev_clock: Clock { term: 0, index: 0 },
+        this_clock: Clock { term: 0, index: 0 },
+        command: Command::serialize(&Command::Snapshot {
+            membership: HashSet::new(),
+        }),
     };
     let tag: crate::SnapshotTag = vec![].into();
 
     s.put_tag(1, tag.clone()).await?;
-    s.insert_snapshot(1, e.clone()).await?;
+    s.insert_entry(1, sn.clone()).await?;
     s.insert_entry(2, e.clone()).await?;
     s.insert_entry(3, e.clone()).await?;
     s.insert_entry(4, e.clone()).await?;
     s.put_tag(3, tag.clone()).await?;
-    s.insert_snapshot(3, e.clone()).await?;
+    s.insert_entry(3, sn.clone()).await?;
 
     drop(s);
 
-    let s: Box<dyn super::RaftStorage> = Box::new(builder.open());
+    let s = builder.open();
     assert_eq!(
         s.load_ballot().await?,
         Ballot {
@@ -317,7 +298,7 @@ async fn test_rocksdb_persistency() -> Result<()> {
     assert!(s.get_tag(1).await?.is_some());
     assert!(s.get_tag(2).await?.is_none());
     assert!(s.get_tag(3).await?.is_some());
-    assert_eq!(s.get_snapshot_index().await?, 3);
+    assert_eq!(super::find_last_snapshot_index(&s).await?, Some(3));
     assert_eq!(s.get_last_index().await?, 4);
 
     drop(s);

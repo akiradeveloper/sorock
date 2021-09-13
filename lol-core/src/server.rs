@@ -99,7 +99,7 @@ impl<A: RaftApp> Raft for Server<A> {
         use std::sync::atomic::Ordering;
         let core = &self.core;
         let rep = StatusRep {
-            snapshot_index: core.log.get_snapshot_index().await.unwrap(),
+            snapshot_index: core.log.get_snapshot_index(),
             last_applied: core.log.last_applied.load(Ordering::SeqCst),
             commit_index: core.log.commit_index.load(Ordering::SeqCst),
             last_log_index: core.log.get_last_log_index().await.unwrap(),

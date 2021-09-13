@@ -1,3 +1,7 @@
+# 0.7.6 (2021-9-13)
+
+- Deprecate snapshot-related functions in RaftStorage. (#237)
+
 # 0.7.5 (2021-9-8)
 
 - Fix doc.

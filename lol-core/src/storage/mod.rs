@@ -1,6 +1,6 @@
-use crate::{Clock, Id, Index, Term};
+use crate::{Clock, Command, Id, Index, Term};
 use bytes::Bytes;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 /// In-memory implementation backed by BTreeMap.
 pub mod memory;
@@ -40,10 +40,12 @@ pub struct Entry {
 pub trait RaftStorage: Sync + Send + 'static {
     /// Delete range ..r
     async fn delete_before(&self, r: Index) -> anyhow::Result<()>;
+    #[deprecated(since = "0.7.6")]
     /// Save the snapshot entry so snapshot index always advance.
     async fn insert_snapshot(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
+    #[deprecated(since = "0.7.6")]
     async fn get_snapshot_index(&self) -> anyhow::Result<Index>;
     async fn get_last_index(&self) -> anyhow::Result<Index>;
     async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()>;
@@ -54,12 +56,33 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn list_tags(&self) -> anyhow::Result<BTreeSet<Index>>;
 }
 
+pub async fn find_last_snapshot_index<S: RaftStorage>(
+    storage: &S,
+) -> anyhow::Result<Option<Index>> {
+    let last = storage.get_last_index().await?;
+    for i in (1..=last).rev() {
+        let e = storage.get_entry(i).await?.unwrap();
+        match Command::deserialize(&e.command) {
+            Command::Snapshot { .. } => return Ok(Some(i)),
+            _ => {}
+        }
+    }
+    Ok(None)
+}
+
 #[cfg(test)]
 async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     let e = Entry {
         prev_clock: Clock { term: 0, index: 0 },
         this_clock: Clock { term: 0, index: 0 },
-        command: Bytes::new(),
+        command: Command::serialize(&Command::Noop),
+    };
+    let sn = Entry {
+        prev_clock: Clock { term: 0, index: 0 },
+        this_clock: Clock { term: 0, index: 0 },
+        command: Command::serialize(&Command::Snapshot {
+            membership: HashSet::new(),
+        }),
     };
 
     // Vote
@@ -90,30 +113,30 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     s.put_tag(10, tag.clone()).await?;
     assert_eq!(s.get_tag(10).await?, Some(tag.clone()));
 
-    assert_eq!(s.get_snapshot_index().await?, 0);
+    assert_eq!(find_last_snapshot_index(&s).await?, None);
     assert_eq!(s.get_last_index().await?, 0);
     assert!(s.get_entry(1).await?.is_none());
 
-    let sn1 = e.clone();
+    let sn1 = sn.clone();
     let e2 = e.clone();
     let e3 = e.clone();
     let e4 = e.clone();
     let e5 = e.clone();
-    s.insert_snapshot(1, sn1).await?;
+    s.insert_entry(1, sn1).await?;
     assert_eq!(s.get_last_index().await?, 1);
-    assert_eq!(s.get_snapshot_index().await?, 1);
+    assert_eq!(find_last_snapshot_index(&s).await?, Some(1));
     s.insert_entry(2, e2).await?;
     s.insert_entry(3, e3).await?;
     s.insert_entry(4, e4).await?;
     s.insert_entry(5, e5).await?;
     assert_eq!(s.get_last_index().await?, 5);
 
-    let sn4 = e.clone();
-    s.insert_snapshot(4, sn4).await?;
-    assert_eq!(s.get_snapshot_index().await?, 4);
-    let sn2 = e.clone();
-    s.insert_snapshot(2, sn2).await?;
-    assert_eq!(s.get_snapshot_index().await?, 4);
+    let sn4 = sn.clone();
+    s.insert_entry(4, sn4).await?;
+    assert_eq!(find_last_snapshot_index(&s).await?, Some(4));
+    let sn2 = sn.clone();
+    s.insert_entry(2, sn2).await?;
+    assert_eq!(find_last_snapshot_index(&s).await?, Some(4));
 
     assert!(s.get_entry(1).await?.is_some());
     s.delete_before(4).await?;
