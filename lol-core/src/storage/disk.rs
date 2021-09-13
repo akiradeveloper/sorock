@@ -1,8 +1,8 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Index, Command};
+use crate::{Clock, Command, Index};
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
-use std::collections::{HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
 const CF_ENTRIES: &str = "entries";
@@ -158,9 +158,7 @@ pub struct Storage {
 }
 impl Storage {
     fn new(db: DB) -> Self {
-        Self {
-            db,
-        }
+        Self { db }
     }
 }
 use anyhow::Result;
@@ -273,7 +271,9 @@ async fn test_rocksdb_persistency() -> Result<()> {
     let sn = Entry {
         prev_clock: Clock { term: 0, index: 0 },
         this_clock: Clock { term: 0, index: 0 },
-        command: Command::serialize(&Command::Snapshot { membership: HashSet::new() }),
+        command: Command::serialize(&Command::Snapshot {
+            membership: HashSet::new(),
+        }),
     };
     let tag: crate::SnapshotTag = vec![].into();
 

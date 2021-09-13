@@ -1,4 +1,4 @@
-use crate::{Clock, Id, Index, Term, Command};
+use crate::{Clock, Command, Id, Index, Term};
 use bytes::Bytes;
 use std::collections::{BTreeSet, HashSet};
 
@@ -56,14 +56,14 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn list_tags(&self) -> anyhow::Result<BTreeSet<Index>>;
 }
 
-pub async fn find_last_snapshot_index<S: RaftStorage>(storage: &S) -> anyhow::Result<Option<Index>> {
+pub async fn find_last_snapshot_index<S: RaftStorage>(
+    storage: &S,
+) -> anyhow::Result<Option<Index>> {
     let last = storage.get_last_index().await?;
     for i in (1..=last).rev() {
         let e = storage.get_entry(i).await?.unwrap();
         match Command::deserialize(&e.command) {
-            Command::Snapshot { .. } => {
-                return Ok(Some(i))
-            }
+            Command::Snapshot { .. } => return Ok(Some(i)),
             _ => {}
         }
     }
@@ -80,7 +80,9 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     let sn = Entry {
         prev_clock: Clock { term: 0, index: 0 },
         this_clock: Clock { term: 0, index: 0 },
-        command: Command::serialize(&Command::Snapshot { membership: HashSet::new() }),
+        command: Command::serialize(&Command::Snapshot {
+            membership: HashSet::new(),
+        }),
     };
 
     // Vote

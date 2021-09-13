@@ -3,9 +3,9 @@ use crate::{RaftApp, RaftCore};
 use futures::{FutureExt, StreamExt};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use tokio_util::time::DelayQueue;
-use tokio::sync::oneshot;
 
 struct InsertEntry {
     e: Entry,
@@ -20,18 +20,17 @@ impl SnapshotQueue {
             q: Mutex::new(DelayQueue::new()),
         }
     }
-    pub async fn insert(&self, e: Entry, delay: Duration) -> impl std::future::Future<Output = bool> {
+    pub async fn insert(
+        &self,
+        e: Entry,
+        delay: Duration,
+    ) -> impl std::future::Future<Output = bool> {
         let (tx, rx) = oneshot::channel();
-        let e = InsertEntry {
-            e,
-            tx,
-        };
+        let e = InsertEntry { e, tx };
         self.q.lock().await.insert(e, delay);
-        rx.map(|x| {
-            match x {
-                Ok(true) => true,
-                _ => false,
-            }
+        rx.map(|x| match x {
+            Ok(true) => true,
+            _ => false,
         })
     }
     pub async fn run_once<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {

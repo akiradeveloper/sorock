@@ -1068,8 +1068,8 @@ struct Log {
     ack_chans: RwLock<BTreeMap<Index, Ack>>,
 
     snapshot_index: AtomicU64, // Monotonic
-    last_applied: AtomicU64, // Monotonic
-    commit_index: AtomicU64, // Monotonic
+    last_applied: AtomicU64,   // Monotonic
+    commit_index: AtomicU64,   // Monotonic
 
     append_token: Semaphore,
     commit_token: Semaphore,
@@ -1087,7 +1087,10 @@ struct Log {
 }
 impl Log {
     async fn new<S: RaftStorage>(storage: S) -> Self {
-        let snapshot_index = match storage::find_last_snapshot_index(&storage).await.expect("failed to find initial snapshot index") {
+        let snapshot_index = match storage::find_last_snapshot_index(&storage)
+            .await
+            .expect("failed to find initial snapshot index")
+        {
             Some(x) => x,
             None => 0,
         };
@@ -1205,7 +1208,10 @@ impl Log {
                         return Err(e);
                     }
                 }
-                let inserted = self.snapshot_queue.insert(entry, Duration::from_millis(0)).await;
+                let inserted = self
+                    .snapshot_queue
+                    .insert(entry, Duration::from_millis(0))
+                    .await;
                 if !inserted.await {
                     anyhow::bail!("failed to insert snapshot entry (idx={})", snapshot_index);
                 }
@@ -1259,7 +1265,8 @@ impl Log {
     async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
         let new_snapshot_index = e.this_clock.index;
         self.storage.insert_entry(e.this_clock.index, e).await?;
-        self.snapshot_index.fetch_max(new_snapshot_index, Ordering::SeqCst);
+        self.snapshot_index
+            .fetch_max(new_snapshot_index, Ordering::SeqCst);
         Ok(())
     }
     async fn advance_commit_index<A: RaftApp>(
@@ -1392,12 +1399,7 @@ impl Log {
                                         delay_sec
                                     );
 
-                                    let _ = self.snapshot_queue
-                                        .insert(
-                                            snapshot_entry,
-                                            delay,
-                                        )
-                                        .await;
+                                    let _ = self.snapshot_queue.insert(snapshot_entry, delay).await;
                                 }
                             }
                             MakeSnapshot::FoldSnapshot => {
@@ -1510,9 +1512,7 @@ impl Log {
                 e
             };
             let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
-            let _ = self.snapshot_queue
-                .insert(new_snapshot, delay)
-                .await;
+            let _ = self.snapshot_queue.insert(new_snapshot, delay).await;
             Ok(())
         } else {
             unreachable!()
