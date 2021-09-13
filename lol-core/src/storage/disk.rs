@@ -209,10 +209,7 @@ impl super::RaftStorage for Storage {
         Ok(v)
     }
     async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        let b: Vec<u8> = e.into();
-        self.db.put_cf(&cf, encode_index(i), b)?;
-        Ok(())
+        unreachable!()
     }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
@@ -281,12 +278,12 @@ async fn test_rocksdb_persistency() -> Result<()> {
     let tag: crate::SnapshotTag = vec![].into();
 
     s.put_tag(1, tag.clone()).await?;
-    s.insert_snapshot(1, sn.clone()).await?;
+    s.insert_entry(1, sn.clone()).await?;
     s.insert_entry(2, e.clone()).await?;
     s.insert_entry(3, e.clone()).await?;
     s.insert_entry(4, e.clone()).await?;
     s.put_tag(3, tag.clone()).await?;
-    s.insert_snapshot(3, sn.clone()).await?;
+    s.insert_entry(3, sn.clone()).await?;
 
     drop(s);
 

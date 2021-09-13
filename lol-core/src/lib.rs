@@ -1258,7 +1258,7 @@ impl Log {
     }
     async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
         let new_snapshot_index = e.this_clock.index;
-        self.storage.insert_snapshot(e.this_clock.index, e).await?;
+        self.storage.insert_entry(e.this_clock.index, e).await?;
         self.snapshot_index.fetch_max(new_snapshot_index, Ordering::SeqCst);
         Ok(())
     }

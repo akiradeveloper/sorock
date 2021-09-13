@@ -63,8 +63,7 @@ impl super::RaftStorage for Storage {
         Ok(())
     }
     async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        self.entries.write().await.insert(i, e);
-        Ok(())
+        unreachable!()
     }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         self.entries.write().await.insert(i, e);

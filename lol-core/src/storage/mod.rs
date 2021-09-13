@@ -40,6 +40,7 @@ pub struct Entry {
 pub trait RaftStorage: Sync + Send + 'static {
     /// Delete range ..r
     async fn delete_before(&self, r: Index) -> anyhow::Result<()>;
+    #[deprecated(since = "0.7.6")]
     /// Save the snapshot entry so snapshot index always advance.
     async fn insert_snapshot(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()>;
@@ -119,7 +120,7 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     let e3 = e.clone();
     let e4 = e.clone();
     let e5 = e.clone();
-    s.insert_snapshot(1, sn1).await?;
+    s.insert_entry(1, sn1).await?;
     assert_eq!(s.get_last_index().await?, 1);
     assert_eq!(find_last_snapshot_index(&s).await?, Some(1));
     s.insert_entry(2, e2).await?;
@@ -129,10 +130,10 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     assert_eq!(s.get_last_index().await?, 5);
 
     let sn4 = sn.clone();
-    s.insert_snapshot(4, sn4).await?;
+    s.insert_entry(4, sn4).await?;
     assert_eq!(find_last_snapshot_index(&s).await?, Some(4));
     let sn2 = sn.clone();
-    s.insert_snapshot(2, sn2).await?;
+    s.insert_entry(2, sn2).await?;
     assert_eq!(find_last_snapshot_index(&s).await?, Some(4));
 
     assert!(s.get_entry(1).await?.is_some());
