@@ -1,9 +1,9 @@
-use clap::Clap;
+use clap::Parser;
 use lol_core::{core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 #[clap(name = "lol-admin")]
 struct Opts {
     #[clap(name = "DEST_ID")]
@@ -11,7 +11,7 @@ struct Opts {
     #[clap(subcommand)]
     sub: Sub,
 }
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 enum Sub {
     #[clap(name = "add-server")]
     AddServer {
@@ -37,7 +37,7 @@ enum Sub {
         sub: ConfigSub,
     },
 }
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 enum ConfigSub {
     #[clap(name = "set")]
     Set {

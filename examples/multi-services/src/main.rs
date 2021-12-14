@@ -1,4 +1,3 @@
-use clap::Clap;
 use lol_core::{
     compat::{RaftAppCompat, ToRaftApp},
     Index, RaftApp,
