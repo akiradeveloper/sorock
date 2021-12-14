@@ -17,7 +17,7 @@ tui = "0.16"
 termion = { version = "1.5", optional = true }
 anyhow = "1.0"
 futures = "0.3"
-clap = "3.0.0-beta.4"
+clap = { version = "3.0.0-rc.4", features = ["derive"] }
 async-stream = "0.3"
 
 lol-core = { path = "../lol-core", features = ["gateway"] }

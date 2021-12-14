@@ -1,4 +1,4 @@
-use clap::Clap;
+use clap::Parser;
 use std::io;
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
 use tui::{backend::TermionBackend, Terminal};
@@ -17,9 +17,9 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tonic::transport::channel::Endpoint;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
-    #[clap(name = "ID", about = "Some node in the cluster.")]
+    #[clap(name = "ID", help = "Some node in the cluster.")]
     id: String,
 }
 
