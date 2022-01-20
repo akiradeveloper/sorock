@@ -51,10 +51,10 @@ and [cargo-profiler](https://github.com/svenstaro/cargo-profiler).
 Use docker container to make an dev environment on your computer.
 
 - `make` to build the docker image
-- `./dev` to start the container
+- `./dev` to start the dev container
 
 then
 
-- `cargo build` to compile the whole project
+- `cargo build` to compile the entire project
 - `make test` to run the regression tests
-- `make bench` to run the benchmark
+- `make bench` to run the benchmark tests
