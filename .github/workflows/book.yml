@@ -4,8 +4,8 @@ on:
     branches:
     - book
     paths:
-    - "lol-book/**"
-    - "book.toml"
+    - "book/src/**"
+    - "book/book.toml"
 
 jobs:
   deploy:
@@ -19,4 +19,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         PUBLISH_BRANCH: gh-pages
-        PUBLISH_DIR: ./book
+        PUBLISH_DIR: ./book/book

@@ -2,5 +2,5 @@
 authors = ["Akira Hayakawa"]
 language = "en"
 multilingual = false
-src = "lol-book"
-title = "lol book"
+src = "src"
+title = "lol"
