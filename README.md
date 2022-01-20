@@ -10,8 +10,7 @@ A Raft implementation in Rust language. To support this project please give it a
 
 [Documentation](https://akiradeveloper.github.io/lol/)
 
-
-![-FU](https://user-images.githubusercontent.com/785824/146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2.jpeg)
+![](https://user-images.githubusercontent.com/785824/146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2.jpeg)
 
 ## Features
 
@@ -21,6 +20,11 @@ A Raft implementation in Rust language. To support this project please give it a
 - Clear Abstractions: RaftApp is your application or state machine in Raft's context. RaftStorage is the abstraction of the backend storage with which both in-memory and persistent (backed by RocksDB) are supported.
 
 ## Example
+
+```
+[dependencies]
+lol-core = "0.7"
+```
 
 ```rust
 // Implement RaftApp for YourApp!
