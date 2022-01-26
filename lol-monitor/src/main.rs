@@ -9,9 +9,8 @@ mod ui;
 use app::App;
 use futures::stream;
 use futures::StreamExt;
-use lol_core::connection::{self, gateway};
+use lol_core::proto_compiled;
 use lol_core::proto_compiled::raft_client::RaftClient;
-use lol_core::{core_message, proto_compiled};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::watch;
@@ -35,8 +34,9 @@ async fn main() -> anyhow::Result<()> {
 
     let events = event::Events::new();
 
-    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from_shared(id).unwrap());
-    let gateway = connector.connect(opts.id);
+    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from(id.clone()));
+    let uri = opts.id.parse().unwrap();
+    let gateway = connector.connect(uri);
 
     let data_stream_0 = stream::unfold(gateway.clone(), |gateway| async move {
         let mut cli = RaftClient::new(gateway.clone());

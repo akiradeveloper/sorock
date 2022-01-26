@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug)]
-pub struct ReplicationProgress {
+pub(crate) struct ReplicationProgress {
     pub next_index: Index,
     pub next_max_cnt: Index,
     pub match_index: Index,
@@ -21,18 +21,18 @@ impl ReplicationProgress {
     }
 }
 #[derive(Clone, Debug)]
-pub struct Peer {
+pub(crate) struct Peer {
     pub progress: ReplicationProgress,
 }
 #[derive(Debug)]
-pub struct Cluster {
+pub(crate) struct Cluster {
     selfid: Id,
     pub membership: HashSet<Id>,
     pub peers: HashMap<Id, Peer>,
     thread_drop: HashMap<Id, ThreadDrop>,
 }
 impl Cluster {
-    pub async fn empty(id: Id) -> Self {
+    pub(crate) async fn empty(id: Id) -> Self {
         Self {
             selfid: id,
             membership: HashSet::new(),
@@ -77,7 +77,7 @@ impl Cluster {
         self.peers.remove(&id);
         self.thread_drop.remove(&id);
     }
-    pub async fn set_membership<A: RaftApp>(
+    pub(crate) async fn set_membership<A: RaftApp>(
         &mut self,
         goal: &HashSet<Id>,
         core: Arc<RaftCore<A>>,

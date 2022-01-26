@@ -34,7 +34,7 @@ impl<A: RaftApp> Thread<A> {
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
+pub(crate) async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
     let x = Thread { core, follower_id };
     x.run().await
 }

@@ -1,4 +1,4 @@
-use crate::{Clock, Command, Id, Index, Term};
+use crate::{Clock, Command, Id, Index, Term, Uri};
 use bytes::Bytes;
 use std::collections::{BTreeSet, HashSet};
 
@@ -86,7 +86,8 @@ async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
     };
 
     // Vote
-    let id = "hoge".to_owned();
+    let uri: Uri = "hoge".parse().unwrap();
+    let id: Id = uri.into();
     assert_eq!(
         s.load_ballot().await?,
         Ballot {

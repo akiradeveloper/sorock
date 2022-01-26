@@ -80,7 +80,7 @@ async fn run_server() {
         };
         let app = ToRaftApp::new(app);
         let storage = lol_core::storage::memory::Storage::new();
-        let config = lol_core::Config::new("http://localhost:50000".to_owned());
+        let config = lol_core::Config::new("http://localhost:50000".parse().unwrap());
         let mut tunable = lol_core::TunableConfig::default();
         let core = lol_core::RaftCore::new(app, storage, config, tunable).await;
         lol_core::make_service(core)

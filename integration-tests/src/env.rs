@@ -42,7 +42,8 @@ impl Environment {
     pub fn get_node_id(&self, id: u8) -> String {
         let port_list = self.port_list.read().unwrap();
         let port = port_list.get(&id).unwrap();
-        format!("http://localhost:{}", port)
+        // the node id should be canonicalized to match the uri by the strings.
+        format!("http://localhost:{}/", port)
     }
     pub fn start(&self, id: u8, command: NodeCommand) {
         let mut port_list = self.port_list.write().unwrap();

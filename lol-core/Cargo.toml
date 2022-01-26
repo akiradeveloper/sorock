@@ -17,6 +17,7 @@ tokio = { version = "1.10", features = ["macros", "fs"] }
 tokio-util = { version = "0.6", features = ["codec", "time"] }
 tokio-stream = "0.1"
 tonic = "0.5"
+http-serde = "1"
 bytes = { version = "1", features = ["serde"] }
 prost = "0.8"
 rand = "0.8"
@@ -30,6 +31,7 @@ log = "0.4"
 anyhow = "1.0"
 sync_wrapper = "0.1"
 phi-detector = "0.3"
+derive_more = "0.99"
 
 tower = { version = "0.4.8", optional = true }
 http = { version = "0.2", optional = true }

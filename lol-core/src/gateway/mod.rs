@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use crate::proto_compiled::{raft_client::RaftClient, ClusterInfoReq};
-use crate::Id;
+use crate::{Id, Uri};
 use tokio::sync::mpsc::error::TrySendError;
 use tonic::transport::{Channel, Endpoint};
 use tower::discover::Change;
@@ -11,14 +11,14 @@ mod service;
 
 /// Gateway builder.
 pub struct Connector {
-    f: Box<dyn Fn(Id) -> Endpoint + 'static + Send>,
+    f: Box<dyn Fn(&Uri) -> Endpoint + 'static + Send>,
 }
 impl Connector {
-    pub fn new(f: impl Fn(Id) -> Endpoint + 'static + Send) -> Self {
+    pub fn new(f: impl Fn(&Uri) -> Endpoint + 'static + Send) -> Self {
         Self { f: Box::new(f) }
     }
-    pub fn connect(self, id: Id) -> Gateway {
-        Gateway::new(id, self.f)
+    pub fn connect(self, uri: Uri) -> Gateway {
+        Gateway::new(uri.into(), self.f)
     }
 }
 
@@ -30,7 +30,7 @@ pub struct Gateway {
     chan: Channel,
 }
 impl Gateway {
-    fn new(id: Id, f: impl Fn(Id) -> Endpoint + 'static + Send) -> Self {
+    fn new(id: Id, f: impl Fn(&Uri) -> Endpoint + 'static + Send) -> Self {
         let (chan, tx) = Channel::balance_channel::<Id>(16);
         tokio::spawn(async move {
             let mut cur_leader: Option<Id> = None;
@@ -39,14 +39,19 @@ impl Gateway {
             let mut change_queue = VecDeque::new();
             'outer: loop {
                 for member in &membership {
-                    let e = f(member.clone());
+                    let e = f(member.clone().uri());
                     if let Ok(mut conn) = RaftClient::connect(e).await {
                         let req = ClusterInfoReq {};
                         if let Ok(res) = conn.request_cluster_info(req).await {
                             let res = res.into_inner();
                             if let Some(leader) = res.leader_id {
-                                new_leader = Some(leader.clone());
-                                membership = Self::sort(leader, res.membership);
+                                let leader_id: Id = leader.parse().unwrap();
+                                let mut xs = vec![];
+                                for x in res.membership {
+                                    xs.push(x.parse().unwrap());
+                                }
+                                new_leader = Some(leader_id.clone());
+                                membership = Self::sort(leader_id, xs);
                                 break;
                             }
                         }
@@ -54,7 +59,7 @@ impl Gateway {
                 }
                 if new_leader != cur_leader {
                     if let Some(ref new_leader) = new_leader {
-                        let insert = Change::Insert(new_leader.clone(), f(new_leader.clone()));
+                        let insert = Change::Insert(new_leader.clone(), f(new_leader.uri()));
                         change_queue.push_back(insert);
                         if let Some(ref cur_leader) = cur_leader {
                             let remove = Change::Remove(cur_leader.clone());
@@ -105,13 +110,4 @@ impl Gateway {
         }
         r
     }
-}
-
-#[tokio::test]
-async fn test_gateway() {
-    let id = "nowhere".to_owned();
-    let f = |id| Endpoint::from_shared(id).unwrap();
-    let connector = Connector::new(f);
-    let gateway = connector.connect(id);
-    let _ = RaftClient::new(gateway.clone());
 }

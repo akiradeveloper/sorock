@@ -2,7 +2,7 @@ use super::env::*;
 
 use std::collections::HashSet;
 
-use lol_core::{connection, core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Builder;
@@ -18,8 +18,8 @@ impl PartialEq for ClusterInfo {
 }
 #[derive(Clone, Debug, Eq)]
 pub struct ClusterInfo {
-    pub leader_id: Option<lol_core::Id>,
-    pub membership: Vec<lol_core::Id>,
+    pub leader_id: Option<String>,
+    pub membership: Vec<String>,
 }
 
 pub struct Admin {
@@ -67,32 +67,19 @@ impl Admin {
         Ok(())
     }
     pub fn cluster_info(&self) -> Result<ClusterInfo> {
-        let msg = core_message::Req::ClusterInfo;
-        let req = proto_compiled::ProcessReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_process_locally(req).await?;
+            let req = proto_compiled::ClusterInfoReq {};
+            let res = conn.request_cluster_info(req).await?;
             Result::Ok(res)
         })?
         .into_inner();
-        let msg = core_message::Rep::deserialize(&res.message).unwrap();
-        let msg = if let core_message::Rep::ClusterInfo {
-            leader_id,
-            membership,
-        } = msg
-        {
-            ClusterInfo {
-                leader_id,
-                membership,
-            }
-        } else {
-            unreachable!()
-        };
-        Ok(msg)
+
+        Ok(ClusterInfo {
+            leader_id: res.leader_id,
+            membership: res.membership,
+        })
     }
     pub fn timeout_now(&self) -> Result<()> {
         let req = proto_compiled::TimeoutNowReq {};

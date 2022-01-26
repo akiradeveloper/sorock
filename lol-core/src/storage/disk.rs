@@ -1,5 +1,5 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Command, Index};
+use crate::{Clock, Command, Id, Index};
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashSet};
@@ -20,7 +20,7 @@ struct EntryB {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct BallotB {
     term: u64,
-    voted_for: Option<String>,
+    voted_for: Option<Id>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SnapshotIndexB(u64);
