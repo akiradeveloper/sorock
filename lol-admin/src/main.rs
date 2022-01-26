@@ -1,5 +1,5 @@
 use clap::Parser;
-use lol_core::{core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{proto_compiled, proto_compiled::raft_client::RaftClient};
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 

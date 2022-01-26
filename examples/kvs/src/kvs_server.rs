@@ -167,7 +167,7 @@ async fn main() {
         .next()
         .unwrap();
 
-    let config = Config::new(id.clone());
+    let config = Config::new(id.parse().unwrap());
     let mut tunable = TunableConfig::default();
 
     if !opt.copy_snapshot_mode {

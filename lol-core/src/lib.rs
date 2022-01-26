@@ -16,6 +16,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
+use derive_more::{Display, FromStr};
 use futures::stream::StreamExt;
 use proto_compiled::raft_client::RaftClient;
 use std::collections::{BTreeMap, HashSet};
@@ -27,12 +28,7 @@ use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
 mod ack;
 /// Simple and backward-compatible RaftApp trait.
 pub mod compat;
-#[deprecated(since = "0.7.3", note = "Use gateway")]
-/// Utilities for connection.
-pub mod connection;
-#[deprecated(since = "0.7.4")]
-/// The request and response that RaftCore talks.
-pub mod core_message;
+mod core_message;
 #[cfg(feature = "gateway")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
 /// Utilities to interact with the cluster.
@@ -49,9 +45,9 @@ mod thread;
 mod thread_drop;
 
 use ack::Ack;
-use connection::Endpoint;
 use snapshot::SnapshotTag;
 use storage::RaftStorage;
+use tonic::transport::Endpoint;
 
 /// Proto file compiled.
 pub mod proto_compiled {
@@ -124,14 +120,52 @@ impl PartialEq for Clock {
     }
 }
 
-/// Unique identifier of a Raft node.
-///
-/// Id must satisfy these two conditions:
-/// 1. Id can identify a node in the cluster.
-/// 2. any client or other nodes in the cluster can access this node by the Id.
-///
-/// Typically, the form of Id is (http|https)://(hostname|ip):port
-pub type Id = String;
+pub use tonic::transport::Uri;
+
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash, Debug, Display, FromStr,
+)]
+struct Id(#[serde(with = "http_serde::uri")] Uri);
+impl Id {
+    fn uri(&self) -> &Uri {
+        &self.0
+    }
+}
+impl From<Uri> for Id {
+    fn from(x: Uri) -> Id {
+        Id(x)
+    }
+}
+#[test]
+fn test_uri() {
+    let a = "https://192.168.1.1:8000";
+    let aa: Uri = a.parse().unwrap();
+    let b = "https://192.168.1.1:8000/";
+    let bb: Uri = b.parse().unwrap();
+    // the equality is made by the canonical form.
+    assert_eq!(aa, bb);
+    // the string repr is made by the canonical form.
+    assert_eq!(aa.to_string(), b);
+    assert_ne!(a, b);
+}
+
+#[test]
+fn test_id() {
+    let a = "https://192.168.100.200:8080";
+    let b: Id = a.parse().unwrap();
+    let c = a.to_string();
+    assert_eq!(a, c);
+    let d = c.parse().unwrap();
+    assert_eq!(b, d);
+}
+
+#[test]
+fn test_id_serde() {
+    let a: Id = "http://192.168.1.1:8080".parse().unwrap();
+    let b = bincode::serialize(&a).unwrap();
+    let c = bincode::deserialize(&b).unwrap();
+    assert_eq!(a, c);
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum Command<'a> {
@@ -167,8 +201,8 @@ pub struct Config {
     id: Id,
 }
 impl Config {
-    pub fn new(id: Id) -> Self {
-        Self { id }
+    pub fn new(id: Uri) -> Self {
+        Self { id: id.into() }
     }
 }
 
@@ -325,49 +359,6 @@ impl<A: RaftApp> RaftCore<A> {
         self.membership_barrier.store(index, Ordering::SeqCst);
         Ok(())
     }
-    async fn process_message(self: &Arc<Self>, msg: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let req = core_message::Req::deserialize(msg).unwrap();
-        match req {
-            core_message::Req::ClusterInfo => {
-                let res = core_message::Rep::ClusterInfo {
-                    leader_id: self.load_ballot().await?.voted_for,
-                    membership: {
-                        let membership = self.cluster.read().await.membership.clone();
-                        let mut xs: Vec<_> = membership.into_iter().collect();
-                        xs.sort();
-                        xs
-                    },
-                };
-                Ok(core_message::Rep::serialize(&res))
-            }
-            core_message::Req::LogInfo => {
-                let res = core_message::Rep::LogInfo {
-                    snapshot_index: self.log.get_snapshot_index(),
-                    last_applied: self.log.last_applied.load(Ordering::SeqCst),
-                    commit_index: self.log.commit_index.load(Ordering::SeqCst),
-                    last_log_index: self.log.get_last_log_index().await?,
-                };
-                Ok(core_message::Rep::serialize(&res))
-            }
-            core_message::Req::HealthCheck => {
-                let res = core_message::Rep::HealthCheck { ok: true };
-                Ok(core_message::Rep::serialize(&res))
-            }
-            core_message::Req::TunableConfigInfo => match self.tunable.try_read() {
-                Ok(tunable) => {
-                    let res = core_message::Rep::TunableConfigInfo {
-                        compaction_delay_sec: tunable.compaction_delay_sec,
-                        compaction_interval_sec: tunable.compaction_interval_sec,
-                    };
-                    Ok(core_message::Rep::serialize(&res))
-                }
-                Err(_) => Err(anyhow!(
-                    "cannot read tunable config: tunable state in raft core is poisoned"
-                )),
-            },
-            _ => Err(anyhow!("the message not supported")),
-        }
-    }
     async fn register_query(self: &Arc<Self>, core: bool, message: Bytes, ack: Ack) {
         let query = query_queue::Query { core, message, ack };
         self.query_queue
@@ -393,7 +384,7 @@ enum TryInsertResult {
     Rejected,
 }
 struct LogStream {
-    sender_id: String,
+    sender_id: Id,
     prev_log_term: Term,
     prev_log_index: Index,
     entries: std::pin::Pin<Box<dyn futures::stream::Stream<Item = LogStreamElem> + Send + Sync>>,
@@ -436,7 +427,7 @@ fn into_out_stream(
 ) -> impl futures::stream::Stream<Item = crate::proto_compiled::AppendEntryReq> {
     use crate::proto_compiled::{append_entry_req::Elem, AppendStreamEntry, AppendStreamHeader};
     let header_stream = vec![Elem::Header(AppendStreamHeader {
-        sender_id: x.sender_id,
+        sender_id: x.sender_id.to_string(),
         prev_log_index: x.prev_log_index,
         prev_log_term: x.prev_log_term,
     })];
@@ -600,7 +591,7 @@ impl<A: RaftApp> RaftCore<A> {
             log::warn!(
                 "entry not found at next_index (idx={}) for {}",
                 old_progress.next_index,
-                follower_id
+                follower_id.uri(),
             );
             let new_progress = membership::ReplicationProgress::new(cur_snapshot_index);
             let mut cluster = self.cluster.write().await;
@@ -617,9 +608,8 @@ impl<A: RaftApp> RaftCore<A> {
             .await?;
 
         let res: anyhow::Result<_> = async {
-            let endpoint = Endpoint::from_shared(follower_id.clone())
-                .unwrap()
-                .connect_timeout(Duration::from_secs(5));
+            let endpoint =
+                Endpoint::from(follower_id.uri().clone()).connect_timeout(Duration::from_secs(5));
             let mut conn = RaftClient::connect(endpoint).await?;
             let out_stream = into_out_stream(in_stream);
             let res = conn.send_append_entry(out_stream).await?;
@@ -684,9 +674,7 @@ impl<A: RaftApp> RaftCore<A> {
 // Snapshot
 impl<A: RaftApp> RaftCore<A> {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
-        let endpoint = Endpoint::from_shared(to)
-            .unwrap()
-            .connect_timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from(to.uri().clone()).connect_timeout(Duration::from_secs(5));
 
         let mut conn = RaftClient::connect(endpoint).await?;
         let req = proto_compiled::GetSnapshotReq {
@@ -810,7 +798,11 @@ impl<A: RaftApp> RaftCore<A> {
         if allow_side_effects {
             self.save_ballot(ballot).await?;
         }
-        log::info!("voted response to {} = grant: {}", candidate_id, grant);
+        log::info!(
+            "voted response to {} = grant: {}",
+            candidate_id.uri(),
+            grant
+        );
         Ok(grant)
     }
     async fn request_votes(
@@ -855,7 +847,7 @@ impl<A: RaftApp> RaftCore<A> {
                 } = last_log_clock;
                 let req = crate::proto_compiled::RequestVoteReq {
                     term: aim_term,
-                    candidate_id: myid,
+                    candidate_id: myid.to_string(),
                     last_log_term,
                     last_log_index,
                     // $4.2.3
@@ -868,9 +860,8 @@ impl<A: RaftApp> RaftCore<A> {
                     pre_vote,
                 };
                 let res: anyhow::Result<_> = async {
-                    let endpoint = Endpoint::from_shared(endpoint)
-                        .unwrap()
-                        .timeout(Duration::from_secs(5));
+                    let endpoint =
+                        Endpoint::from(endpoint.uri().clone()).timeout(Duration::from_secs(5));
                     let mut conn = RaftClient::connect(endpoint).await?;
                     let res = conn.request_vote(req).await?;
                     Ok(res)
@@ -968,20 +959,19 @@ impl<A: RaftApp> RaftCore<A> {
         Ok(())
     }
     async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
-        let endpoint =
-            connection::Endpoint::from_shared(follower_id.clone())?.timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from(follower_id.uri().clone()).timeout(Duration::from_secs(5));
         let req = {
             let term = self.load_ballot().await?.cur_term;
             proto_compiled::HeartbeatReq {
                 term,
-                leader_id: self.id.clone(),
+                leader_id: self.id.to_string(),
                 leader_commit: self.log.commit_index.load(Ordering::SeqCst),
             }
         };
         if let Ok(mut conn) = RaftClient::connect(endpoint).await {
             let res = conn.send_heartbeat(req).await;
             if res.is_err() {
-                log::warn!("heartbeat to {} failed", follower_id);
+                log::warn!("heartbeat to {} failed", follower_id.uri());
             }
         }
         Ok(())
@@ -1023,7 +1013,7 @@ impl<A: RaftApp> RaftCore<A> {
         }
 
         if ballot.voted_for != Some(leader_id.clone()) {
-            log::info!("learn the current leader ({})", leader_id);
+            log::info!("learn the current leader ({})", leader_id.uri());
             ballot.voted_for = Some(leader_id);
         }
 
@@ -1053,9 +1043,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
     fn send_timeout_now(&self, id: Id) {
         tokio::spawn(async move {
-            let endpoint = Endpoint::from_shared(id)
-                .unwrap()
-                .timeout(Duration::from_secs(5));
+            let endpoint = Endpoint::from(id.uri().clone()).timeout(Duration::from_secs(5));
             if let Ok(mut conn) = RaftClient::connect(endpoint).await {
                 let req = proto_compiled::TimeoutNowReq {};
                 let _ = conn.timeout_now(req).await;
@@ -1203,7 +1191,7 @@ impl Log {
                         log::error!(
                             "could not fetch app snapshot (idx={}) from sender {}",
                             snapshot_index,
-                            sender_id
+                            sender_id.uri(),
                         );
                         return Err(e);
                     }
@@ -1354,12 +1342,8 @@ impl Log {
                 }
             }
             Command::Req { core, ref message } => {
-                let res = if core {
-                    let res = raft_core.process_message(message).await;
-                    res.map(|x| (x, MakeSnapshot::None))
-                } else {
-                    raft_core.app.apply_message(message, apply_index).await
-                };
+                assert_eq!(core, false);
+                let res = raft_core.app.apply_message(message, apply_index).await;
                 match res {
                     Ok((msg, make_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
