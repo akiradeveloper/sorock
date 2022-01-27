@@ -51,7 +51,6 @@ impl my_service_server::MyService for MyServer {
         request: tonic::Request<PlusOneReq>,
     ) -> Result<tonic::Response<PlusOneRep>, tonic::Status> {
         let req = request.into_inner();
-        println!("non-raft plus_one {}", req.x);
         Ok(tonic::Response::new(PlusOneRep { r: req.x + 1 }))
     }
     async fn double(
@@ -59,7 +58,6 @@ impl my_service_server::MyService for MyServer {
         request: tonic::Request<DoubleReq>,
     ) -> Result<tonic::Response<DoubleRep>, tonic::Status> {
         let req = request.into_inner();
-        println!("non-raft double {}", req.x);
         Ok(tonic::Response::new(DoubleRep { r: req.x * 2 }))
     }
 }
@@ -105,46 +103,20 @@ async fn run_server() {
 }
 
 async fn run_client() {
-    let mut cli1 = {
-        let endpoint = tonic::transport::Endpoint::from_static("http://localhost:50000");
-        lol_core::proto_compiled::raft_client::RaftClient::connect(endpoint)
-            .await
-            .unwrap()
-    };
-    let mut cli2 = {
+    let mut cli = {
         let endpoint = tonic::transport::Endpoint::from_static("http://localhost:50000");
         my_service_client::MyServiceClient::connect(endpoint)
             .await
             .unwrap()
     };
 
-    let req1 = lol_core::proto_compiled::ProcessReq {
-        message: vec![0; 100],
-        core: false,
-    };
-    let rep1 = cli1
-        .request_process_locally(req1)
-        .await
-        .unwrap()
-        .into_inner();
+    let req1 = DoubleReq { x: 5 };
+    let rep1 = cli.double(req1).await.unwrap().into_inner();
+    assert_eq!(rep1.r, 10);
 
-    let req2 = DoubleReq { x: 5 };
-    let rep2 = cli2.double(req2).await.unwrap().into_inner();
-    println!("=> {}", rep2.r);
-
-    let req3 = PlusOneReq { x: 3 };
-    let rep3 = cli2.plus_one(req3).await.unwrap().into_inner();
-    println!("=> {}", rep3.r);
-
-    let req4 = lol_core::proto_compiled::ProcessReq {
-        message: vec![0; 200],
-        core: false,
-    };
-    let rep4 = cli1
-        .request_process_locally(req4)
-        .await
-        .unwrap()
-        .into_inner();
+    let req2 = PlusOneReq { x: 3 };
+    let rep2 = cli.plus_one(req2).await.unwrap().into_inner();
+    assert_eq!(rep2.r, 4);
 }
 
 #[tokio::main]
