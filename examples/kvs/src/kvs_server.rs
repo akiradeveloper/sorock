@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
-use lol_core::compat::{RaftAppCompat, ToRaftApp};
+use lol_core::simple::{RaftAppSimple, ToRaftApp};
 use lol_core::{Config, Index, RaftCore, TunableConfig};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -47,23 +47,11 @@ struct KVS {
     copy_snapshot_mode: bool,
 }
 #[async_trait]
-impl RaftAppCompat for KVS {
-    async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
+impl RaftAppSimple for KVS {
+    async fn read_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = Req::deserialize(&x);
         match msg {
             Some(x) => match x {
-                Req::Set { key, value } => {
-                    let mut writer = self.mem.write().await;
-                    writer.insert(key, Bytes::from(value));
-                    let res = Rep::Set {};
-                    Ok(Rep::serialize(&res))
-                }
-                Req::SetBytes { key, value } => {
-                    let mut writer = self.mem.write().await;
-                    writer.insert(key, value);
-                    let res = Rep::Set {};
-                    Ok(Rep::serialize(&res))
-                }
                 Req::Get { key } => {
                     let v = self.mem.read().await.get(&key).cloned();
                     let (found, value) = match v {
@@ -81,16 +69,35 @@ impl RaftAppCompat for KVS {
                     let res = Rep::List { values };
                     Ok(Rep::serialize(&res))
                 }
+                _ => unreachable!(),
             },
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(
+    async fn write_message(
         &self,
         x: &[u8],
         _: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
-        let res = self.process_message(x).await?;
+        let msg = Req::deserialize(&x);
+        let res = match msg {
+            Some(x) => match x {
+                Req::Set { key, value } => {
+                    let mut writer = self.mem.write().await;
+                    writer.insert(key, Bytes::from(value));
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
+                }
+                Req::SetBytes { key, value } => {
+                    let mut writer = self.mem.write().await;
+                    writer.insert(key, value);
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
+                }
+                _ => unreachable!(),
+            },
+            None => Err(anyhow!("the message not supported")),
+        }?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = Snapshot {
                 h: self.mem.read().await.clone(),

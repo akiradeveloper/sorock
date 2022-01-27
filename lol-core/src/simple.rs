@@ -5,9 +5,9 @@ use async_trait::async_trait;
 /// Similar to full-featured RaftApp but restricted:
 /// The snapshot is not a snapshot tag but a snapshot resource serialized into bytes.
 #[async_trait]
-pub trait RaftAppCompat: Sync + Send + 'static {
-    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    async fn apply_message(
+pub trait RaftAppSimple: Sync + Send + 'static {
+    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
+    async fn write_message(
         &self,
         request: &[u8],
         apply_index: Index,
@@ -25,25 +25,25 @@ pub trait RaftAppCompat: Sync + Send + 'static {
 }
 /// ToRaftApp turns an instance of RaftAppCompat into
 /// RaftApp instance.
-pub struct ToRaftApp<A: RaftAppCompat> {
+pub struct ToRaftApp<A: RaftAppSimple> {
     compat_app: A,
 }
-impl<A: RaftAppCompat> ToRaftApp<A> {
+impl<A: RaftAppSimple> ToRaftApp<A> {
     pub fn new(compat_app: A) -> Self {
         Self { compat_app }
     }
 }
 #[async_trait]
-impl<A: RaftAppCompat> RaftApp for ToRaftApp<A> {
+impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
     async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
-        self.compat_app.process_message(request).await
+        self.compat_app.read_message(request).await
     }
     async fn write_message(
         &self,
         request: &[u8],
         apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
-        let (res, new_snapshot) = self.compat_app.apply_message(request, apply_index).await?;
+        let (res, new_snapshot) = self.compat_app.write_message(request, apply_index).await?;
         let make_snapshot = match new_snapshot {
             Some(x) => MakeSnapshot::CopySnapshot(x.into()),
             None => MakeSnapshot::None,
