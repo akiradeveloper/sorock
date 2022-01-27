@@ -9,9 +9,9 @@ use tonic::transport::Endpoint;
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
-    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq,
-    RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq,
-    TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
+    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, RemoveServerRep,
+    RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq, TimeoutNowRep,
+    TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -70,11 +70,11 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
         entries: Box::pin(entries),
     }
 }
-pub struct Server<A: RaftApp> {
-    pub core: Arc<RaftCore<A>>,
+pub struct Server {
+    pub core: Arc<RaftCore>,
 }
 #[tonic::async_trait]
-impl<A: RaftApp> Raft for Server<A> {
+impl Raft for Server {
     async fn get_config(
         &self,
         _: tonic::Request<GetConfigReq>,

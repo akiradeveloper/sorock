@@ -33,7 +33,7 @@ impl SnapshotQueue {
             _ => false,
         })
     }
-    pub async fn run_once<A: RaftApp>(&self, raft_core: Arc<RaftCore<A>>) {
+    pub async fn run_once(&self, raft_core: Arc<RaftCore>) {
         while let Some(Ok(expired)) = self.q.lock().await.next().await {
             let InsertEntry { e, tx } = expired.into_inner();
             let snapshot_index = e.this_clock.index;

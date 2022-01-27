@@ -238,9 +238,9 @@ impl FailureDetector {
 /// RaftCore is the heart of the Raft system.
 /// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
-pub struct RaftCore<A: RaftApp> {
+pub struct RaftCore {
     id: Id,
-    app: A,
+    app: Box<dyn RaftApp>,
     query_queue: Mutex<query_queue::QueryQueue>,
     log: Log,
     election_state: RwLock<ElectionState>,
@@ -255,10 +255,10 @@ pub struct RaftCore<A: RaftApp> {
 
     failure_detector: RwLock<FailureDetector>,
 }
-impl<A: RaftApp> RaftCore<A> {
-    pub async fn new<S: RaftStorage>(
-        app: A,
-        storage: S,
+impl RaftCore {
+    pub async fn new(
+        app: impl RaftApp,
+        storage: impl RaftStorage,
         config: Config,
         tunable: TunableConfig,
     ) -> Arc<Self> {
@@ -269,7 +269,7 @@ impl<A: RaftApp> RaftCore<A> {
         let init_log = Log::new(storage).await;
         let fd = FailureDetector::watch(id.clone());
         let r = Arc::new(Self {
-            app,
+            app: Box::new(app),
             query_queue: Mutex::new(query_queue::QueryQueue::new()),
             id,
             log: init_log,
@@ -417,7 +417,7 @@ fn into_out_stream(
         .map(|e| crate::proto_compiled::AppendEntryReq { elem: Some(e) })
 }
 // Replication
-impl<A: RaftApp> RaftCore<A> {
+impl RaftCore {
     async fn change_membership(
         self: &Arc<Self>,
         command: Bytes,
@@ -644,7 +644,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
 }
 // Snapshot
-impl<A: RaftApp> RaftCore<A> {
+impl RaftCore {
     async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
         let endpoint = Endpoint::from(to.uri().clone()).connect_timeout(Duration::from_secs(5));
 
@@ -676,7 +676,7 @@ impl<A: RaftApp> RaftCore<A> {
     }
 }
 // Election
-impl<A: RaftApp> RaftCore<A> {
+impl RaftCore {
     async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
         self.log.storage.save_ballot(v).await
     }
@@ -1046,7 +1046,7 @@ struct Log {
     apply_error_seq: AtomicU64,
 }
 impl Log {
-    async fn new<S: RaftStorage>(storage: S) -> Self {
+    async fn new(storage: impl RaftStorage) -> Self {
         let snapshot_index = match storage::find_last_snapshot_index(&storage)
             .await
             .expect("failed to find initial snapshot index")
@@ -1122,11 +1122,11 @@ impl Log {
         self.append_notify.notify_waiters();
         Ok(new_index)
     }
-    async fn try_insert_entry<A: RaftApp>(
+    async fn try_insert_entry(
         &self,
         entry: Entry,
         sender_id: Id,
-        core: Arc<RaftCore<A>>,
+        core: Arc<RaftCore>,
     ) -> anyhow::Result<TryInsertResult> {
         let _token = self.append_token.acquire().await;
 
@@ -1229,10 +1229,10 @@ impl Log {
             .fetch_max(new_snapshot_index, Ordering::SeqCst);
         Ok(())
     }
-    async fn advance_commit_index<A: RaftApp>(
+    async fn advance_commit_index(
         &self,
         new_agreement: Index,
-        core: Arc<RaftCore<A>>,
+        core: Arc<RaftCore>,
     ) -> anyhow::Result<()> {
         let _token = self.commit_token.acquire().await;
 
@@ -1286,10 +1286,7 @@ impl Log {
         self.commit_notify.notify_one();
         Ok(())
     }
-    async fn advance_last_applied<A: RaftApp>(
-        &self,
-        raft_core: Arc<RaftCore<A>>,
-    ) -> anyhow::Result<()> {
+    async fn advance_last_applied(&self, raft_core: Arc<RaftCore>) -> anyhow::Result<()> {
         let (apply_index, apply_entry, command) = {
             let apply_index = self.last_applied.load(Ordering::SeqCst) + 1;
             let mut e = self.storage.get_entry(apply_index).await?.unwrap();
@@ -1408,10 +1405,10 @@ impl Log {
         }
         Ok(())
     }
-    async fn create_fold_snapshot<A: RaftApp>(
+    async fn create_fold_snapshot(
         &self,
         new_snapshot_index: Index,
-        core: Arc<RaftCore<A>>,
+        core: Arc<RaftCore>,
     ) -> anyhow::Result<()> {
         assert!(new_snapshot_index <= self.last_applied.load(Ordering::SeqCst));
 
@@ -1474,7 +1471,7 @@ impl Log {
             unreachable!()
         }
     }
-    async fn run_gc<A: RaftApp>(&self, core: Arc<RaftCore<A>>) -> anyhow::Result<()> {
+    async fn run_gc(&self, core: Arc<RaftCore>) -> anyhow::Result<()> {
         let r = self.get_snapshot_index();
         log::debug!("gc .. {}", r);
 
@@ -1510,10 +1507,10 @@ impl Log {
 }
 
 /// A Raft implementation of `tower::Service`.
-pub type RaftService<A> = proto_compiled::raft_server::RaftServer<server::Server<A>>;
+pub type RaftService = proto_compiled::raft_server::RaftServer<server::Server>;
 
 /// Lift `RaftCore` to `Service`.
-pub fn make_service<A: RaftApp>(core: Arc<RaftCore<A>>) -> RaftService<A> {
+pub fn make_service(core: Arc<RaftCore>) -> RaftService {
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));
