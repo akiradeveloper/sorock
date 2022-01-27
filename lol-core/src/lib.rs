@@ -387,7 +387,7 @@ struct LogStream {
     sender_id: Id,
     prev_log_term: Term,
     prev_log_index: Index,
-    entries: std::pin::Pin<Box<dyn futures::stream::Stream<Item = LogStreamElem> + Send + Sync>>,
+    entries: std::pin::Pin<Box<dyn futures::stream::Stream<Item = LogStreamElem> + Send>>,
 }
 struct LogStreamElem {
     term: Term,
