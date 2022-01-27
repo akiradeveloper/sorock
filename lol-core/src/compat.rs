@@ -35,10 +35,10 @@ impl<A: RaftAppCompat> ToRaftApp<A> {
 }
 #[async_trait]
 impl<A: RaftAppCompat> RaftApp for ToRaftApp<A> {
-    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         self.compat_app.process_message(request).await
     }
-    async fn apply_message(
+    async fn write_message(
         &self,
         request: &[u8],
         apply_index: Index,

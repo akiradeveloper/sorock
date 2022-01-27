@@ -35,7 +35,7 @@ impl MyApp {
 }
 #[tonic::async_trait]
 impl lol_core::RaftApp for MyApp {
-    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let req = Req::deserialize(&request).unwrap();
         match req {
             Req::Get => {
@@ -48,7 +48,7 @@ impl lol_core::RaftApp for MyApp {
         }
     }
 
-    async fn apply_message(
+    async fn write_message(
         &self,
         request: &[u8],
         apply_index: lol_core::Index,

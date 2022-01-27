@@ -37,7 +37,7 @@ impl QueryQueue {
             .into_iter()
             .map(|(Query { core, message, ack }, raft_core)| async move {
                 assert_eq!(core, false);
-                let res = raft_core.app.process_message(&message).await;
+                let res = raft_core.app.read_message(&message).await;
                 if let ack::Ack::OnApply(tx) = ack {
                     if let Ok(msg) = res {
                         let _ = tx.send(ack::ApplyOk(msg));
