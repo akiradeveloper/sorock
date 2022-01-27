@@ -31,14 +31,14 @@ use futures::stream::Stream;
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 pub(crate) type SnapshotStreamOut = std::pin::Pin<
-    Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send + Sync>,
+    Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send>,
 >;
 pub(crate) fn into_out_stream(in_stream: SnapshotStream) -> SnapshotStreamOut {
     let out_stream = in_stream.map(|res| {
         res.map(|x| GetSnapshotRep { chunk: x.to_vec() })
             .map_err(|_| tonic::Status::unknown("streaming error"))
     });
-    Box::pin(crate::SyncStream::new(out_stream))
+    Box::pin(out_stream)
 }
 pub(crate) fn into_in_stream(
     out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>,
