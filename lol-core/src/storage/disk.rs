@@ -206,9 +206,6 @@ impl super::RaftStorage for Storage {
         let v = decode_index(key);
         Ok(v)
     }
-    async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        unreachable!()
-    }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let b: Vec<u8> = e.into();
@@ -219,9 +216,6 @@ impl super::RaftStorage for Storage {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
         Ok(b.map(|x| x.into()))
-    }
-    async fn get_snapshot_index(&self) -> Result<Index> {
-        unreachable!()
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();

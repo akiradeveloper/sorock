@@ -62,9 +62,6 @@ impl super::RaftStorage for Storage {
         }
         Ok(())
     }
-    async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        unreachable!()
-    }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         self.entries.write().await.insert(i, e);
         Ok(())
@@ -72,9 +69,6 @@ impl super::RaftStorage for Storage {
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let r = self.entries.read().await.get(&i).cloned();
         Ok(r)
-    }
-    async fn get_snapshot_index(&self) -> Result<Index> {
-        unreachable!()
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
         *self.ballot.lock().await = v;

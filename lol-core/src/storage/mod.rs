@@ -40,13 +40,8 @@ pub struct Entry {
 pub trait RaftStorage: Sync + Send + 'static {
     /// Delete range ..r
     async fn delete_before(&self, r: Index) -> anyhow::Result<()>;
-    #[deprecated(since = "0.7.6")]
-    /// Save the snapshot entry so snapshot index always advance.
-    async fn insert_snapshot(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()>;
     async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
-    #[deprecated(since = "0.7.6")]
-    async fn get_snapshot_index(&self) -> anyhow::Result<Index>;
     async fn get_last_index(&self) -> anyhow::Result<Index>;
     async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()>;
     async fn load_ballot(&self) -> anyhow::Result<Ballot>;
