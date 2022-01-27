@@ -15,13 +15,6 @@ message CommitReq {
     bool core = 2;
 }
 message CommitRep {}
-message ProcessReq {
-    bytes message = 1;
-    bool core = 2;
-}
-message ProcessRep {
-    bytes message = 1;
-}
 message Entry {
     uint64 term = 1;
     uint64 index = 2;
@@ -110,8 +103,6 @@ service Raft {
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);
-    rpc RequestProcess (ProcessReq) returns (ProcessRep);
-    rpc RequestProcessLocally (ProcessReq) returns (ProcessRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
     rpc AddServer (AddServerReq) returns (AddServerRep);

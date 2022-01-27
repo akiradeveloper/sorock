@@ -9,7 +9,7 @@ use tonic::transport::Endpoint;
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
-    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq,
+    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq,
     RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq,
     TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
@@ -255,43 +255,6 @@ impl<A: RaftApp> Raft for Server<A> {
             let mut conn = connect(endpoint).await?;
             conn.request_commit(request).await
         }
-    }
-    async fn request_process(
-        &self,
-        request: tonic::Request<ProcessReq>,
-    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let ballot = self.core.load_ballot().await.unwrap();
-        if ballot.voted_for.is_none() {
-            return Err(tonic::Status::failed_precondition(
-                "leader is not known by the server",
-            ));
-        }
-        let leader_id = ballot.voted_for.unwrap();
-
-        if std::matches!(
-            *self.core.election_state.read().await,
-            ElectionState::Leader
-        ) {
-            let req = request.into_inner();
-            assert_eq!(req.core, false);
-            let res = self.core.app.read_message(&req.message).await;
-            res.map(|x| tonic::Response::new(ProcessRep { message: x }))
-                .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
-        } else {
-            let endpoint = Endpoint::from(leader_id.uri().clone());
-            let mut conn = connect(endpoint).await?;
-            conn.request_process(request).await
-        }
-    }
-    async fn request_process_locally(
-        &self,
-        request: tonic::Request<ProcessReq>,
-    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let req = request.into_inner();
-        assert_eq!(req.core, false);
-        let res = self.core.app.read_message(&req.message).await;
-        res.map(|x| tonic::Response::new(ProcessRep { message: x }))
-            .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
     }
     async fn request_vote(
         &self,
