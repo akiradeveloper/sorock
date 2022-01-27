@@ -4,17 +4,17 @@ import "google/protobuf/wrappers.proto";
 
 package lol_bridge;
 
-message ProcessMessageReq {
+message ProcessReadReq {
     bytes message = 1;
 }
-message ProcessMessageRep {
+message ProcessReadRep {
     bytes message = 1;
 }
-message ApplyMessageReq {
+message ProcessWriteReq {
     bytes message = 1;
     uint64 apply_index = 2;
 }
-message ApplyMessageRep {
+message ProcessWriteRep {
     bytes message = 1;
     google.protobuf.BytesValue snapshot = 2;
 }
@@ -31,8 +31,8 @@ message FoldSnapshotRep {
     bytes snapshot = 1;
 }
 service AppBridge {
-    rpc ProcessMessage (ProcessMessageReq) returns (ProcessMessageRep);
-    rpc ApplyMessage (ApplyMessageReq) returns (ApplyMessageRep);
+    rpc ProcessRead (ProcessReadReq) returns (ProcessReadRep);
+    rpc ProcessWrite (ProcessWriteReq) returns (ProcessWriteRep);
     rpc InstallSnapshot (InstallSnapshotReq) returns (InstallSnapshotRep);
     rpc FoldSnapshot (FoldSnapshotReq) returns (FoldSnapshotRep);
 }

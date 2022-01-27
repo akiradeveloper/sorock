@@ -25,29 +25,28 @@ pub struct RaftAppBridge {
 }
 #[async_trait]
 impl RaftAppSimple for RaftAppBridge {
-    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
-        let req = proto_compiled::ProcessMessageReq {
+        let req = proto_compiled::ProcessReadReq {
             message: request.to_vec(),
         };
-        let proto_compiled::ProcessMessageRep { message } =
-            cli.process_message(req).await?.into_inner();
+        let proto_compiled::ProcessReadRep { message } = cli.process_read(req).await?.into_inner();
         Ok(message)
     }
-    async fn write_message(
+    async fn process_write(
         &self,
         request: &[u8],
         apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
-        let req = proto_compiled::ApplyMessageReq {
+        let req = proto_compiled::ProcessWriteReq {
             message: request.to_vec(),
             apply_index,
         };
-        let proto_compiled::ApplyMessageRep { message, snapshot } =
-            cli.apply_message(req).await?.into_inner();
+        let proto_compiled::ProcessWriteRep { message, snapshot } =
+            cli.process_write(req).await?.into_inner();
         Ok((message, snapshot))
     }
     async fn install_snapshot(

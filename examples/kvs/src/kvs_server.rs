@@ -48,7 +48,7 @@ struct KVS {
 }
 #[async_trait]
 impl RaftAppSimple for KVS {
-    async fn read_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn process_read(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = Req::deserialize(&x);
         match msg {
             Some(x) => match x {
@@ -74,7 +74,7 @@ impl RaftAppSimple for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn write_message(
+    async fn process_write(
         &self,
         x: &[u8],
         _: Index,
