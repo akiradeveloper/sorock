@@ -6,8 +6,8 @@ use async_trait::async_trait;
 /// The snapshot is not a snapshot tag but a snapshot resource serialized into bytes.
 #[async_trait]
 pub trait RaftAppSimple: Sync + Send + 'static {
-    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    async fn write_message(
+    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
+    async fn process_write(
         &self,
         request: &[u8],
         apply_index: Index,
@@ -35,15 +35,15 @@ impl<A: RaftAppSimple> ToRaftApp<A> {
 }
 #[async_trait]
 impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
-    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
-        self.compat_app.read_message(request).await
+    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+        self.compat_app.process_read(request).await
     }
-    async fn write_message(
+    async fn process_write(
         &self,
         request: &[u8],
         apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
-        let (res, new_snapshot) = self.compat_app.write_message(request, apply_index).await?;
+        let (res, new_snapshot) = self.compat_app.process_write(request, apply_index).await?;
         let make_snapshot = match new_snapshot {
             Some(x) => MakeSnapshot::CopySnapshot(x.into()),
             None => MakeSnapshot::None,

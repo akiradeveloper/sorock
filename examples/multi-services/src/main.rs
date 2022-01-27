@@ -14,11 +14,11 @@ struct MyRaftApp {
 
 #[tonic::async_trait]
 impl RaftAppSimple for MyRaftApp {
-    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         println!("raft: process {}", request.len());
         Ok(vec![])
     }
-    async fn write_message(
+    async fn process_write(
         &self,
         request: &[u8],
         apply_index: Index,
