@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use lol_core::compat::RaftAppCompat;
+use lol_core::simple::RaftAppSimple;
 use lol_core::Index;
 use std::convert::TryFrom;
 use tonic::transport::{Channel, Endpoint, Uri};
@@ -24,8 +24,8 @@ pub struct RaftAppBridge {
     config: BridgeConfig,
 }
 #[async_trait]
-impl RaftAppCompat for RaftAppBridge {
-    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+impl RaftAppSimple for RaftAppBridge {
+    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = proto_compiled::ProcessMessageReq {
@@ -35,7 +35,7 @@ impl RaftAppCompat for RaftAppBridge {
             cli.process_message(req).await?.into_inner();
         Ok(message)
     }
-    async fn apply_message(
+    async fn write_message(
         &self,
         request: &[u8],
         apply_index: Index,
