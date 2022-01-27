@@ -51,7 +51,7 @@ pub trait RaftStorage: Sync + Send + 'static {
     async fn list_tags(&self) -> anyhow::Result<BTreeSet<Index>>;
 }
 
-pub (crate) async fn find_last_snapshot_index<S: RaftStorage>(
+pub(crate) async fn find_last_snapshot_index<S: RaftStorage>(
     storage: &S,
 ) -> anyhow::Result<Option<Index>> {
     let last = storage.get_last_index().await?;
