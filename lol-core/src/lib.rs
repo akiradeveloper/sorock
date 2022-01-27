@@ -394,34 +394,7 @@ struct LogStreamElem {
     index: Index,
     command: Bytes,
 }
-// Wrapper to safely add `Sync` to stream.
-//
-// This wrapper is a work-around to issues like
-// - https://github.com/dtolnay/async-trait/issues/77
-// - https://github.com/hyperium/hyper/pull/2187
-//
-// In our case, the problem is tonic::IntoStreamingRequest requires the given stream to be `Sync`.
-// Unless async_trait starts to return `Future`s with `Sync` or tonic (or maybe hyper under the hood) is fixed this wrapper should remain.
-struct SyncStream<S> {
-    st: sync_wrapper::SyncWrapper<S>,
-}
-impl<S> SyncStream<S> {
-    fn new(st: S) -> Self {
-        Self {
-            st: sync_wrapper::SyncWrapper::new(st),
-        }
-    }
-}
-impl<S: futures::stream::Stream> futures::stream::Stream for SyncStream<S> {
-    type Item = S::Item;
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut futures::task::Context<'_>,
-    ) -> futures::task::Poll<Option<Self::Item>> {
-        let st = unsafe { self.map_unchecked_mut(|x| x.st.get_mut()) };
-        st.poll_next(cx)
-    }
-}
+
 fn into_out_stream(
     x: LogStream,
 ) -> impl futures::stream::Stream<Item = crate::proto_compiled::AppendEntryReq> {
@@ -556,7 +529,6 @@ impl<A: RaftApp> RaftCore<A> {
                 yield e;
             }
         };
-        let st2 = SyncStream::new(st2);
         let st = st1.chain(st2);
         Ok(LogStream {
             sender_id: self.id.clone(),
