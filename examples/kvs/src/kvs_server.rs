@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
 use lol_core::simple::{RaftAppSimple, ToRaftApp};
-use lol_core::{Config, Index, RaftCore, TunableConfig};
+use lol_core::{Config, Index, RaftCore, Uri};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -174,19 +174,20 @@ async fn main() {
         .next()
         .unwrap();
 
-    let config = Config::new(id.parse().unwrap());
-    let mut tunable = TunableConfig::default();
+    let id: Uri = id.parse().unwrap();
 
+    let mut config = lol_core::ConfigBuilder::default();
     if !opt.copy_snapshot_mode {
         // by default, compactions runs every 5 secs.
         // this value is carefully chosen, the tests depends on this value.
         let v = opt.compaction_interval_sec.unwrap_or(5);
-        tunable.compaction_interval_sec = v;
-        tunable.compaction_delay_sec = 1;
+        config.compaction_interval_sec(v);
+        config.compaction_delay_sec(1);
     } else {
-        tunable.compaction_interval_sec = 0;
-        tunable.compaction_delay_sec = 1;
+        config.compaction_interval_sec(0);
+        config.compaction_delay_sec(1);
     }
+    let config = config.build().unwrap();
 
     let id_cln = id.clone();
     env_logger::builder()
@@ -204,9 +205,9 @@ async fn main() {
         .init();
 
     let app = ToRaftApp::new(app);
-    let core = if let Some(id) = opt.use_persistency {
+    let core = if let Some(storage_id) = opt.use_persistency {
         std::fs::create_dir("/tmp/lol").ok();
-        let path = format!("/tmp/lol/{}.db", id);
+        let path = format!("/tmp/lol/{}.db", storage_id);
         let path = Path::new(&path);
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
         if opt.reset_persistency {
@@ -214,10 +215,10 @@ async fn main() {
             builder.create();
         }
         let storage = builder.open();
-        RaftCore::new(app, storage, config, tunable).await
+        RaftCore::new(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
-        RaftCore::new(app, storage, config, tunable).await
+        RaftCore::new(app, storage, id, config).await
     };
 
     let service = lol_core::make_service(core);

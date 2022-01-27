@@ -16,6 +16,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
+use derive_builder::Builder;
 use derive_more::{Display, FromStr};
 use futures::stream::StreamExt;
 use proto_compiled::raft_client::RaftClient;
@@ -199,31 +200,22 @@ enum ElectionState {
     Candidate,
     Follower,
 }
-/// Static configuration in initialization.
-pub struct Config {
-    id: Id,
-}
-impl Config {
-    pub fn new(id: Uri) -> Self {
-        Self { id: id.into() }
-    }
-}
 
-/// Dynamic configurations.
-pub struct TunableConfig {
+/// Configuration.
+#[derive(Builder)]
+pub struct Config {
+    #[builder(default = "150")]
     /// Snapshot will be inserted into log after this delay.
-    pub compaction_delay_sec: u64,
-    /// The interval that compaction runs.
-    /// You can set this to 0 and fold snapshot will never be created.
-    pub compaction_interval_sec: u64,
-}
-impl TunableConfig {
-    pub fn default() -> Self {
-        Self {
-            compaction_delay_sec: 150,
-            compaction_interval_sec: 300,
-        }
-    }
+    /// This parameter can be updated online.
+    /// default: 150
+    compaction_delay_sec: u64,
+
+    #[builder(default = "300")]
+    /// The interval that compactions run.
+    /// You can set this to 0 to disable fold snapshot.
+    /// This parameter can be updated online.
+    /// default: 300
+    compaction_interval_sec: u64,
 }
 struct FailureDetector {
     watch_id: Id,
@@ -248,7 +240,7 @@ pub struct RaftCore {
     log: Log,
     election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
-    tunable: RwLock<TunableConfig>,
+    tunable: RwLock<Config>,
     vote_token: Semaphore,
     // Until noop is committed and safe term is incrememted
     // no new entry in the current term is appended to the log.
@@ -262,10 +254,10 @@ impl RaftCore {
     pub async fn new(
         app: impl RaftApp,
         storage: impl RaftStorage,
+        id: Uri,
         config: Config,
-        tunable: TunableConfig,
     ) -> Arc<Self> {
-        let id = config.id;
+        let id: Id = id.into();
         let init_cluster = membership::Cluster::empty(id.clone()).await;
         let (membership_index, init_membership) =
             Self::find_last_membership(&storage).await.unwrap();
@@ -278,7 +270,7 @@ impl RaftCore {
             log: init_log,
             election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
-            tunable: RwLock::new(tunable),
+            tunable: RwLock::new(config),
             vote_token: Semaphore::new(1),
             safe_term: 0.into(),
             membership_barrier: 0.into(),
