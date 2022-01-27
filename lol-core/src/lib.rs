@@ -69,13 +69,16 @@ pub enum MakeSnapshot {
 /// The abstraction for user-defined application runs on the RaftCore.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
-    /// How state machine interacts with inputs from clients.
-    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    /// Almost same as process_message but is called in log application path.
+    /// Process read request.
+    /// This operation should not change the state of the application.
+    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
+    /// Process write request.
+    /// This may change the state of the application.
+    ///
     /// This function may return `MakeSnapshot` to make a new snapshot.
-    /// Note that the snapshot entry corresponding to the copy snapshot is not guaranteed to be made
+    /// The snapshot entry corresponding to the copy snapshot is not guaranteed to be made
     /// due to possible I/O errors, etc.
-    async fn write_message(
+    async fn process_write(
         &self,
         request: &[u8],
         apply_index: Index,
@@ -1312,7 +1315,7 @@ impl Log {
             }
             Command::Req { core, ref message } => {
                 assert_eq!(core, false);
-                let res = raft_core.app.write_message(message, apply_index).await;
+                let res = raft_core.app.process_write(message, apply_index).await;
                 match res {
                     Ok((msg, make_snapshot)) => {
                         let mut ack_chans = self.ack_chans.write().await;
