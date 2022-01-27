@@ -26,8 +26,6 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Notify, RwLock, Semaphore};
 
 mod ack;
-/// Simple and backward-compatible RaftApp trait.
-pub mod compat;
 mod core_message;
 #[cfg(feature = "gateway")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
@@ -37,6 +35,8 @@ mod membership;
 mod query_queue;
 mod quorum_join;
 mod server;
+/// Simple RaftApp trait.
+pub mod simple;
 /// The snapshot abstraction and some basic implementations.
 pub mod snapshot;
 /// The abstraction for the backing storage and some implementations.

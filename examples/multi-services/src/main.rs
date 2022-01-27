@@ -1,5 +1,5 @@
 use lol_core::{
-    compat::{RaftAppCompat, ToRaftApp},
+    simple::{RaftAppSimple, ToRaftApp},
     Index, RaftApp,
 };
 use std::sync::Arc;
@@ -13,12 +13,12 @@ struct MyRaftApp {
 }
 
 #[tonic::async_trait]
-impl RaftAppCompat for MyRaftApp {
-    async fn process_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+impl RaftAppSimple for MyRaftApp {
+    async fn read_message(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
         println!("raft: process {}", request.len());
         Ok(vec![])
     }
-    async fn apply_message(
+    async fn write_message(
         &self,
         request: &[u8],
         apply_index: Index,
