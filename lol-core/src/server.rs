@@ -274,7 +274,7 @@ impl<A: RaftApp> Raft for Server<A> {
         ) {
             let req = request.into_inner();
             assert_eq!(req.core, false);
-            let res = self.core.app.process_message(&req.message).await;
+            let res = self.core.app.read_message(&req.message).await;
             res.map(|x| tonic::Response::new(ProcessRep { message: x }))
                 .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
         } else {
@@ -289,7 +289,7 @@ impl<A: RaftApp> Raft for Server<A> {
     ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
         let req = request.into_inner();
         assert_eq!(req.core, false);
-        let res = self.core.app.process_message(&req.message).await;
+        let res = self.core.app.read_message(&req.message).await;
         res.map(|x| tonic::Response::new(ProcessRep { message: x }))
             .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
     }
