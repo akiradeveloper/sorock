@@ -2,10 +2,10 @@ use crate::{ElectionState, RaftApp, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A: RaftApp> {
-    core: Arc<RaftCore<A>>,
+struct Thread {
+    core: Arc<RaftCore>,
 }
-impl<A: RaftApp> Thread<A> {
+impl Thread {
     async fn run(self) {
         loop {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -55,7 +55,7 @@ impl<A: RaftApp> Thread<A> {
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) {
+pub async fn run(core: Arc<RaftCore>) {
     let x = Thread { core };
     x.run().await
 }
