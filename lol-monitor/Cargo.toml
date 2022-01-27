@@ -11,7 +11,7 @@ default = ["termion"]
 
 [dependencies]
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
-tonic = "0.5"
+tonic = "0.6"
 tokio-stream = "0.1"
 tui = "0.16"
 termion = { version = "1.5", optional = true }

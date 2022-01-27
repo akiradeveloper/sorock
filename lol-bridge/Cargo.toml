@@ -8,14 +8,14 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "1.10", features = ["net"] }
-tonic = "0.5"
+tonic = "0.6"
 async-trait = "0.1"
 tower = "0.4"
-prost = "0.8"
+prost = "0.9"
 anyhow = "1.0"
 
 lol-core = { path = "../lol-core" }
 
 [build-dependencies]
-tonic-build = "0.5"
-prost-build = "0.8"
+tonic-build = "0.6"
+prost-build = "0.9"

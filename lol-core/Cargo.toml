@@ -16,10 +16,10 @@ keywords = ["raft"]
 tokio = { version = "1.10", features = ["macros", "fs"] }
 tokio-util = { version = "0.6", features = ["codec", "time"] }
 tokio-stream = "0.1"
-tonic = "0.5"
+tonic = "0.6"
 http-serde = "1"
 bytes = { version = "1", features = ["serde"] }
-prost = "0.8"
+prost = "0.9"
 rand = "0.8"
 async-trait = "0.1"
 async-stream = "0.3"
@@ -39,8 +39,8 @@ http = { version = "0.2", optional = true }
 rocksdb = { version = "0.17", optional = true }
 
 [build-dependencies]
-tonic-build = "0.5"
-prost-build = "0.8"
+tonic-build = "0.6"
+prost-build = "0.9"
 
 [features]
 full = ["gateway", "persistency"]

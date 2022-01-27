@@ -7,14 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tonic-build = "0.5"
-prost-build = "0.8"
+tonic-build = "0.6"
+prost-build = "0.9"
 
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-tonic = "0.5"
-prost = "0.8"
+tonic = "0.6"
+prost = "0.9"
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
 
 lol-core = { path = "../../lol-core" }
