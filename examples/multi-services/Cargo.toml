@@ -13,8 +13,8 @@ prost-build = "0.8"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-tonic = "0.5"
-prost = "0.8"
+tonic = "0.6"
+prost = "0.9"
 tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
 
 lol-core = { path = "../../lol-core" }
