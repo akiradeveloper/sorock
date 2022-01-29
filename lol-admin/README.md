@@ -25,3 +25,10 @@ SUBCOMMANDS:
     timeout-now
     tunable-config
 ```
+
+## Docker
+
+```
+docker build -t lol-admin -f Dockerfile ..
+docker run --network="host" lol-admin http://localhost:3000 cluster-info
+```
