@@ -180,10 +180,8 @@ async fn main() {
         // this value is carefully chosen, the tests depends on this value.
         let v = opt.compaction_interval_sec.unwrap_or(5);
         config.compaction_interval_sec(v);
-        config.compaction_delay_sec(1);
     } else {
         config.compaction_interval_sec(0);
-        config.compaction_delay_sec(1);
     }
     let config = config.build().unwrap();
 

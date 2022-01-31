@@ -80,16 +80,15 @@ impl Raft for Server {
         _: tonic::Request<GetConfigReq>,
     ) -> Result<tonic::Response<GetConfigRep>, tonic::Status> {
         let core = &self.core;
-        match core.tunable.try_read() {
-            Ok(tunable) => {
+        match core.config.try_read() {
+            Ok(config) => {
                 let rep = GetConfigRep {
-                    compaction_delay_sec: tunable.compaction_delay_sec,
-                    compaction_interval_sec: tunable.compaction_interval_sec,
+                    compaction_interval_sec: config.compaction_interval_sec,
                 };
                 Ok(tonic::Response::new(rep))
             }
             Err(poisoned_error) => Err(tonic::Status::internal(format!(
-                "cannot update tunable configuration: state is poisoned({})",
+                "cannot get configuration: state is poisoned({})",
                 poisoned_error
             ))),
         }
@@ -132,16 +131,14 @@ impl Raft for Server {
         request: tonic::Request<TuneConfigReq>,
     ) -> Result<tonic::Response<TuneConfigRep>, tonic::Status> {
         let req: TuneConfigReq = request.into_inner();
-        match self.core.tunable.try_write() {
-            Ok(mut tunable) => {
-                req.compaction_delay_sec
-                    .map(|value| (*tunable).compaction_delay_sec = value);
+        match self.core.config.try_write() {
+            Ok(mut config) => {
                 req.compaction_interval_sec
-                    .map(|value| (*tunable).compaction_interval_sec = value);
+                    .map(|value| (*config).compaction_interval_sec = value);
                 Ok(tonic::Response::new(proto_compiled::TuneConfigRep {}))
             }
             Err(poisoned_error) => Err(tonic::Status::internal(format!(
-                "cannot update tunable configuration: state is poisoned({})",
+                "cannot update configuration: state is poisoned({})",
                 poisoned_error
             ))),
         }
