@@ -4,15 +4,22 @@ package lol_core;
 
 message ApplyReq {
     bytes message = 1;
-    bool core = 2;
-    bool mutation = 3;
-}
-message ApplyRep {
-    bytes message = 1;
+    bool mutation = 2;
 }
 message CommitReq {
     bytes message = 1;
-    bool core = 2;
+}
+message LowLevelApplyReq {
+    bool core = 1;
+    bytes message = 2;
+    bool mutation = 3;
+}
+message LowLevelCommitReq {
+    bool core = 1;
+    bytes message = 2;
+}
+message ApplyRep {
+    bytes message = 1;
 }
 message CommitRep {}
 message Entry {
@@ -103,6 +110,8 @@ service Raft {
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);
+    rpc LowLevelRequestApply (LowLevelApplyReq) returns (ApplyRep);
+    rpc LowLevelRequestCommit (LowLevelCommitReq) returns (CommitRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
     rpc AddServer (AddServerReq) returns (AddServerRep);
