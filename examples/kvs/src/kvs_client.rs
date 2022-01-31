@@ -45,7 +45,6 @@ async fn main() {
             let msg = Req::serialize(&msg);
             let res = conn
                 .request_apply(proto_compiled::ApplyReq {
-                    core: false,
                     message: msg,
                     mutation: false,
                 })
@@ -75,12 +74,9 @@ async fn main() {
                 value: value_rep,
             };
             let msg = Req::serialize(&msg);
-            conn.request_commit(proto_compiled::CommitReq {
-                core: false,
-                message: msg,
-            })
-            .await
-            .unwrap();
+            conn.request_commit(proto_compiled::CommitReq { message: msg })
+                .await
+                .unwrap();
             println!("OK");
         }
         Sub::List => {
@@ -88,7 +84,6 @@ async fn main() {
             let msg = Req::serialize(&msg);
             let res = conn
                 .request_apply(proto_compiled::ApplyReq {
-                    core: false,
                     message: msg,
                     mutation: false,
                 })
