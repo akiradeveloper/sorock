@@ -72,24 +72,20 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
             .await?;
         Ok(new_snapshot.into())
     }
-    async fn from_snapshot_stream(
-        &self,
-        st: SnapshotStream,
-        _: Index,
-    ) -> anyhow::Result<SnapshotTag> {
+    async fn save_snapshot(&self, st: SnapshotStream, _: Index) -> anyhow::Result<SnapshotTag> {
         let b = BytesSnapshot::from_snapshot_stream(st).await?;
         let tag = SnapshotTag {
             contents: b.contents,
         };
         Ok(tag)
     }
-    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> SnapshotStream {
+    async fn open_snapshot(&self, x: &SnapshotTag) -> SnapshotStream {
         let b: BytesSnapshot = BytesSnapshot {
             contents: x.contents.clone(),
         };
         b.to_snapshot_stream().await
     }
-    async fn delete_resource(&self, _: &SnapshotTag) -> anyhow::Result<()> {
+    async fn delete_snapshot(&self, _: &SnapshotTag) -> anyhow::Result<()> {
         Ok(())
     }
 }

@@ -99,15 +99,15 @@ pub trait RaftApp: Sync + Send + 'static {
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
     /// Make a snapshot resource and returns the tag.
-    async fn from_snapshot_stream(
+    async fn save_snapshot(
         &self,
         st: snapshot::SnapshotStream,
         snapshot_index: Index,
     ) -> anyhow::Result<SnapshotTag>;
     /// Make a snapshot stream from a snapshot resource bound to the tag.
-    async fn to_snapshot_stream(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+    async fn open_snapshot(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
     /// Delete a snapshot resource bound to the tag.
-    async fn delete_resource(&self, x: &SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_snapshot(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
 
 type Term = u64;
@@ -650,10 +650,7 @@ impl RaftCore {
         let res = conn.get_snapshot(req).await?;
         let out_stream = res.into_inner();
         let in_stream = Box::pin(snapshot::into_in_stream(out_stream));
-        let tag = self
-            .app
-            .from_snapshot_stream(in_stream, snapshot_index)
-            .await?;
+        let tag = self.app.save_snapshot(in_stream, snapshot_index).await?;
         self.log.storage.put_tag(snapshot_index, tag).await?;
         Ok(())
     }
@@ -666,7 +663,7 @@ impl RaftCore {
             return Ok(None);
         }
         let tag = tag.unwrap();
-        let st = self.app.to_snapshot_stream(&tag).await;
+        let st = self.app.open_snapshot(&tag).await;
         Ok(Some(st))
     }
 }
@@ -1480,7 +1477,7 @@ impl Log {
             .collect();
         for i in ls {
             if let Some(tag) = self.storage.get_tag(i).await?.clone() {
-                core.app.delete_resource(&tag).await?;
+                core.app.delete_snapshot(&tag).await?;
                 self.storage.delete_tag(i).await?;
             }
         }

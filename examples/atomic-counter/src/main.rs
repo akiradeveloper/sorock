@@ -126,7 +126,7 @@ impl lol_core::RaftApp for MyApp {
         })
     }
 
-    async fn from_snapshot_stream(
+    async fn save_snapshot(
         &self,
         st: lol_core::snapshot::SnapshotStream,
         snapshot_index: lol_core::Index,
@@ -143,7 +143,7 @@ impl lol_core::RaftApp for MyApp {
         Ok(tag)
     }
 
-    async fn to_snapshot_stream(
+    async fn open_snapshot(
         &self,
         x: &lol_core::snapshot::SnapshotTag,
     ) -> lol_core::snapshot::SnapshotStream {
@@ -161,7 +161,7 @@ impl lol_core::RaftApp for MyApp {
         b.to_snapshot_stream().await
     }
 
-    async fn delete_resource(&self, x: &lol_core::snapshot::SnapshotTag) -> anyhow::Result<()> {
+    async fn delete_snapshot(&self, x: &lol_core::snapshot::SnapshotTag) -> anyhow::Result<()> {
         let tag = Tag(x.contents.clone());
         self.snapshot_inventory.write().await.remove(&tag);
         Ok(())
