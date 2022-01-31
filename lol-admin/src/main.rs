@@ -27,8 +27,6 @@ enum Sub {
     ClusterInfo,
     #[clap(name = "timeout-now")]
     TimeoutNow,
-    #[clap(name = "tunable-config")]
-    TunableConfigInfo,
     #[clap(name = "status")]
     Status,
     #[clap(name = "config")]
@@ -41,8 +39,6 @@ enum Sub {
 enum ConfigSub {
     #[clap(name = "set")]
     Set {
-        #[clap(long)]
-        compaction_delay_sec: Option<u64>,
         #[clap(long)]
         compaction_interval_sec: Option<u64>,
     },
@@ -78,15 +74,6 @@ async fn main() {
             let req = proto_compiled::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
-        Sub::TunableConfigInfo => {
-            let req = proto_compiled::GetConfigReq {};
-            let rep = conn.get_config(req).await.unwrap().into_inner();
-            let res = lol_admin::Config {
-                compaction_delay_sec: rep.compaction_delay_sec,
-                compaction_interval_sec: rep.compaction_interval_sec,
-            };
-            println!("{}", serde_json::to_string(&res).unwrap());
-        }
         Sub::Status => {
             let req = proto_compiled::StatusReq {};
             let rep = conn.status(req).await.unwrap().into_inner();
@@ -103,17 +90,14 @@ async fn main() {
                 let req = proto_compiled::GetConfigReq {};
                 let rep = conn.get_config(req).await.unwrap().into_inner();
                 let res = lol_admin::Config {
-                    compaction_delay_sec: rep.compaction_delay_sec,
                     compaction_interval_sec: rep.compaction_interval_sec,
                 };
                 println!("{}", serde_json::to_string(&res).unwrap());
             }
             ConfigSub::Set {
-                compaction_delay_sec,
                 compaction_interval_sec,
             } => {
                 let req = proto_compiled::TuneConfigReq {
-                    compaction_delay_sec,
                     compaction_interval_sec,
                 };
                 conn.tune_config(req).await.unwrap();

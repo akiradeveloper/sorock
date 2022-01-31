@@ -217,19 +217,26 @@ enum ElectionState {
 /// Configuration.
 #[derive(Builder)]
 pub struct Config {
-    #[builder(default = "150")]
-    /// Snapshot will be inserted into log after this delay.
-    /// This parameter can be updated online.
-    /// default: 150
-    compaction_delay_sec: u64,
-
     #[builder(default = "300")]
-    /// The interval that compactions run.
+    /// Compaction will run in this interval.
     /// You can set this to 0 to disable fold snapshot.
     /// This parameter can be updated online.
     /// default: 300
     compaction_interval_sec: u64,
 }
+impl Config {
+    fn compaction_interval(&self) -> Duration {
+        Duration::from_secs(self.compaction_interval_sec)
+    }
+    fn snapshot_insertion_delay(&self) -> Duration {
+        // If the fold compaction is disabled, snapshot insertion delays in 10 seconds.
+        // I think this is reasonable tolerance delay for most of the applications.
+        let minv = Duration::from_secs(10);
+        let v = Duration::from_secs(self.compaction_interval_sec / 2);
+        std::cmp::max(minv, v)
+    }
+}
+
 struct FailureDetector {
     watch_id: Id,
     detector: phi_detector::PingWindow,
@@ -253,7 +260,7 @@ pub struct RaftCore {
     log: Log,
     election_state: RwLock<ElectionState>,
     cluster: RwLock<membership::Cluster>,
-    tunable: RwLock<Config>,
+    config: RwLock<Config>,
     vote_token: Semaphore,
     // Until noop is committed and safe term is incrememted
     // no new entry in the current term is appended to the log.
@@ -283,7 +290,7 @@ impl RaftCore {
             log: init_log,
             election_state: RwLock::new(ElectionState::Follower),
             cluster: RwLock::new(init_cluster),
-            tunable: RwLock::new(config),
+            config: RwLock::new(config),
             vote_token: Semaphore::new(1),
             safe_term: 0.into(),
             membership_barrier: 0.into(),
@@ -1349,12 +1356,11 @@ impl Log {
                                         }),
                                         ..apply_entry
                                     };
-                                    let delay_sec =
-                                        raft_core.tunable.read().await.compaction_delay_sec;
-                                    let delay = Duration::from_secs(delay_sec);
+                                    let delay =
+                                        raft_core.config.read().await.snapshot_insertion_delay();
                                     log::info!(
-                                        "copy snapshot is made and will be inserted in {}s",
-                                        delay_sec
+                                        "copy snapshot is made and will be inserted in {:?}",
+                                        delay
                                     );
 
                                     let _ = self.snapshot_queue.insert(snapshot_entry, delay).await;
@@ -1469,7 +1475,7 @@ impl Log {
                 });
                 e
             };
-            let delay = Duration::from_secs(core.tunable.read().await.compaction_delay_sec);
+            let delay = core.config.read().await.snapshot_insertion_delay();
             let _ = self.snapshot_queue.insert(new_snapshot, delay).await;
             Ok(())
         } else {
