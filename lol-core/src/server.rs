@@ -9,9 +9,9 @@ use tonic::transport::Endpoint;
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
-    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, RemoveServerRep,
-    RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq, TimeoutNowRep,
-    TimeoutNowReq, TuneConfigRep, TuneConfigReq,
+    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, LowLevelApplyReq,
+    LowLevelCommitReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep,
+    StatusReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -150,6 +150,27 @@ impl Raft for Server {
         &self,
         request: tonic::Request<ApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
+        let req = request.map(|x| LowLevelApplyReq {
+            core: false,
+            message: x.message,
+            mutation: x.mutation,
+        });
+        self.low_level_request_apply(req).await
+    }
+    async fn request_commit(
+        &self,
+        request: tonic::Request<CommitReq>,
+    ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
+        let req = request.map(|x| LowLevelCommitReq {
+            core: false,
+            message: x.message,
+        });
+        self.low_level_request_commit(req).await
+    }
+    async fn low_level_request_apply(
+        &self,
+        request: tonic::Request<LowLevelApplyReq>,
+    ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
         let ballot = self.core.load_ballot().await.unwrap();
         if ballot.voted_for.is_none() {
             return Err(tonic::Status::failed_precondition(
@@ -184,12 +205,12 @@ impl Raft for Server {
         } else {
             let endpoint = Endpoint::from(leader_id.uri().clone());
             let mut conn = connect(endpoint).await?;
-            conn.request_apply(request).await
+            conn.low_level_request_apply(request).await
         }
     }
-    async fn request_commit(
+    async fn low_level_request_commit(
         &self,
-        request: tonic::Request<CommitReq>,
+        request: tonic::Request<LowLevelCommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
         let ballot = self.core.load_ballot().await.unwrap();
         if ballot.voted_for.is_none() {
@@ -253,7 +274,7 @@ impl Raft for Server {
         } else {
             let endpoint = Endpoint::from(leader_id.uri().clone());
             let mut conn = connect(endpoint).await?;
-            conn.request_commit(request).await
+            conn.low_level_request_commit(request).await
         }
     }
     async fn request_vote(
@@ -359,14 +380,14 @@ impl Raft for Server {
             self.core.init_cluster().await.is_ok()
         } else {
             let msg = core_message::Req::AddServer(add_server_id);
-            let req = proto_compiled::CommitReq {
-                message: core_message::Req::serialize(&msg),
+            let req = proto_compiled::LowLevelCommitReq {
                 core: true,
+                message: core_message::Req::serialize(&msg),
             };
             let endpoint =
                 Endpoint::from(self.core.id.uri().clone()).timeout(Duration::from_secs(5));
             let mut conn = connect(endpoint).await?;
-            conn.request_commit(req).await.is_ok()
+            conn.low_level_request_commit(req).await.is_ok()
         };
         if ok {
             Ok(tonic::Response::new(AddServerRep {}))
@@ -381,13 +402,13 @@ impl Raft for Server {
         let req = request.into_inner();
         let remove_server_id = req.id.parse().unwrap();
         let msg = core_message::Req::RemoveServer(remove_server_id);
-        let req = proto_compiled::CommitReq {
-            message: core_message::Req::serialize(&msg),
+        let req = proto_compiled::LowLevelCommitReq {
             core: true,
+            message: core_message::Req::serialize(&msg),
         };
         let endpoint = Endpoint::from(self.core.id.uri().clone()).timeout(Duration::from_secs(5));
         let mut conn = connect(endpoint).await?;
-        let ok = conn.request_commit(req).await.is_ok();
+        let ok = conn.low_level_request_commit(req).await.is_ok();
         if ok {
             Ok(tonic::Response::new(RemoveServerRep {}))
         } else {
