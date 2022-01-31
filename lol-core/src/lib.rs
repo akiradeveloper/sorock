@@ -68,11 +68,19 @@ pub enum MakeSnapshot {
 }
 
 /// The abstraction for user-defined application runs on the RaftCore.
+///
+/// Note about the error handling:
+/// In Raft, the great rule is the same log should result in the same state.
+/// This means the application of a log entry should result in the same state
+/// and it is not allowed the same entry succeeds in some node and fails in another node.
+/// Therefore function that may change the state (e.g. process_write) should not fail
+/// if there is any chance that other node succeeds the same entry.
 #[async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// Process read request.
-    /// This operation should not change the state of the application.
+    /// This operation should **not** change the state of the application.
     async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
+
     /// Process write request.
     /// This may change the state of the application.
     ///
@@ -84,28 +92,33 @@ pub trait RaftApp: Sync + Send + 'static {
         request: &[u8],
         entry_index: Index,
     ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
-    /// Special type of apply_message but when the entry is snapshot entry.
-    /// Snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
+
+    /// Special type of process_write but when the entry is a snapshot entry.
+    /// Snapshot is None when apply_index is 1 which is the most youngest snapshot.
     async fn install_snapshot(
         &self,
         snapshot: Option<&SnapshotTag>,
         snapshot_index: Index,
     ) -> anyhow::Result<()>;
-    /// This function is called from compaction threads.
-    /// It should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
+
+    /// This function is called from the compaction thread.
+    /// It should return new snapshot from accumulative computation with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
     ) -> anyhow::Result<SnapshotTag>;
-    /// Make a snapshot resource and returns the tag.
+
+    /// Make a snapshot resource and return the tag.
     async fn save_snapshot(
         &self,
         st: snapshot::SnapshotStream,
         snapshot_index: Index,
     ) -> anyhow::Result<SnapshotTag>;
+
     /// Make a snapshot stream from a snapshot resource bound to the tag.
     async fn open_snapshot(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+
     /// Delete a snapshot resource bound to the tag.
     async fn delete_snapshot(&self, x: &SnapshotTag) -> anyhow::Result<()>;
 }
