@@ -23,5 +23,5 @@ SUBCOMMANDS:
     remove-server
     status
     timeout-now
-    tunable-config
+    config
 ```

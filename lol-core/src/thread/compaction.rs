@@ -9,13 +9,12 @@ struct Thread {
 impl Thread {
     async fn run(self) {
         loop {
-            let v = self.core.tunable.read().await.compaction_interval_sec;
-            if v == 0 {
+            let interval = self.core.config.read().await.compaction_interval();
+            if interval.is_zero() {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 continue;
             }
 
-            let interval = Duration::from_secs(v);
             tokio::time::sleep(interval).await;
 
             let core = Arc::clone(&self.core);
