@@ -82,14 +82,14 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: Index,
+        entry_index: Index,
     ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
     /// Special type of apply_message but when the entry is snapshot entry.
     /// Snapshot is None happens iff apply_index is 1 which is the most initial snapshot.
     async fn install_snapshot(
         &self,
         snapshot: Option<&SnapshotTag>,
-        apply_index: Index,
+        snapshot_index: Index,
     ) -> anyhow::Result<()>;
     /// This function is called from compaction threads.
     /// It should return new snapshot from accumulative compution with the old_snapshot and the subsequent log entries.
