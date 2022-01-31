@@ -166,15 +166,13 @@ async fn main() {
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
     let id = opt.id.clone();
-    let url = url::Url::parse(&id).unwrap();
-    let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
+    let id = lol_core::Uri::from_maybe_shared(id).unwrap();
+    let host_port_str = format!("{}:{}", id.host().unwrap(), id.port_u16().unwrap());
     let socket = tokio::net::lookup_host(host_port_str)
         .await
         .unwrap()
         .next()
         .unwrap();
-
-    let id: Uri = id.parse().unwrap();
 
     let mut config = lol_core::ConfigBuilder::default();
     if !opt.copy_snapshot_mode {
