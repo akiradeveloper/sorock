@@ -1,8 +1,9 @@
 use integration_tests::cluster::*;
 use integration_tests::kvs::*;
 
+use lol_core::api::ClusterInfoReq;
 use lol_core::gateway as gateway_v2;
-use lol_core::proto_compiled::{raft_client::RaftClient, ClusterInfoReq};
+use lol_core::RaftClient;
 use std::collections::HashSet;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
