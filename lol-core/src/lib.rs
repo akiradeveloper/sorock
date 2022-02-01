@@ -29,12 +29,14 @@ mod ack;
 mod core_message;
 #[cfg(feature = "gateway")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gateway")))]
-/// Utilities to interact with the cluster.
+/// Gateway to interact with the cluster.
 pub mod gateway;
 mod membership;
 mod query_queue;
 mod quorum_join;
 mod server;
+#[cfg(feature = "simple")]
+#[cfg_attr(docsrs, doc(cfg(feature = "simple")))]
 /// Simple RaftApp trait.
 pub mod simple;
 /// The snapshot abstraction and some basic implementations.
