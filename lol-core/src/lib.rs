@@ -1339,7 +1339,7 @@ impl Log {
 
                         match make_snapshot {
                             MakeSnapshot::CopySnapshot(new_tag) => {
-                                // Replication proceeds if apply_message's succeeded and regardless of the result of snapshot insertion.
+                                // Replication proceeds if process_write's succeeded and regardless of the result of snapshot insertion.
 
                                 // Snapshot becomes orphan when this code fails but it is allowed.
                                 let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
@@ -1397,12 +1397,11 @@ impl Log {
             self.last_applied.store(apply_index, Ordering::SeqCst);
             self.apply_notify.notify_one();
         } else {
-            // We assume apply_message typically fails due to
-            // 1. temporal storage/network error
-            // 2. application bug
-            // While the former is recoverable the latter isn't which results in
-            // emitting error indefinitely until storage capacity is totally consumed.
-            // To avoid this adaptive penalty is inserted after each error.
+            // We assume process_write typically fails due to
+            // some recoverable temporary network/storage errors.
+            // It should return ok to skip the broken entry otherwise.
+            // Retry will be done with adaptive penalty in-between
+            // so these error will be more likely to recover.
             let n_old = self.apply_error_seq.load(Ordering::SeqCst);
             let wait_ms: u64 = 100 * (1 << n_old);
             log::error!(
