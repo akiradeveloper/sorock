@@ -81,8 +81,7 @@ async fn run_server() {
 
         let id = "http://localhost:50000".parse().unwrap();
         let config = lol_core::ConfigBuilder::default().build().unwrap();
-        let core = lol_core::RaftCore::new(app, storage, id, config).await;
-        lol_core::make_service(core)
+        lol_core::raft_service(app, storage, id, config).await
     };
 
     // Non-Raft service

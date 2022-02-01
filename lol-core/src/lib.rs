@@ -262,7 +262,7 @@ impl FailureDetector {
 /// RaftCore is the heart of the Raft system.
 /// It does everything Raft should do like election, dynamic membership change,
 /// log replication, sending snapshot in stream and interaction with user-defined RaftApp.
-pub struct RaftCore {
+struct RaftCore {
     id: Id,
     app: Box<dyn RaftApp>,
     query_queue: Mutex<query_queue::QueryQueue>,
@@ -280,7 +280,7 @@ pub struct RaftCore {
     failure_detector: RwLock<FailureDetector>,
 }
 impl RaftCore {
-    pub async fn new(
+    async fn new(
         app: impl RaftApp,
         storage: impl RaftStorage,
         id: Uri,
@@ -1528,8 +1528,15 @@ impl Log {
 /// A Raft implementation of `tower::Service`.
 pub type RaftService = proto_compiled::raft_server::RaftServer<server::Server>;
 
-/// Lift `RaftCore` to `Service`.
-pub fn make_service(core: Arc<RaftCore>) -> RaftService {
+/// Make a `RaftService`.
+pub async fn raft_service(
+    app: impl RaftApp,
+    storage: impl RaftStorage,
+    id: Uri,
+    config: Config,
+) -> RaftService {
+    let core = RaftCore::new(app, storage, id, config).await;
+
     tokio::spawn(thread::commit::run(Arc::clone(&core)));
     tokio::spawn(thread::compaction::run(Arc::clone(&core)));
     tokio::spawn(thread::election::run(Arc::clone(&core)));
@@ -1537,6 +1544,7 @@ pub fn make_service(core: Arc<RaftCore>) -> RaftService {
     tokio::spawn(thread::query_executor::run(Arc::clone(&core)));
     tokio::spawn(thread::gc::run(Arc::clone(&core)));
     tokio::spawn(thread::snapshot_installer::run(Arc::clone(&core)));
+
     let server = server::Server { core };
     proto_compiled::raft_server::RaftServer::new(server)
 }
