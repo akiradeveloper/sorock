@@ -43,7 +43,9 @@ tonic-build = "0.6"
 prost-build = "0.9"
 
 [features]
-full = ["gateway", "persistency"]
+default = []
+full = ["simple", "gateway", "persistency"]
+simple = []
 gateway = ["tower", "http"]
 persistency = ["rocksdb"]
 

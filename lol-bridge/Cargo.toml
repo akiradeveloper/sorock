@@ -14,7 +14,7 @@ tower = "0.4"
 prost = "0.9"
 anyhow = "1.0"
 
-lol-core = { path = "../lol-core" }
+lol-core = { path = "../lol-core", features = ["simple"] }
 
 [build-dependencies]
 tonic-build = "0.6"
