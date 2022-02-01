@@ -1,4 +1,4 @@
-use crate::snapshot::{impls::BytesSnapshot, SnapshotStream, SnapshotTag};
+use crate::snapshot::{byteseq::BytesSnapshot, SnapshotStream, SnapshotTag};
 use crate::{Index, MakeSnapshot, RaftApp};
 use async_trait::async_trait;
 
@@ -73,7 +73,7 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
         Ok(new_snapshot.into())
     }
     async fn save_snapshot(&self, st: SnapshotStream, _: Index) -> anyhow::Result<SnapshotTag> {
-        let b = BytesSnapshot::from_snapshot_stream(st).await?;
+        let b = BytesSnapshot::save_snapshot_stream(st).await?;
         let tag = SnapshotTag {
             contents: b.contents,
         };
@@ -83,7 +83,7 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
         let b: BytesSnapshot = BytesSnapshot {
             contents: x.contents.clone(),
         };
-        b.to_snapshot_stream().await
+        b.open_snapshot_stream().await
     }
     async fn delete_snapshot(&self, _: &SnapshotTag) -> anyhow::Result<()> {
         Ok(())

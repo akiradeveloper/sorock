@@ -1,6 +1,6 @@
 use atomic_counter::{Rep, Req};
 use bytes::Bytes;
-use lol_core::snapshot::{impls::BytesSnapshot, SnapshotTag};
+use lol_core::snapshot::{byteseq::BytesSnapshot, SnapshotTag};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -131,7 +131,7 @@ impl lol_core::RaftApp for MyApp {
         st: lol_core::snapshot::SnapshotStream,
         snapshot_index: lol_core::Index,
     ) -> anyhow::Result<lol_core::snapshot::SnapshotTag> {
-        let b = BytesSnapshot::from_snapshot_stream(st).await?;
+        let b = BytesSnapshot::save_snapshot_stream(st).await?;
         let v: u64 = bincode::deserialize(&b.contents).unwrap();
         let resource = Resource(v);
         let tag = Tag::new_unique();
@@ -158,7 +158,7 @@ impl lol_core::RaftApp for MyApp {
         let b: BytesSnapshot = BytesSnapshot {
             contents: bincode::serialize(&resource.0).unwrap().into(),
         };
-        b.to_snapshot_stream().await
+        b.open_snapshot_stream().await
     }
 
     async fn delete_snapshot(&self, x: &lol_core::snapshot::SnapshotTag) -> anyhow::Result<()> {

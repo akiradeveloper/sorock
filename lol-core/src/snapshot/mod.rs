@@ -1,7 +1,11 @@
 use futures::StreamExt;
 
-/// Basic implementations.
-pub mod impls;
+/// Basic snapshot type which is just a byte sequence.
+pub mod byteseq;
+/// A snapshot saved in a file.
+/// Instead of bytes snapshot you may choose this to deal with
+/// gigantic snapshot beyond system memory.
+pub mod file;
 mod queue;
 pub(crate) use queue::*;
 mod util;
@@ -26,13 +30,16 @@ impl From<Vec<u8>> for SnapshotTag {
 use crate::proto_compiled::GetSnapshotRep;
 use bytes::Bytes;
 use futures::stream::Stream;
+
 /// The stream type that is used internally. it is considered as just a stream of bytes.
 /// The length of each bytes may vary.
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
+
 pub(crate) type SnapshotStreamOut = std::pin::Pin<
     Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send>,
 >;
+
 pub(crate) fn into_out_stream(in_stream: SnapshotStream) -> SnapshotStreamOut {
     let out_stream = in_stream.map(|res| {
         res.map(|x| GetSnapshotRep { chunk: x.to_vec() })
@@ -40,6 +47,7 @@ pub(crate) fn into_out_stream(in_stream: SnapshotStream) -> SnapshotStreamOut {
     });
     Box::pin(out_stream)
 }
+
 pub(crate) fn into_in_stream(
     out_stream: impl Stream<Item = Result<GetSnapshotRep, tonic::Status>>,
 ) -> impl Stream<Item = anyhow::Result<Bytes>> {
