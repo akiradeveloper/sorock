@@ -20,7 +20,7 @@ impl QueryQueue {
     pub fn register(&mut self, idx: Index, query: Query) {
         self.reserved.entry(idx).or_insert(vec![]).push(query);
     }
-    pub async fn execute(&mut self, idx: Index, raft_core: Arc<RaftCore>) -> bool {
+    pub(crate) async fn execute(&mut self, idx: Index, raft_core: Arc<RaftCore>) -> bool {
         let mut futs = vec![];
         let ls: Vec<Index> = self.reserved.range(..=idx).map(|(k, _)| *k).collect();
         for idx in ls {

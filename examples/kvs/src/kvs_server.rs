@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
 use lol_core::simple::{RaftAppSimple, ToRaftApp};
-use lol_core::{Config, Index, RaftCore, Uri};
+use lol_core::{Config, Index, Uri};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -201,7 +201,7 @@ async fn main() {
         .init();
 
     let app = ToRaftApp::new(app);
-    let core = if let Some(storage_id) = opt.use_persistency {
+    let service = if let Some(storage_id) = opt.use_persistency {
         std::fs::create_dir("/tmp/lol").ok();
         let path = format!("/tmp/lol/{}.db", storage_id);
         let path = Path::new(&path);
@@ -211,13 +211,12 @@ async fn main() {
             builder.create();
         }
         let storage = builder.open();
-        RaftCore::new(app, storage, id, config).await
+        lol_core::raft_service(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
-        RaftCore::new(app, storage, id, config).await
+        lol_core::raft_service(app, storage, id, config).await
     };
 
-    let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
 
     let (tx, rx) = oneshot::channel();
