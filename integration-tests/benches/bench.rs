@@ -5,7 +5,8 @@ use integration_tests::env::NodeCommand;
 use integration_tests::kvs::*;
 
 use bytes::Bytes;
-use lol_core::proto_compiled::raft_client::RaftClient;
+use lol_core::RaftClient;
+use lol_core::api;
 use std::thread;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
@@ -28,8 +29,7 @@ fn do_bench_commit(n: u8, b: &mut test::Bencher) {
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn
-                .request_commit(lol_core::proto_compiled::CommitReq {
-                    core: false,
+                .request_commit(api::CommitReq {
                     message: msg,
                 })
                 .await?;
@@ -71,8 +71,7 @@ fn do_bench_apply(n: u8, b: &mut test::Bencher) {
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn
-                .request_apply(lol_core::proto_compiled::ApplyReq {
-                    core: false,
+                .request_apply(api::ApplyReq {
                     mutation: true,
                     message: msg,
                 })
@@ -115,8 +114,7 @@ fn do_bench_query(n: u8, b: &mut test::Bencher) {
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn
-                .request_apply(lol_core::proto_compiled::ApplyReq {
-                    core: false,
+                .request_apply(api::ApplyReq {
                     mutation: false,
                     message: msg,
                 })
@@ -159,8 +157,7 @@ fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test
         let r: anyhow::Result<_> = rt.block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
             let res = conn
-                .request_commit(lol_core::proto_compiled::CommitReq {
-                    core: false,
+                .request_commit(api::CommitReq {
                     message: msg,
                 })
                 .await?;
