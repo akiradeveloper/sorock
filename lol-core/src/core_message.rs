@@ -19,7 +19,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_core_message() {
-        let uri: Uri = "192.168.11.13".parse().unwrap();
+        let uri: Uri = "https://192.168.11.13:50000".parse().unwrap();
         let x = Req::AddServer(uri.into());
         let b = Req::serialize(&x);
         let y = Req::deserialize(&b).unwrap();
