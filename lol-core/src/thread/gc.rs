@@ -17,7 +17,7 @@ impl Thread {
         }
     }
 }
-pub async fn run(core: Arc<RaftCore>) {
+pub(crate) async fn run(core: Arc<RaftCore>) {
     let x = Thread { core };
     x.run().await
 }

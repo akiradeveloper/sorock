@@ -71,7 +71,7 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
     }
 }
 pub struct Server {
-    pub core: Arc<RaftCore>,
+    pub(crate) core: Arc<RaftCore>,
 }
 #[tonic::async_trait]
 impl Raft for Server {
