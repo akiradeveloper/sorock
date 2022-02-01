@@ -19,7 +19,6 @@ use bytes::Bytes;
 use derive_builder::Builder;
 use derive_more::{Display, FromStr};
 use futures::stream::StreamExt;
-use proto_compiled::raft_client::RaftClient;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -50,10 +49,20 @@ use snapshot::SnapshotTag;
 use storage::RaftStorage;
 use tonic::transport::Endpoint;
 
-/// Proto file compiled.
-pub mod proto_compiled {
+mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
+
+/// Available message types.
+pub mod api {
+    pub use crate::proto_compiled::{
+        AddServerRep, AddServerReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep,
+        CommitReq, GetConfigRep, GetConfigReq, RemoveServerRep, RemoveServerReq, StatusRep,
+        StatusReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
+    };
+}
+
+pub use crate::proto_compiled::raft_client::RaftClient;
 
 use storage::{Ballot, Entry};
 

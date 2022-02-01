@@ -2,7 +2,7 @@ use super::env::*;
 
 use std::collections::HashSet;
 
-use lol_core::{proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{api, RaftClient};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Builder;
@@ -46,7 +46,7 @@ impl Admin {
     }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::AddServerReq { id };
+        let req = api::AddServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
@@ -57,7 +57,7 @@ impl Admin {
     }
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::RemoveServerReq { id };
+        let req = api::RemoveServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
@@ -70,7 +70,7 @@ impl Admin {
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let req = proto_compiled::ClusterInfoReq {};
+            let req = api::ClusterInfoReq {};
             let res = conn.request_cluster_info(req).await?;
             Result::Ok(res)
         })?
@@ -82,7 +82,7 @@ impl Admin {
         })
     }
     pub fn timeout_now(&self) -> Result<()> {
-        let req = proto_compiled::TimeoutNowReq {};
+        let req = api::TimeoutNowReq {};
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;

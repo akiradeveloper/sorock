@@ -1,5 +1,5 @@
 use clap::Parser;
-use lol_core::{proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{api, RaftClient};
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 
@@ -54,15 +54,15 @@ async fn main() {
     let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
-            let req = proto_compiled::AddServerReq { id };
+            let req = api::AddServerReq { id };
             conn.add_server(req).await.unwrap();
         }
         Sub::RemoveServer { id } => {
-            let req = proto_compiled::RemoveServerReq { id };
+            let req = api::RemoveServerReq { id };
             conn.remove_server(req).await.unwrap();
         }
         Sub::ClusterInfo => {
-            let req = proto_compiled::ClusterInfoReq {};
+            let req = api::ClusterInfoReq {};
             let rep = conn.request_cluster_info(req).await.unwrap().into_inner();
             let res = lol_admin::ClusterInfo {
                 leader_id: rep.leader_id,
@@ -71,11 +71,11 @@ async fn main() {
             println!("{}", serde_json::to_string(&res).unwrap());
         }
         Sub::TimeoutNow => {
-            let req = proto_compiled::TimeoutNowReq {};
+            let req = api::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
         Sub::Status => {
-            let req = proto_compiled::StatusReq {};
+            let req = api::StatusReq {};
             let rep = conn.status(req).await.unwrap().into_inner();
             let res = lol_admin::Status {
                 snapshot_index: rep.snapshot_index,
@@ -87,7 +87,7 @@ async fn main() {
         }
         Sub::Config { sub } => match sub {
             ConfigSub::Get => {
-                let req = proto_compiled::GetConfigReq {};
+                let req = api::GetConfigReq {};
                 let rep = conn.get_config(req).await.unwrap().into_inner();
                 let res = lol_admin::Config {
                     compaction_interval_sec: rep.compaction_interval_sec,
@@ -97,7 +97,7 @@ async fn main() {
             ConfigSub::Set {
                 compaction_interval_sec,
             } => {
-                let req = proto_compiled::TuneConfigReq {
+                let req = api::TuneConfigReq {
                     compaction_interval_sec,
                 };
                 conn.tune_config(req).await.unwrap();
