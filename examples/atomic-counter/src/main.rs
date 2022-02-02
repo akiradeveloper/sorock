@@ -8,26 +8,23 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Clone)]
-pub struct Tag(pub Bytes);
+struct Tag(Bytes);
 impl Tag {
-    pub fn new_unique() -> Self {
-        // I know this isn't actually unique. But this is only an example.
-        // Please use unique identifier as a tag.
-        let x: u64 = rand::random();
-        let x = bincode::serialize(&x).unwrap();
-        Tag(x.into())
+    fn from_snapshot_index(snapshot_index: u64) -> Self {
+        let bin = bincode::serialize(&snapshot_index).unwrap();
+        Tag(bin.into())
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub struct Resource(pub u64);
+struct Resource(u64);
 
 struct MyApp {
     v: AtomicU64,
     snapshot_inventory: Arc<RwLock<HashMap<Tag, Resource>>>,
 }
 impl MyApp {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             v: AtomicU64::new(0),
             snapshot_inventory: Arc::new(RwLock::new(HashMap::new())),
@@ -94,7 +91,7 @@ impl lol_core::RaftApp for MyApp {
         &self,
         old_snapshot: Option<&lol_core::snapshot::SnapshotTag>,
         requests: Vec<&[u8]>,
-        _: Index,
+        snapshot_index: Index,
     ) -> anyhow::Result<lol_core::snapshot::SnapshotTag> {
         let mut acc = match old_snapshot {
             None => 0,
@@ -117,7 +114,7 @@ impl lol_core::RaftApp for MyApp {
                 _ => unreachable!(),
             }
         }
-        let new_tag = Tag::new_unique();
+        let new_tag = Tag::from_snapshot_index(snapshot_index);
         let new_resource = Resource(acc);
         self.snapshot_inventory
             .write()
@@ -136,7 +133,7 @@ impl lol_core::RaftApp for MyApp {
         let b = BytesSnapshot::save_snapshot_stream(st).await?;
         let v: u64 = bincode::deserialize(&b.contents).unwrap();
         let resource = Resource(v);
-        let tag = Tag::new_unique();
+        let tag = Tag::from_snapshot_index(snapshot_index);
         self.snapshot_inventory
             .write()
             .await
