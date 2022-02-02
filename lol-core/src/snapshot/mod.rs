@@ -1,7 +1,7 @@
 use futures::StreamExt;
 
 /// Basic snapshot type which is just a byte sequence.
-pub mod byteseq;
+pub mod bytes;
 /// A snapshot saved in a file.
 /// Instead of bytes snapshot you may choose this to deal with
 /// gigantic snapshot beyond system memory.
@@ -10,11 +10,13 @@ mod queue;
 pub(crate) use queue::*;
 mod util;
 
+use ::bytes::Bytes;
+
 /// Snapshot tag is a tag that bound to some snapshot resource.
 /// If the resource is a file the tag is the path to the file, for example.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotTag {
-    pub contents: bytes::Bytes,
+    pub contents: Bytes,
 }
 impl AsRef<[u8]> for SnapshotTag {
     fn as_ref(&self) -> &[u8] {
@@ -28,7 +30,6 @@ impl From<Vec<u8>> for SnapshotTag {
 }
 
 use crate::proto_compiled::GetSnapshotRep;
-use bytes::Bytes;
 use futures::stream::Stream;
 
 /// The stream type that is used internally. it is considered as just a stream of bytes.
