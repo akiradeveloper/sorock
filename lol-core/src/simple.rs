@@ -10,12 +10,10 @@ pub trait RaftAppSimple: Sync + Send + 'static {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)>;
     async fn install_snapshot(
         &self,
         snapshot: Option<&[u8]>,
-        apply_index: Index,
     ) -> anyhow::Result<()>;
     async fn fold_snapshot(
         &self,
@@ -42,9 +40,9 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: Index,
+        _: Index,
     ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)> {
-        let (res, new_snapshot) = self.compat_app.process_write(request, apply_index).await?;
+        let (res, new_snapshot) = self.compat_app.process_write(request).await?;
         let make_snapshot = match new_snapshot {
             Some(x) => MakeSnapshot::CopySnapshot(x.into()),
             None => MakeSnapshot::None,
@@ -54,11 +52,11 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
     async fn install_snapshot(
         &self,
         snapshot: Option<&SnapshotTag>,
-        apply_index: Index,
+        _: Index,
     ) -> anyhow::Result<()> {
         let y = snapshot.map(|x| x.contents.clone());
         self.compat_app
-            .install_snapshot(y.as_deref(), apply_index)
+            .install_snapshot(y.as_deref())
             .await
     }
     async fn fold_snapshot(

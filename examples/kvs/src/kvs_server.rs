@@ -77,7 +77,6 @@ impl RaftAppSimple for KVS {
     async fn process_write(
         &self,
         x: &[u8],
-        _: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let msg = Req::deserialize(&x);
         let res = match msg {
@@ -109,7 +108,7 @@ impl RaftAppSimple for KVS {
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&[u8]>) -> anyhow::Result<()> {
         if let Some(x) = x {
             let mut h = self.mem.write().await;
             let snapshot = Snapshot::deserialize(x.as_ref()).unwrap();

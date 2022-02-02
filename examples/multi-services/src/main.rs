@@ -21,14 +21,12 @@ impl RaftAppSimple for MyRaftApp {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         unimplemented!()
     }
     async fn install_snapshot(
         &self,
         snapshot: Option<&[u8]>,
-        apply_index: Index,
     ) -> anyhow::Result<()> {
         Ok(())
     }
