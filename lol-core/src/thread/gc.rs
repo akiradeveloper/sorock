@@ -1,4 +1,4 @@
-use crate::{RaftApp, RaftCore};
+use crate::RaftCore;
 use std::sync::Arc;
 use std::time::Duration;
 

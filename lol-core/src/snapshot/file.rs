@@ -1,5 +1,4 @@
 use super::{util, SnapshotStream};
-use bytes::Bytes;
 use std::path::{Path, PathBuf};
 
 pub struct FileSnapshot {

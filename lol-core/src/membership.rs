@@ -1,6 +1,6 @@
 use super::thread_drop::ThreadDrop;
+use crate::RaftCore;
 use crate::{Id, Index};
-use crate::{RaftApp, RaftCore};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;

@@ -1,4 +1,4 @@
-use crate::{Id, Uri};
+use crate::Id;
 
 /// Request
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -19,6 +19,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_core_message() {
+        use crate::Uri;
         let uri: Uri = "https://192.168.11.13:50000".parse().unwrap();
         let x = Req::AddServer(uri.into());
         let b = Req::serialize(&x);

@@ -1,6 +1,6 @@
-use crate::{Clock, Command, Id, Index, Term, Uri};
+use crate::{Clock, Command, Id, Index, Term};
 use bytes::Bytes;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 
 /// In-memory implementation backed by BTreeMap.
 pub mod memory;
@@ -67,6 +67,9 @@ pub(crate) async fn find_last_snapshot_index<S: RaftStorage>(
 
 #[cfg(test)]
 async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
+    use crate::Uri;
+    use std::collections::HashSet;
+
     let e = Entry {
         prev_clock: Clock { term: 0, index: 0 },
         this_clock: Clock { term: 0, index: 0 },

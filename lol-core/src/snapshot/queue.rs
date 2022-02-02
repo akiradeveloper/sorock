@@ -1,5 +1,5 @@
 use crate::storage::Entry;
-use crate::{RaftApp, RaftCore};
+use crate::RaftCore;
 use futures::{FutureExt, StreamExt};
 use std::sync::Arc;
 use std::time::Duration;
