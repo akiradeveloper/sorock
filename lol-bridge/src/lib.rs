@@ -34,10 +34,7 @@ impl RaftAppSimple for RaftAppBridge {
         let proto_compiled::ProcessReadRep { message } = cli.process_read(req).await?.into_inner();
         Ok(message)
     }
-    async fn process_write(
-        &self,
-        request: &[u8],
-    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn process_write(&self, request: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = proto_compiled::ProcessWriteReq {
@@ -47,10 +44,7 @@ impl RaftAppSimple for RaftAppBridge {
             cli.process_write(req).await?.into_inner();
         Ok((message, snapshot))
     }
-    async fn install_snapshot(
-        &self,
-        snapshot: Option<&[u8]>,
-    ) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, snapshot: Option<&[u8]>) -> anyhow::Result<()> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = proto_compiled::InstallSnapshotReq {
