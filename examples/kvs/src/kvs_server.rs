@@ -74,10 +74,7 @@ impl RaftAppSimple for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn process_write(
-        &self,
-        x: &[u8],
-    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn process_write(&self, x: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let msg = Req::deserialize(&x);
         let res = match msg {
             Some(x) => match x {
