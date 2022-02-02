@@ -1,8 +1,8 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Command, Id, Index};
+use crate::{Clock, Id, Index};
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 const CF_ENTRIES: &str = "entries";
@@ -249,6 +249,8 @@ async fn test_rocksdb_storage() -> Result<()> {
 #[tokio::test]
 async fn test_rocksdb_persistency() -> Result<()> {
     use super::RaftStorage;
+    use crate::Command;
+    use std::collections::HashSet;
 
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");

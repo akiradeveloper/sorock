@@ -1,4 +1,4 @@
-use crate::{ElectionState, RaftApp, RaftCore};
+use crate::{ElectionState, RaftCore};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;

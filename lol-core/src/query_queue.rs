@@ -1,4 +1,4 @@
-use crate::{ack, Index, RaftApp, RaftCore};
+use crate::{ack, Index, RaftCore};
 use bytes::Bytes;
 use std::collections::BTreeMap;
 use std::sync::Arc;

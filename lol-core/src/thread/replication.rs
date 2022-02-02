@@ -1,4 +1,4 @@
-use crate::{ElectionState, Id, RaftApp, RaftCore};
+use crate::{ElectionState, Id, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 

@@ -1,6 +1,4 @@
-use crate::{
-    ack, core_message, proto_compiled, Clock, Command, ElectionState, Id, RaftApp, RaftCore,
-};
+use crate::{ack, core_message, proto_compiled, Clock, Command, ElectionState, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_stream::StreamExt;
@@ -250,10 +248,6 @@ impl Raft for Server {
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
                     }
-                    _ => Command::Req {
-                        message: &req.message,
-                        core: req.core,
-                    },
                 }
             } else {
                 Command::Req {
