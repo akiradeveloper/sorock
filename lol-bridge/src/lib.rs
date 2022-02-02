@@ -37,13 +37,11 @@ impl RaftAppSimple for RaftAppBridge {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = proto_compiled::ProcessWriteReq {
             message: request.to_vec(),
-            apply_index,
         };
         let proto_compiled::ProcessWriteRep { message, snapshot } =
             cli.process_write(req).await?.into_inner();
@@ -52,13 +50,11 @@ impl RaftAppSimple for RaftAppBridge {
     async fn install_snapshot(
         &self,
         snapshot: Option<&[u8]>,
-        apply_index: Index,
     ) -> anyhow::Result<()> {
         let chan = Self::connect(self.config.clone()).await?;
         let mut cli = AppBridgeClient::new(chan);
         let req = proto_compiled::InstallSnapshotReq {
             snapshot: snapshot.map(|x| x.as_ref().to_vec()),
-            apply_index,
         };
         cli.install_snapshot(req).await?;
         Ok(())
