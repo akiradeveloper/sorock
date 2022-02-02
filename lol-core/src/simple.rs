@@ -7,14 +7,8 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait RaftAppSimple: Sync + Send + 'static {
     async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
-    async fn process_write(
-        &self,
-        request: &[u8],
-    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)>;
-    async fn install_snapshot(
-        &self,
-        snapshot: Option<&[u8]>,
-    ) -> anyhow::Result<()>;
+    async fn process_write(&self, request: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)>;
+    async fn install_snapshot(&self, snapshot: Option<&[u8]>) -> anyhow::Result<()>;
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&[u8]>,
@@ -55,15 +49,13 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
         _: Index,
     ) -> anyhow::Result<()> {
         let y = snapshot.map(|x| x.contents.clone());
-        self.compat_app
-            .install_snapshot(y.as_deref())
-            .await
+        self.compat_app.install_snapshot(y.as_deref()).await
     }
     async fn fold_snapshot(
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
-        _: Index
+        _: Index,
     ) -> anyhow::Result<SnapshotTag> {
         let y = old_snapshot.map(|x| x.contents.clone());
         let new_snapshot = self

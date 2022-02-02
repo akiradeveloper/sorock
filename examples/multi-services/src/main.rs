@@ -18,16 +18,10 @@ impl RaftAppSimple for MyRaftApp {
         println!("raft: process {}", request.len());
         Ok(vec![])
     }
-    async fn process_write(
-        &self,
-        request: &[u8],
-    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn process_write(&self, request: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
         unimplemented!()
     }
-    async fn install_snapshot(
-        &self,
-        snapshot: Option<&[u8]>,
-    ) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, snapshot: Option<&[u8]>) -> anyhow::Result<()> {
         Ok(())
     }
     async fn fold_snapshot(
