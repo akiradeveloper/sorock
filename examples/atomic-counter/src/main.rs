@@ -1,6 +1,6 @@
 use atomic_counter::{Rep, Req};
 use bytes::Bytes;
-use lol_core::snapshot::{bytes::BytesSnapshot, SnapshotTag};
+use lol_core::snapshot::{BytesSnapshot, SnapshotTag};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
