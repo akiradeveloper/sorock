@@ -65,6 +65,7 @@ impl<A: RaftAppSimple> RaftApp for ToRaftApp<A> {
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
+        _: Index
     ) -> anyhow::Result<SnapshotTag> {
         let y = old_snapshot.map(|x| x.contents.clone());
         let new_snapshot = self

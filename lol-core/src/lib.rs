@@ -116,6 +116,7 @@ pub trait RaftApp: Sync + Send + 'static {
         &self,
         old_snapshot: Option<&SnapshotTag>,
         requests: Vec<&[u8]>,
+        snapshot_index: Index,
     ) -> anyhow::Result<SnapshotTag>;
 
     /// Make a snapshot resource and return the tag.
@@ -1473,7 +1474,7 @@ impl Log {
             let base_tag = self.storage.get_tag(base_snapshot_index).await?;
             let new_tag = core
                 .app
-                .fold_snapshot(base_tag.as_ref(), app_messages)
+                .fold_snapshot(base_tag.as_ref(), app_messages, new_snapshot_index)
                 .await?;
             self.storage.put_tag(new_snapshot_index, new_tag).await?;
             let new_snapshot = {

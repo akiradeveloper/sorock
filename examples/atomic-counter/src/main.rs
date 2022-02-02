@@ -1,6 +1,7 @@
 use atomic_counter::{Rep, Req};
 use bytes::Bytes;
 use lol_core::snapshot::{BytesSnapshot, SnapshotTag};
+use lol_core::Index;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -51,7 +52,7 @@ impl lol_core::RaftApp for MyApp {
     async fn process_write(
         &self,
         request: &[u8],
-        apply_index: lol_core::Index,
+        apply_index: Index,
     ) -> anyhow::Result<(Vec<u8>, lol_core::MakeSnapshot)> {
         let req = bincode::deserialize(&request)?;
         match req {
@@ -68,7 +69,7 @@ impl lol_core::RaftApp for MyApp {
     async fn install_snapshot(
         &self,
         snapshot: Option<&lol_core::snapshot::SnapshotTag>,
-        apply_index: lol_core::Index,
+        apply_index: Index,
     ) -> anyhow::Result<()> {
         match snapshot {
             None => {
@@ -93,6 +94,7 @@ impl lol_core::RaftApp for MyApp {
         &self,
         old_snapshot: Option<&lol_core::snapshot::SnapshotTag>,
         requests: Vec<&[u8]>,
+        _: Index,
     ) -> anyhow::Result<lol_core::snapshot::SnapshotTag> {
         let mut acc = match old_snapshot {
             None => 0,
