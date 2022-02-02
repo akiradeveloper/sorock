@@ -1,6 +1,6 @@
 use lol_core::{
     simple::{RaftAppSimple, ToRaftApp},
-    Index, RaftApp,
+    Index,
 };
 use std::sync::Arc;
 
@@ -81,7 +81,7 @@ async fn run_server() {
 
         let id = "http://localhost:50000".parse().unwrap();
         let config = lol_core::ConfigBuilder::default().build().unwrap();
-        lol_core::raft_service(app, storage, id, config).await
+        lol_core::make_raft_service(app, storage, id, config).await
     };
 
     // Non-Raft service

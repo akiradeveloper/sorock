@@ -10,8 +10,6 @@
 //! on Tokio.
 //! By exploiting gRPC features like streaming, the inter-node log replication
 //! and snapshot copying is very efficient.
-//! Also, zero-copy ser/desr between replication stream and the log entries is
-//! another goal of this library in term of efficiency.
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -55,7 +53,7 @@ mod proto_compiled {
     tonic::include_proto!("lol_core");
 }
 
-/// Available message types.
+/// Available message types for interaction with the cluster.
 pub mod api {
     pub use crate::proto_compiled::{
         AddServerRep, AddServerReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep,
@@ -1531,7 +1529,7 @@ impl Log {
 pub type RaftService = proto_compiled::raft_server::RaftServer<server::Server>;
 
 /// Make a `RaftService`.
-pub async fn raft_service(
+pub async fn make_raft_service(
     app: impl RaftApp,
     storage: impl RaftStorage,
     id: Uri,

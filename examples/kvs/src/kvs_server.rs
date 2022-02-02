@@ -211,10 +211,10 @@ async fn main() {
             builder.create();
         }
         let storage = builder.open();
-        lol_core::raft_service(app, storage, id, config).await
+        lol_core::make_raft_service(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
-        lol_core::raft_service(app, storage, id, config).await
+        lol_core::make_raft_service(app, storage, id, config).await
     };
 
     let mut builder = tonic::transport::Server::builder();
