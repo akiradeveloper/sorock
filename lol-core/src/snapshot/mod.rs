@@ -1,11 +1,5 @@
 use futures::StreamExt;
 
-/// Basic snapshot type which is just a byte sequence.
-pub mod bytes;
-/// A snapshot saved in a file.
-/// Instead of bytes snapshot you may choose this to deal with
-/// gigantic snapshot beyond system memory.
-pub mod file;
 mod queue;
 pub(crate) use queue::*;
 mod util;
@@ -56,4 +50,33 @@ pub(crate) fn into_in_stream(
         res.map(|x| x.chunk.into())
             .map_err(|_| anyhow::Error::msg("streaming error"))
     })
+}
+
+/// Basic snapshot type that contains all the data in the byte sequence.
+pub struct BytesSnapshot {
+    pub contents: Bytes,
+}
+impl AsRef<[u8]> for BytesSnapshot {
+    fn as_ref(&self) -> &[u8] {
+        &self.contents
+    }
+}
+impl From<Vec<u8>> for BytesSnapshot {
+    fn from(x: Vec<u8>) -> Self {
+        BytesSnapshot { contents: x.into() }
+    }
+}
+impl BytesSnapshot {
+    pub async fn open_snapshot_stream(&self) -> SnapshotStream {
+        let cursor = std::io::Cursor::new(self.contents.clone());
+        Box::pin(util::into_snapshot_stream(cursor))
+    }
+}
+impl BytesSnapshot {
+    pub async fn save_snapshot_stream(st: SnapshotStream) -> anyhow::Result<Self> {
+        let mut v: Vec<u8> = vec![];
+        let cursor = std::io::Cursor::new(&mut v);
+        util::read_snapshot_stream(cursor, st).await?;
+        Ok(BytesSnapshot { contents: v.into() })
+    }
 }
