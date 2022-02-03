@@ -1,3 +1,7 @@
+# 0.8.0 (2022-2-3)
+
+- Rework API design.
+
 # 0.7.6 (2021-9-13)
 
 - Deprecate snapshot-related functions in RaftStorage. (#237)
