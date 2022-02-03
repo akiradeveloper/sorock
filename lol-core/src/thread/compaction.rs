@@ -1,21 +1,20 @@
-use crate::{RaftApp, RaftCore};
+use crate::RaftCore;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A: RaftApp> {
-    core: Arc<RaftCore<A>>,
+struct Thread {
+    core: Arc<RaftCore>,
 }
-impl<A: RaftApp> Thread<A> {
+impl Thread {
     async fn run(self) {
         loop {
-            let v = self.core.tunable.read().await.compaction_interval_sec;
-            if v == 0 {
+            let interval = self.core.config.read().await.compaction_interval();
+            if interval.is_zero() {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 continue;
             }
 
-            let interval = Duration::from_secs(v);
             tokio::time::sleep(interval).await;
 
             let core = Arc::clone(&self.core);
@@ -30,7 +29,7 @@ impl<A: RaftApp> Thread<A> {
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>) {
+pub(crate) async fn run(core: Arc<RaftCore>) {
     let x = Thread { core };
     x.run().await
 }

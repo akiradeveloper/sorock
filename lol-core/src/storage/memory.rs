@@ -1,14 +1,12 @@
 use super::{Ballot, Entry};
 use crate::Index;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
 pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,
     ballot: Arc<Mutex<Ballot>>,
-    snapshot_index: AtomicU64,
     tags: Arc<RwLock<BTreeMap<u64, crate::SnapshotTag>>>,
 }
 impl Storage {
@@ -16,7 +14,6 @@ impl Storage {
         Self {
             entries: Arc::new(RwLock::new(BTreeMap::new())),
             ballot: Arc::new(Mutex::new(Ballot::new())),
-            snapshot_index: AtomicU64::new(0),
             tags: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
@@ -62,9 +59,6 @@ impl super::RaftStorage for Storage {
         }
         Ok(())
     }
-    async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        unreachable!()
-    }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         self.entries.write().await.insert(i, e);
         Ok(())
@@ -72,9 +66,6 @@ impl super::RaftStorage for Storage {
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let r = self.entries.read().await.get(&i).cloned();
         Ok(r)
-    }
-    async fn get_snapshot_index(&self) -> Result<Index> {
-        unreachable!()
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
         *self.ballot.lock().await = v;

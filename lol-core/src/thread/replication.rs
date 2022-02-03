@@ -1,14 +1,14 @@
-use crate::{ElectionState, Id, RaftApp, RaftCore};
+use crate::{ElectionState, Id, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 
-struct Thread<A: RaftApp> {
+struct Thread {
     follower_id: Id,
-    core: Arc<RaftCore<A>>,
+    core: Arc<RaftCore>,
 }
-impl<A: RaftApp> Thread<A> {
+impl Thread {
     async fn run(self) {
-        log::info!("replicator launched for {}", self.follower_id);
+        log::info!("replicator launched for {}", self.follower_id.uri());
         loop {
             while let Ok(true) = tokio::spawn({
                 let core = Arc::clone(&self.core);
@@ -31,7 +31,7 @@ impl<A: RaftApp> Thread<A> {
         }
     }
 }
-pub async fn run<A: RaftApp>(core: Arc<RaftCore<A>>, follower_id: Id) {
+pub(crate) async fn run(core: Arc<RaftCore>, follower_id: Id) {
     let x = Thread { core, follower_id };
     x.run().await
 }

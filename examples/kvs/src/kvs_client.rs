@@ -1,6 +1,6 @@
 use kvs::{Rep, Req};
-use lol_core::proto_compiled;
-use lol_core::proto_compiled::raft_client::RaftClient;
+use lol_core::api;
+use lol_core::RaftClient;
 use std::time::Duration;
 use structopt::StructOpt;
 use tonic::transport::channel::Endpoint;
@@ -44,8 +44,7 @@ async fn main() {
             let msg = Req::Get { key };
             let msg = Req::serialize(&msg);
             let res = conn
-                .request_apply(proto_compiled::ApplyReq {
-                    core: false,
+                .request_apply(api::ApplyReq {
                     message: msg,
                     mutation: false,
                 })
@@ -75,20 +74,16 @@ async fn main() {
                 value: value_rep,
             };
             let msg = Req::serialize(&msg);
-            conn.request_commit(proto_compiled::CommitReq {
-                core: false,
-                message: msg,
-            })
-            .await
-            .unwrap();
+            conn.request_commit(api::CommitReq { message: msg })
+                .await
+                .unwrap();
             println!("OK");
         }
         Sub::List => {
             let msg = Req::List;
             let msg = Req::serialize(&msg);
             let res = conn
-                .request_apply(proto_compiled::ApplyReq {
-                    core: false,
+                .request_apply(api::ApplyReq {
                     message: msg,
                     mutation: false,
                 })

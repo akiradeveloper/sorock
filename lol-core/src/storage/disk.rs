@@ -1,8 +1,8 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Command, Index};
+use crate::{Clock, Id, Index};
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 const CF_ENTRIES: &str = "entries";
@@ -20,7 +20,7 @@ struct EntryB {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct BallotB {
     term: u64,
-    voted_for: Option<String>,
+    voted_for: Option<Id>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SnapshotIndexB(u64);
@@ -206,9 +206,6 @@ impl super::RaftStorage for Storage {
         let v = decode_index(key);
         Ok(v)
     }
-    async fn insert_snapshot(&self, i: Index, e: Entry) -> Result<()> {
-        unreachable!()
-    }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let b: Vec<u8> = e.into();
@@ -219,9 +216,6 @@ impl super::RaftStorage for Storage {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
         let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
         Ok(b.map(|x| x.into()))
-    }
-    async fn get_snapshot_index(&self) -> Result<Index> {
-        unreachable!()
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let cf = self.db.cf_handle(CF_CTRL).unwrap();
@@ -255,6 +249,8 @@ async fn test_rocksdb_storage() -> Result<()> {
 #[tokio::test]
 async fn test_rocksdb_persistency() -> Result<()> {
     use super::RaftStorage;
+    use crate::Command;
+    use std::collections::HashSet;
 
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");

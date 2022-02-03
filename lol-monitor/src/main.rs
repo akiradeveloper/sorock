@@ -9,9 +9,8 @@ mod ui;
 use app::App;
 use futures::stream;
 use futures::StreamExt;
-use lol_core::connection::{self, gateway};
-use lol_core::proto_compiled::raft_client::RaftClient;
-use lol_core::{core_message, proto_compiled};
+use lol_core::api;
+use lol_core::RaftClient;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::watch;
@@ -35,14 +34,15 @@ async fn main() -> anyhow::Result<()> {
 
     let events = event::Events::new();
 
-    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from_shared(id).unwrap());
-    let gateway = connector.connect(opts.id);
+    let connector = lol_core::gateway::Connector::new(|id| Endpoint::from(id.clone()));
+    let uri = opts.id.parse().unwrap();
+    let gateway = connector.connect(uri);
 
     let data_stream_0 = stream::unfold(gateway.clone(), |gateway| async move {
         let mut cli = RaftClient::new(gateway.clone());
 
         let cluster_info = cli
-            .request_cluster_info(proto_compiled::ClusterInfoReq {})
+            .request_cluster_info(api::ClusterInfoReq {})
             .await
             .ok()?
             .into_inner();
@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
                     let endpoint =
                         Endpoint::from_shared(id.clone())?.timeout(Duration::from_secs(3));
                     let mut conn = RaftClient::connect(endpoint).await?;
-                    let req = proto_compiled::StatusReq {};
+                    let req = api::StatusReq {};
                     let status = conn.status(req).await?.into_inner();
                     Ok(app::LogInfo {
                         snapshot_index: status.snapshot_index,

@@ -12,6 +12,7 @@ where
 pub fn into_snapshot_stream<R: AsyncRead>(reader: R) -> impl Stream<Item = anyhow::Result<Bytes>> {
     into_bytes_stream(reader).map(|res| res.map_err(|_| anyhow::Error::msg("streaming error")))
 }
+
 async fn read_bytes_stream<W: AsyncWrite + Unpin>(
     w: W,
     mut st: impl Stream<Item = Result<Bytes>> + Unpin,

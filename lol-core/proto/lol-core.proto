@@ -4,24 +4,24 @@ package lol_core;
 
 message ApplyReq {
     bytes message = 1;
-    bool core = 2;
+    bool mutation = 2;
+}
+message CommitReq {
+    bytes message = 1;
+}
+message LowLevelApplyReq {
+    bool core = 1;
+    bytes message = 2;
     bool mutation = 3;
+}
+message LowLevelCommitReq {
+    bool core = 1;
+    bytes message = 2;
 }
 message ApplyRep {
     bytes message = 1;
 }
-message CommitReq {
-    bytes message = 1;
-    bool core = 2;
-}
 message CommitRep {}
-message ProcessReq {
-    bytes message = 1;
-    bool core = 2;
-}
-message ProcessRep {
-    bytes message = 1;
-}
 message Entry {
     uint64 term = 1;
     uint64 index = 2;
@@ -81,14 +81,12 @@ message RemoveServerReq {
 }
 message RemoveServerRep {}
 message TuneConfigReq {
-    optional uint64 compaction_delay_sec = 1;
-    optional uint64 compaction_interval_sec = 2;
+    optional uint64 compaction_interval_sec = 1;
 }
 message TuneConfigRep {}
 message GetConfigReq {}
 message GetConfigRep {
-    uint64 compaction_delay_sec = 1;
-    uint64 compaction_interval_sec = 2;
+    uint64 compaction_interval_sec = 1;
 }
 message ClusterInfoReq {}
 message ClusterInfoRep {
@@ -110,8 +108,8 @@ service Raft {
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
     rpc RequestApply (ApplyReq) returns (ApplyRep);
     rpc RequestCommit (CommitReq) returns (CommitRep);
-    rpc RequestProcess (ProcessReq) returns (ProcessRep);
-    rpc RequestProcessLocally (ProcessReq) returns (ProcessRep);
+    rpc LowLevelRequestApply (LowLevelApplyReq) returns (ApplyRep);
+    rpc LowLevelRequestCommit (LowLevelCommitReq) returns (CommitRep);
     rpc SendHeartbeat (HeartbeatReq) returns (HeartbeatRep);
     rpc TimeoutNow (TimeoutNowReq) returns (TimeoutNowRep);
     rpc AddServer (AddServerReq) returns (AddServerRep);

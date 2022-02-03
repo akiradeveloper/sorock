@@ -2,7 +2,7 @@ use super::env::*;
 
 use std::collections::HashSet;
 
-use lol_core::{connection, core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{api, RaftClient};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Builder;
@@ -18,8 +18,8 @@ impl PartialEq for ClusterInfo {
 }
 #[derive(Clone, Debug, Eq)]
 pub struct ClusterInfo {
-    pub leader_id: Option<lol_core::Id>,
-    pub membership: Vec<lol_core::Id>,
+    pub leader_id: Option<String>,
+    pub membership: Vec<String>,
 }
 
 pub struct Admin {
@@ -46,7 +46,7 @@ impl Admin {
     }
     pub fn add_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::AddServerReq { id };
+        let req = api::AddServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
@@ -57,7 +57,7 @@ impl Admin {
     }
     pub fn remove_server(&self, id: u8) -> Result<()> {
         let id = self.env.get_node_id(id);
-        let req = proto_compiled::RemoveServerReq { id };
+        let req = api::RemoveServerReq { id };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
@@ -67,35 +67,22 @@ impl Admin {
         Ok(())
     }
     pub fn cluster_info(&self) -> Result<ClusterInfo> {
-        let msg = core_message::Req::ClusterInfo;
-        let req = proto_compiled::ProcessReq {
-            message: core_message::Req::serialize(&msg),
-            core: true,
-        };
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         let res = Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;
-            let res = conn.request_process_locally(req).await?;
+            let req = api::ClusterInfoReq {};
+            let res = conn.request_cluster_info(req).await?;
             Result::Ok(res)
         })?
         .into_inner();
-        let msg = core_message::Rep::deserialize(&res.message).unwrap();
-        let msg = if let core_message::Rep::ClusterInfo {
-            leader_id,
-            membership,
-        } = msg
-        {
-            ClusterInfo {
-                leader_id,
-                membership,
-            }
-        } else {
-            unreachable!()
-        };
-        Ok(msg)
+
+        Ok(ClusterInfo {
+            leader_id: res.leader_id,
+            membership: res.membership,
+        })
     }
     pub fn timeout_now(&self) -> Result<()> {
-        let req = proto_compiled::TimeoutNowReq {};
+        let req = api::TimeoutNowReq {};
         let endpoint = Endpoint::from_shared(self.to.clone())?.timeout(Duration::from_secs(5));
         Self::block_on(async move {
             let mut conn = RaftClient::connect(endpoint).await?;

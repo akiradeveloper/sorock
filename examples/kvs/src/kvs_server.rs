@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
-use lol_core::compat::{RaftAppCompat, ToRaftApp};
-use lol_core::{Config, Index, RaftCore, TunableConfig};
+use lol_core::simple::{RaftAppSimple, ToRaftApp};
+use lol_core::{Config, Index, Uri};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -47,23 +47,11 @@ struct KVS {
     copy_snapshot_mode: bool,
 }
 #[async_trait]
-impl RaftAppCompat for KVS {
-    async fn process_message(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
+impl RaftAppSimple for KVS {
+    async fn process_read(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
         let msg = Req::deserialize(&x);
         match msg {
             Some(x) => match x {
-                Req::Set { key, value } => {
-                    let mut writer = self.mem.write().await;
-                    writer.insert(key, Bytes::from(value));
-                    let res = Rep::Set {};
-                    Ok(Rep::serialize(&res))
-                }
-                Req::SetBytes { key, value } => {
-                    let mut writer = self.mem.write().await;
-                    writer.insert(key, value);
-                    let res = Rep::Set {};
-                    Ok(Rep::serialize(&res))
-                }
                 Req::Get { key } => {
                     let v = self.mem.read().await.get(&key).cloned();
                     let (found, value) = match v {
@@ -81,16 +69,31 @@ impl RaftAppCompat for KVS {
                     let res = Rep::List { values };
                     Ok(Rep::serialize(&res))
                 }
+                _ => unreachable!(),
             },
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn apply_message(
-        &self,
-        x: &[u8],
-        _: Index,
-    ) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
-        let res = self.process_message(x).await?;
+    async fn process_write(&self, x: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+        let msg = Req::deserialize(&x);
+        let res = match msg {
+            Some(x) => match x {
+                Req::Set { key, value } => {
+                    let mut writer = self.mem.write().await;
+                    writer.insert(key, Bytes::from(value));
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
+                }
+                Req::SetBytes { key, value } => {
+                    let mut writer = self.mem.write().await;
+                    writer.insert(key, value);
+                    let res = Rep::Set {};
+                    Ok(Rep::serialize(&res))
+                }
+                _ => unreachable!(),
+            },
+            None => Err(anyhow!("the message not supported")),
+        }?;
         let new_snapshot = if self.copy_snapshot_mode {
             let new_snapshot = Snapshot {
                 h: self.mem.read().await.clone(),
@@ -102,7 +105,7 @@ impl RaftAppCompat for KVS {
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<&[u8]>, _: Index) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&[u8]>) -> anyhow::Result<()> {
         if let Some(x) = x {
             let mut h = self.mem.write().await;
             let snapshot = Snapshot::deserialize(x.as_ref()).unwrap();
@@ -159,27 +162,24 @@ async fn main() {
     app.copy_snapshot_mode = opt.copy_snapshot_mode;
 
     let id = opt.id.clone();
-    let url = url::Url::parse(&id).unwrap();
-    let host_port_str = format!("{}:{}", url.host_str().unwrap(), url.port().unwrap());
+    let id = lol_core::Uri::from_maybe_shared(id).unwrap();
+    let host_port_str = format!("{}:{}", id.host().unwrap(), id.port_u16().unwrap());
     let socket = tokio::net::lookup_host(host_port_str)
         .await
         .unwrap()
         .next()
         .unwrap();
 
-    let config = Config::new(id.clone());
-    let mut tunable = TunableConfig::default();
-
+    let mut config = lol_core::ConfigBuilder::default();
     if !opt.copy_snapshot_mode {
         // by default, compactions runs every 5 secs.
         // this value is carefully chosen, the tests depends on this value.
         let v = opt.compaction_interval_sec.unwrap_or(5);
-        tunable.compaction_interval_sec = v;
-        tunable.compaction_delay_sec = 1;
+        config.compaction_interval_sec(v);
     } else {
-        tunable.compaction_interval_sec = 0;
-        tunable.compaction_delay_sec = 1;
+        config.compaction_interval_sec(0);
     }
+    let config = config.build().unwrap();
 
     let id_cln = id.clone();
     env_logger::builder()
@@ -197,9 +197,9 @@ async fn main() {
         .init();
 
     let app = ToRaftApp::new(app);
-    let core = if let Some(id) = opt.use_persistency {
+    let service = if let Some(storage_id) = opt.use_persistency {
         std::fs::create_dir("/tmp/lol").ok();
-        let path = format!("/tmp/lol/{}.db", id);
+        let path = format!("/tmp/lol/{}.db", storage_id);
         let path = Path::new(&path);
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
         if opt.reset_persistency {
@@ -207,13 +207,12 @@ async fn main() {
             builder.create();
         }
         let storage = builder.open();
-        RaftCore::new(app, storage, config, tunable).await
+        lol_core::make_raft_service(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
-        RaftCore::new(app, storage, config, tunable).await
+        lol_core::make_raft_service(app, storage, id, config).await
     };
 
-    let service = lol_core::make_service(core);
     let mut builder = tonic::transport::Server::builder();
 
     let (tx, rx) = oneshot::channel();

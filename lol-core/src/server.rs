@@ -1,15 +1,15 @@
-use crate::connection::Endpoint;
-use crate::{ack, core_message, proto_compiled, Clock, Command, ElectionState, RaftApp, RaftCore};
+use crate::{ack, core_message, proto_compiled, Clock, Command, ElectionState, RaftCore};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_stream::StreamExt;
+use tonic::transport::Endpoint;
 
 use proto_compiled::{
     raft_client::RaftClient, raft_server::Raft, AddServerRep, AddServerReq, AppendEntryRep,
     AppendEntryReq, ApplyRep, ApplyReq, ClusterInfoRep, ClusterInfoReq, CommitRep, CommitReq,
-    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, ProcessRep, ProcessReq,
-    RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep, StatusReq,
-    TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
+    GetConfigRep, GetConfigReq, GetSnapshotReq, HeartbeatRep, HeartbeatReq, LowLevelApplyReq,
+    LowLevelCommitReq, RemoveServerRep, RemoveServerReq, RequestVoteRep, RequestVoteReq, StatusRep,
+    StatusReq, TimeoutNowRep, TimeoutNowReq, TuneConfigRep, TuneConfigReq,
 };
 async fn connect(
     endpoint: Endpoint,
@@ -62,32 +62,31 @@ async fn into_in_stream(mut out_stream: tonic::Streaming<AppendEntryReq>) -> cra
         }
     };
     crate::LogStream {
-        sender_id,
+        sender_id: sender_id.parse().unwrap(),
         prev_log_term,
         prev_log_index,
         entries: Box::pin(entries),
     }
 }
-pub struct Server<A: RaftApp> {
-    pub core: Arc<RaftCore<A>>,
+pub struct Server {
+    pub(crate) core: Arc<RaftCore>,
 }
 #[tonic::async_trait]
-impl<A: RaftApp> Raft for Server<A> {
+impl Raft for Server {
     async fn get_config(
         &self,
         _: tonic::Request<GetConfigReq>,
     ) -> Result<tonic::Response<GetConfigRep>, tonic::Status> {
         let core = &self.core;
-        match core.tunable.try_read() {
-            Ok(tunable) => {
+        match core.config.try_read() {
+            Ok(config) => {
                 let rep = GetConfigRep {
-                    compaction_delay_sec: tunable.compaction_delay_sec,
-                    compaction_interval_sec: tunable.compaction_interval_sec,
+                    compaction_interval_sec: config.compaction_interval_sec,
                 };
                 Ok(tonic::Response::new(rep))
             }
             Err(poisoned_error) => Err(tonic::Status::internal(format!(
-                "cannot update tunable configuration: state is poisoned({})",
+                "cannot get configuration: state is poisoned({})",
                 poisoned_error
             ))),
         }
@@ -111,14 +110,14 @@ impl<A: RaftApp> Raft for Server<A> {
         _: tonic::Request<ClusterInfoReq>,
     ) -> Result<tonic::Response<ClusterInfoRep>, tonic::Status> {
         let leader_id = match self.core.load_ballot().await {
-            Ok(x) => x.voted_for,
+            Ok(x) => x.voted_for.map(|x| x.to_string()),
             Err(_) => return Err(tonic::Status::internal("could not get ballot")),
         };
         let rep = ClusterInfoRep {
             leader_id,
             membership: {
                 let membership = self.core.cluster.read().await.membership.clone();
-                let mut xs: Vec<_> = membership.into_iter().collect();
+                let mut xs: Vec<_> = membership.into_iter().map(|x| x.to_string()).collect();
                 xs.sort();
                 xs
             },
@@ -130,16 +129,14 @@ impl<A: RaftApp> Raft for Server<A> {
         request: tonic::Request<TuneConfigReq>,
     ) -> Result<tonic::Response<TuneConfigRep>, tonic::Status> {
         let req: TuneConfigReq = request.into_inner();
-        match self.core.tunable.try_write() {
-            Ok(mut tunable) => {
-                req.compaction_delay_sec
-                    .map(|value| (*tunable).compaction_delay_sec = value);
+        match self.core.config.try_write() {
+            Ok(mut config) => {
                 req.compaction_interval_sec
-                    .map(|value| (*tunable).compaction_interval_sec = value);
+                    .map(|value| (*config).compaction_interval_sec = value);
                 Ok(tonic::Response::new(proto_compiled::TuneConfigRep {}))
             }
             Err(poisoned_error) => Err(tonic::Status::internal(format!(
-                "cannot update tunable configuration: state is poisoned({})",
+                "cannot update configuration: state is poisoned({})",
                 poisoned_error
             ))),
         }
@@ -147,6 +144,27 @@ impl<A: RaftApp> Raft for Server<A> {
     async fn request_apply(
         &self,
         request: tonic::Request<ApplyReq>,
+    ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
+        let req = request.map(|x| LowLevelApplyReq {
+            core: false,
+            message: x.message,
+            mutation: x.mutation,
+        });
+        self.low_level_request_apply(req).await
+    }
+    async fn request_commit(
+        &self,
+        request: tonic::Request<CommitReq>,
+    ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
+        let req = request.map(|x| LowLevelCommitReq {
+            core: false,
+            message: x.message,
+        });
+        self.low_level_request_commit(req).await
+    }
+    async fn low_level_request_apply(
+        &self,
+        request: tonic::Request<LowLevelApplyReq>,
     ) -> Result<tonic::Response<ApplyRep>, tonic::Status> {
         let ballot = self.core.load_ballot().await.unwrap();
         if ballot.voted_for.is_none() {
@@ -180,14 +198,14 @@ impl<A: RaftApp> Raft for Server<A> {
             res.map(|x| tonic::Response::new(proto_compiled::ApplyRep { message: x.0 }))
                 .map_err(|_| tonic::Status::cancelled("failed to apply the request"))
         } else {
-            let endpoint = Endpoint::from_shared(leader_id).unwrap();
+            let endpoint = Endpoint::from(leader_id.uri().clone());
             let mut conn = connect(endpoint).await?;
-            conn.request_apply(request).await
+            conn.low_level_request_apply(request).await
         }
     }
-    async fn request_commit(
+    async fn low_level_request_commit(
         &self,
-        request: tonic::Request<CommitReq>,
+        request: tonic::Request<LowLevelCommitReq>,
     ) -> Result<tonic::Response<CommitRep>, tonic::Status> {
         let ballot = self.core.load_ballot().await.unwrap();
         if ballot.voted_for.is_none() {
@@ -230,10 +248,6 @@ impl<A: RaftApp> Raft for Server<A> {
                         membership.remove(&id);
                         Command::ClusterConfiguration { membership }
                     }
-                    _ => Command::Req {
-                        message: &req.message,
-                        core: req.core,
-                    },
                 }
             } else {
                 Command::Req {
@@ -249,53 +263,10 @@ impl<A: RaftApp> Raft for Server<A> {
             res.map(|_| tonic::Response::new(proto_compiled::CommitRep {}))
                 .map_err(|_| tonic::Status::cancelled("failed to commit the request"))
         } else {
-            let endpoint = Endpoint::from_shared(leader_id).unwrap();
+            let endpoint = Endpoint::from(leader_id.uri().clone());
             let mut conn = connect(endpoint).await?;
-            conn.request_commit(request).await
+            conn.low_level_request_commit(request).await
         }
-    }
-    async fn request_process(
-        &self,
-        request: tonic::Request<ProcessReq>,
-    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let ballot = self.core.load_ballot().await.unwrap();
-        if ballot.voted_for.is_none() {
-            return Err(tonic::Status::failed_precondition(
-                "leader is not known by the server",
-            ));
-        }
-        let leader_id = ballot.voted_for.unwrap();
-
-        if std::matches!(
-            *self.core.election_state.read().await,
-            ElectionState::Leader
-        ) {
-            let req = request.into_inner();
-            let res = if req.core {
-                self.core.process_message(&req.message).await
-            } else {
-                self.core.app.process_message(&req.message).await
-            };
-            res.map(|x| tonic::Response::new(ProcessRep { message: x }))
-                .map_err(|_| tonic::Status::unknown("failed to immediately apply the request"))
-        } else {
-            let endpoint = Endpoint::from_shared(leader_id).unwrap();
-            let mut conn = connect(endpoint).await?;
-            conn.request_process(request).await
-        }
-    }
-    async fn request_process_locally(
-        &self,
-        request: tonic::Request<ProcessReq>,
-    ) -> Result<tonic::Response<ProcessRep>, tonic::Status> {
-        let req = request.into_inner();
-        let res = if req.core {
-            self.core.process_message(&req.message).await
-        } else {
-            self.core.app.process_message(&req.message).await
-        };
-        res.map(|x| tonic::Response::new(ProcessRep { message: x }))
-            .map_err(|_| tonic::Status::unknown("failed to locally apply the request"))
     }
     async fn request_vote(
         &self,
@@ -303,7 +274,7 @@ impl<A: RaftApp> Raft for Server<A> {
     ) -> Result<tonic::Response<RequestVoteRep>, tonic::Status> {
         let req = request.into_inner();
         let candidate_term = req.term;
-        let candidate_id = req.candidate_id;
+        let candidate_id = req.candidate_id.parse().unwrap();
         let candidate_clock = Clock {
             term: req.last_log_term,
             index: req.last_log_index,
@@ -365,6 +336,7 @@ impl<A: RaftApp> Raft for Server<A> {
     ) -> Result<tonic::Response<HeartbeatRep>, tonic::Status> {
         let req = request.into_inner();
         let leader_id = req.leader_id;
+        let leader_id = leader_id.parse().unwrap();
         let term = req.term;
         let leader_commit = req.leader_commit;
         self.core
@@ -392,19 +364,21 @@ impl<A: RaftApp> Raft for Server<A> {
         request: tonic::Request<AddServerReq>,
     ) -> Result<tonic::Response<AddServerRep>, tonic::Status> {
         let req = request.into_inner();
-        let ok = if self.core.cluster.read().await.membership.is_empty() && req.id == self.core.id {
+        let add_server_id = req.id.parse().unwrap();
+        let ok = if self.core.cluster.read().await.membership.is_empty()
+            && add_server_id == self.core.id
+        {
             self.core.init_cluster().await.is_ok()
         } else {
-            let msg = core_message::Req::AddServer(req.id);
-            let req = proto_compiled::CommitReq {
-                message: core_message::Req::serialize(&msg),
+            let msg = core_message::Req::AddServer(add_server_id);
+            let req = proto_compiled::LowLevelCommitReq {
                 core: true,
+                message: core_message::Req::serialize(&msg),
             };
-            let endpoint = Endpoint::from_shared(self.core.id.clone())
-                .unwrap()
-                .timeout(Duration::from_secs(5));
+            let endpoint =
+                Endpoint::from(self.core.id.uri().clone()).timeout(Duration::from_secs(5));
             let mut conn = connect(endpoint).await?;
-            conn.request_commit(req).await.is_ok()
+            conn.low_level_request_commit(req).await.is_ok()
         };
         if ok {
             Ok(tonic::Response::new(AddServerRep {}))
@@ -417,16 +391,15 @@ impl<A: RaftApp> Raft for Server<A> {
         request: tonic::Request<RemoveServerReq>,
     ) -> Result<tonic::Response<RemoveServerRep>, tonic::Status> {
         let req = request.into_inner();
-        let msg = core_message::Req::RemoveServer(req.id);
-        let req = proto_compiled::CommitReq {
-            message: core_message::Req::serialize(&msg),
+        let remove_server_id = req.id.parse().unwrap();
+        let msg = core_message::Req::RemoveServer(remove_server_id);
+        let req = proto_compiled::LowLevelCommitReq {
             core: true,
+            message: core_message::Req::serialize(&msg),
         };
-        let endpoint = Endpoint::from_shared(self.core.id.clone())
-            .unwrap()
-            .timeout(Duration::from_secs(5));
+        let endpoint = Endpoint::from(self.core.id.uri().clone()).timeout(Duration::from_secs(5));
         let mut conn = connect(endpoint).await?;
-        let ok = conn.request_commit(req).await.is_ok();
+        let ok = conn.low_level_request_commit(req).await.is_ok();
         if ok {
             Ok(tonic::Response::new(RemoveServerRep {}))
         } else {

@@ -1,4 +1,4 @@
-use crate::{ack, Index, RaftApp, RaftCore};
+use crate::{ack, Index, RaftCore};
 use bytes::Bytes;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -20,7 +20,7 @@ impl QueryQueue {
     pub fn register(&mut self, idx: Index, query: Query) {
         self.reserved.entry(idx).or_insert(vec![]).push(query);
     }
-    pub async fn execute<A: RaftApp>(&mut self, idx: Index, raft_core: Arc<RaftCore<A>>) -> bool {
+    pub(crate) async fn execute(&mut self, idx: Index, raft_core: Arc<RaftCore>) -> bool {
         let mut futs = vec![];
         let ls: Vec<Index> = self.reserved.range(..=idx).map(|(k, _)| *k).collect();
         for idx in ls {
@@ -36,11 +36,8 @@ impl QueryQueue {
         let futs = futs
             .into_iter()
             .map(|(Query { core, message, ack }, raft_core)| async move {
-                let res = if core {
-                    raft_core.process_message(&message).await
-                } else {
-                    raft_core.app.process_message(&message).await
-                };
+                assert_eq!(core, false);
+                let res = raft_core.app.process_read(&message).await;
                 if let ack::Ack::OnApply(tx) = ack {
                     if let Ok(msg) = res {
                         let _ = tx.send(ack::ApplyOk(msg));

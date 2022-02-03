@@ -32,10 +32,16 @@ struct YourApp { ... }
 impl RaftApp for YourApp {
     ...
 }
+// Initialize your app.
 let app = YourApp { ... };
-let storage = ...; // Choose a backend from lol_core::storage
-let core = RaftCore::new(app, storage, config, ...);
-let service = lol_core::make_service(core);
+// Choose a backend.
+let storage = storage::memory::Storage::new();
+// This is the Id of this node.
+let uri = "https://192.168.10.15:50000".parse().unwrap();
+let config = ConfigBuilder::default().build().unwrap();
+// Make a tower::Service.
+let service = make_raft_service(app, storage, my_uri, config);
+// Start a gRPC server with the service.
 tonic::transport::Server::builder()
     .add_service(service)
     .serve(socket).await;

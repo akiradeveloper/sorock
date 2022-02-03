@@ -1,5 +1,5 @@
 use clap::Parser;
-use lol_core::{core_message, proto_compiled, proto_compiled::raft_client::RaftClient};
+use lol_core::{api, RaftClient};
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 
@@ -27,8 +27,6 @@ enum Sub {
     ClusterInfo,
     #[clap(name = "timeout-now")]
     TimeoutNow,
-    #[clap(name = "tunable-config")]
-    TunableConfigInfo,
     #[clap(name = "status")]
     Status,
     #[clap(name = "config")]
@@ -41,8 +39,6 @@ enum Sub {
 enum ConfigSub {
     #[clap(name = "set")]
     Set {
-        #[clap(long)]
-        compaction_delay_sec: Option<u64>,
         #[clap(long)]
         compaction_interval_sec: Option<u64>,
     },
@@ -58,15 +54,15 @@ async fn main() {
     let mut conn = RaftClient::connect(endpoint).await.unwrap();
     match opt.sub {
         Sub::AddServer { id } => {
-            let req = proto_compiled::AddServerReq { id };
+            let req = api::AddServerReq { id };
             conn.add_server(req).await.unwrap();
         }
         Sub::RemoveServer { id } => {
-            let req = proto_compiled::RemoveServerReq { id };
+            let req = api::RemoveServerReq { id };
             conn.remove_server(req).await.unwrap();
         }
         Sub::ClusterInfo => {
-            let req = proto_compiled::ClusterInfoReq {};
+            let req = api::ClusterInfoReq {};
             let rep = conn.request_cluster_info(req).await.unwrap().into_inner();
             let res = lol_admin::ClusterInfo {
                 leader_id: rep.leader_id,
@@ -75,20 +71,11 @@ async fn main() {
             println!("{}", serde_json::to_string(&res).unwrap());
         }
         Sub::TimeoutNow => {
-            let req = proto_compiled::TimeoutNowReq {};
+            let req = api::TimeoutNowReq {};
             conn.timeout_now(req).await.unwrap();
         }
-        Sub::TunableConfigInfo => {
-            let req = proto_compiled::GetConfigReq {};
-            let rep = conn.get_config(req).await.unwrap().into_inner();
-            let res = lol_admin::Config {
-                compaction_delay_sec: rep.compaction_delay_sec,
-                compaction_interval_sec: rep.compaction_interval_sec,
-            };
-            println!("{}", serde_json::to_string(&res).unwrap());
-        }
         Sub::Status => {
-            let req = proto_compiled::StatusReq {};
+            let req = api::StatusReq {};
             let rep = conn.status(req).await.unwrap().into_inner();
             let res = lol_admin::Status {
                 snapshot_index: rep.snapshot_index,
@@ -100,20 +87,17 @@ async fn main() {
         }
         Sub::Config { sub } => match sub {
             ConfigSub::Get => {
-                let req = proto_compiled::GetConfigReq {};
+                let req = api::GetConfigReq {};
                 let rep = conn.get_config(req).await.unwrap().into_inner();
                 let res = lol_admin::Config {
-                    compaction_delay_sec: rep.compaction_delay_sec,
                     compaction_interval_sec: rep.compaction_interval_sec,
                 };
                 println!("{}", serde_json::to_string(&res).unwrap());
             }
             ConfigSub::Set {
-                compaction_delay_sec,
                 compaction_interval_sec,
             } => {
-                let req = proto_compiled::TuneConfigReq {
-                    compaction_delay_sec,
+                let req = api::TuneConfigReq {
                     compaction_interval_sec,
                 };
                 conn.tune_config(req).await.unwrap();
