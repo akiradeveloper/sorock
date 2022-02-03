@@ -40,7 +40,7 @@ let storage = storage::memory::Storage::new();
 let uri = "https://192.168.10.15:50000".parse().unwrap();
 let config = ConfigBuilder::default().build().unwrap();
 // Make a tower::Service.
-let service = make_raft_service(app, storage, my_uri, config);
+let service = make_raft_service(app, storage, uri, config);
 // Start a gRPC server with the service.
 tonic::transport::Server::builder()
     .add_service(service)
