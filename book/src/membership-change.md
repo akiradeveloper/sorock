@@ -2,9 +2,9 @@
 
 There are two methods to change the cluster membership in Raft: one is by joint concensus algorithm and the another is single-server changes.
 
-In the initial Raft dissertation in journal, joint consensus algorithm was used to change the membership but later the author found a flaw in joint consensus algorithm, and the lastest dissertation uses single-server changes. lol uses this.
+In the initial Raft research paper, joint consensus algorithm was used to change the membership but later the author found a flaw in joint consensus algorithm, and the lastest dissertation uses single-server changes. lol uses this.
 
-So what is single-server changes? In accordance with the name, this algorithm adds or removes only one server at a time.
+So what is single-server changes? This algorithm adds or removes only one server at a time.
 
 These operations are represented as special requests (`AddServer` and `RemoveServer`) and it turns into `ClusterConfiguration` command in the log which is then replicated to the cluster as well as normal commands.
 
