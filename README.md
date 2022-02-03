@@ -51,6 +51,7 @@ tonic::transport::Server::builder()
 
 - [lol-perf](https://github.com/akiradeveloper/lol-perf): Performance analysis project which utilizes [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph)
 and [cargo-profiler](https://github.com/svenstaro/cargo-profiler).
+- [phi-detector](https://github.com/akiradeveloper/phi-detector): Implementation of Phi Accrual Failure Detector.
 
 ## Development
 
