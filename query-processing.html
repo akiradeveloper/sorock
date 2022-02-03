@@ -133,9 +133,10 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#optimized-query-processing" id="optimized-query-processing">Optimized Query Processing</a></h1>
-<p>In normal Raft, any application commands are appended to log and brought to the state machine to be applied. However, if the command is query type which doesn't have any side effects, optimization is possible.</p>
+<p>In normal Raft, any application commands are appended to log and brought to the state machine to be applied. However, if the command is query type which doesn't have any side effects, there is a possible optimization.</p>
 <p>In <code>RequestApply</code>, if the request's <code>mutation</code> is false then the request is recognized as query. As described in $6.4 of Raft dissertation, the query waits for the <code>read_index</code> (the <code>commit_index</code> at the moment the query hits the server) to be applied.</p>
-<p>In the implementation, queries are firstly put into <code>QueryQueue</code> and processed later in parallel if there are more than one queries waiting for the same <code>read_index</code> to complete.</p>
+<p>In the implementation, queries are firstly put into <code>QueryQueue</code> and processed later.
+The processings are done in parallel if there are more than one queries waiting for the same <code>read_index</code> to complete.</p>
 
                     </main>
 

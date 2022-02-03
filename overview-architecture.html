@@ -136,16 +136,16 @@
 <p>This chapter describes the overview of the architecture.</p>
 <p><img src="images/overview.png" alt="" /></p>
 <p><code>RaftCore</code> is the heart of the Raft system. It includes internal states and functions that typically produces side effects.</p>
-<p>Around the <code>RaftCore</code>, there are many companion threads that indefinitely loops and calls functions to <code>RaftCore</code> when some conditions are met. Some threads don't simply loop but wait for some conditions to immediately wake up when it is met. </p>
+<p>Around the <code>RaftCore</code>, there are many companion threads that indefinitely loops and sends messages to <code>RaftCore</code>.</p>
 <p>How much threads are there? As of 0.7, there are 7 threads around the core. This architecure is much like typical operating system that daemon threads are orbiting around the kernel.</p>
 <p>The last element of the system is <code>RaftApp</code>. 
 As its name suggests, it is a user application which runs on the <code>RaftCore</code>. The responsibility of the <code>RaftApp</code> is said to be only two things:</p>
 <ol>
-<li>Apply the messages to the state machine</li>
-<li>Make a new snapshot</li>
+<li>Apply the messages to the state machine.</li>
+<li>Make a new snapshot.</li>
 </ol>
 <p>By connecting your <code>RaftApp</code> with <code>RaftCore</code>, you can build your own Raft process that interacts with other Raft processes to form a Raft cluster of your own.</p>
-<p>If you are ready to implement your own <code>RaftApp</code>, API doc and the KVS implementation under kvs/ would help.</p>
+<p>If you are ready to implement your own <code>RaftApp</code>, API doc and the KVS implementation under <code>example/kvs/</code> would help.</p>
 
                     </main>
 

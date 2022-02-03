@@ -136,12 +136,13 @@
 <p>In the previous section, you have learned that the snapshot is placed in somewhere outside the log entry and copied to other nodes in streaming.</p>
 <p>The snapshot entity that is made from the stream and sent in stream is called <strong>snapshot resource</strong>.</p>
 <p>lol does't care what it actually is and where it is actually placed but let's call it <strong>snapshot inventory</strong>.</p>
-<p>Another player is called <strong>snapshot tag</strong>.
+<p>Another actor is called <strong>snapshot tag</strong>.
 Snapshot tag is like metadata that is to identify a snapshot resource.</p>
 <p><img src="images/snapshot-tag.png" alt="" /></p>
-<p>In <code>RaftApp</code>'s <code>apply_message</code>, you can return a new snapshot tag from the function after creating the corresponding snapshot resource and saving it in snapshot inventory.</p>
-<p>The snapshot tag is then saved in <code>RaftStorage</code> so it can be used later and its snapshot resource can be purged when it is older than the latest snapshot.</p>
-<p>For example, snapshot tag can be a file path when snapshot resource is a file and snapshot tag can be a object key when the snapshot resource is placed in Amazon S3.</p>
+<p>In <code>RaftApp</code>'s <code>process_write</code>, you can return a new snapshot tag from the function after creating the corresponding snapshot resource and saving it in snapshot inventory.</p>
+<p>The snapshot tag is then saved in <code>RaftStorage</code> so it can be used later and its snapshot resource can be garbage-collected when it is older than the latest snapshot.</p>
+<p>For example, snapshot tag can be a file path when snapshot resource is a file (or possibly a checkpoint directory of a RocksDB)
+and snapshot tag can be a object key when the snapshot resource is placed in Amazon S3.</p>
 
                     </main>
 
