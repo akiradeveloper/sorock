@@ -5,6 +5,19 @@ use std::thread;
 use std::time::Duration;
 
 #[test]
+fn test_persistency_one_node_start() {
+    let env = env_new(
+        0,
+        kvs_server(vec![
+            "--use-persistency=0",
+            "--reset-persistency",
+            "--compaction-interval-sec=0",
+        ]),
+    );
+    env.stop(0);
+}
+
+#[test]
 fn test_persistency_membership() {
     let env = env_new(
         0,

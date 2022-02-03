@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
 use lol_core::simple::{RaftAppSimple, ToRaftApp};
-use lol_core::{Config, Index, Uri};
+use lol_core::{simple, Config, Index, Uri};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -196,10 +196,24 @@ async fn main() {
         })
         .init();
 
-    let app = ToRaftApp::new(app);
+    if let Some(storage_id) = opt.use_persistency {
+        let root_dir = format!("/tmp/lol/{}", storage_id);
+        std::fs::create_dir_all(&root_dir).ok();
+    }
+    let app = if let Some(storage_id) = opt.use_persistency {
+        let root_dir = format!("/tmp/lol/{}/snapshots", storage_id);
+        let root_dir = Path::new(&root_dir);
+        if opt.reset_persistency {
+            simple::FileInventory::destroy(&root_dir).unwrap();
+            simple::FileInventory::create(&root_dir).unwrap();
+        }
+        ToRaftApp::new(app, simple::FileInventory::new(root_dir))
+        // ToRaftApp::new(app, simple::BytesInventory::new())
+    } else {
+        ToRaftApp::new(app, simple::BytesInventory::new())
+    };
     let service = if let Some(storage_id) = opt.use_persistency {
-        std::fs::create_dir("/tmp/lol").ok();
-        let path = format!("/tmp/lol/{}.db", storage_id);
+        let path = format!("/tmp/lol/{}/store", storage_id);
         let path = Path::new(&path);
         let builder = lol_core::storage::disk::StorageBuilder::new(&path);
         if opt.reset_persistency {
