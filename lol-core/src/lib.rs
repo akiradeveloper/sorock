@@ -45,7 +45,6 @@ mod thread;
 mod thread_drop;
 
 use ack::Ack;
-use snapshot::SnapshotTag;
 use storage::RaftStorage;
 use tonic::transport::Endpoint;
 
@@ -71,7 +70,7 @@ pub enum MakeSnapshot {
     /// No snapshot will be made.
     None,
     /// Copy snapshot will be made.
-    CopySnapshot(SnapshotTag),
+    CopySnapshot,
     /// Fold snapshot will be made.
     FoldSnapshot,
 }
@@ -104,33 +103,29 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Special type of process_write but when the entry is a snapshot entry.
     /// Snapshot is None when apply_index is 1 which is the most youngest snapshot.
-    async fn install_snapshot(
-        &self,
-        snapshot: Option<&SnapshotTag>,
-        snapshot_index: Index,
-    ) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<Index>) -> anyhow::Result<()>;
 
     /// This function is called from the compaction thread.
     /// It should return new snapshot from accumulative computation with the old_snapshot and the subsequent log entries.
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&SnapshotTag>,
+        old_snapshot: Option<Index>,
         requests: Vec<&[u8]>,
         snapshot_index: Index,
-    ) -> anyhow::Result<SnapshotTag>;
+    ) -> anyhow::Result<()>;
 
     /// Make a snapshot resource and return the tag.
     async fn save_snapshot(
         &self,
         st: snapshot::SnapshotStream,
         snapshot_index: Index,
-    ) -> anyhow::Result<SnapshotTag>;
+    ) -> anyhow::Result<()>;
 
     /// Make a snapshot stream from a snapshot resource bound to the tag.
-    async fn open_snapshot(&self, x: &SnapshotTag) -> snapshot::SnapshotStream;
+    async fn open_snapshot(&self, x: Index) -> anyhow::Result<snapshot::SnapshotStream>;
 
     /// Delete a snapshot resource bound to the tag.
-    async fn delete_snapshot(&self, x: &SnapshotTag) -> anyhow::Result<()>;
+    async fn delete_snapshot(&self, x: Index) -> anyhow::Result<()>;
 }
 
 type Term = u64;
@@ -680,20 +675,14 @@ impl RaftCore {
         let res = conn.get_snapshot(req).await?;
         let out_stream = res.into_inner();
         let in_stream = Box::pin(snapshot::into_in_stream(out_stream));
-        let tag = self.app.save_snapshot(in_stream, snapshot_index).await?;
-        self.log.storage.put_tag(snapshot_index, tag).await?;
+        self.app.save_snapshot(in_stream, snapshot_index).await?;
         Ok(())
     }
     async fn make_snapshot_stream(
         &self,
         snapshot_index: Index,
     ) -> anyhow::Result<Option<snapshot::SnapshotStream>> {
-        let tag = self.log.storage.get_tag(snapshot_index).await?;
-        if tag.is_none() {
-            return Ok(None);
-        }
-        let tag = tag.unwrap();
-        let st = self.app.open_snapshot(&tag).await;
+        let st = self.app.open_snapshot(snapshot_index).await?;
         Ok(Some(st))
     }
 }
@@ -1317,12 +1306,13 @@ impl Log {
         };
         let ok = match Command::deserialize(&command) {
             Command::Snapshot { membership } => {
-                let tag = self.storage.get_tag(apply_index).await?;
                 log::info!("install app snapshot");
-                let res = raft_core
-                    .app
-                    .install_snapshot(tag.as_ref(), apply_index)
-                    .await;
+                let snapshot = if apply_index == 1 {
+                    None
+                } else {
+                    Some(apply_index)
+                };
+                let res = raft_core.app.install_snapshot(snapshot).await;
                 log::info!("install app snapshot (complete)");
                 let success = res.is_ok();
                 if success {
@@ -1348,33 +1338,22 @@ impl Log {
                         }
 
                         match make_snapshot {
-                            MakeSnapshot::CopySnapshot(new_tag) => {
-                                // Replication proceeds if process_write's succeeded and regardless of the result of snapshot insertion.
+                            MakeSnapshot::CopySnapshot => {
+                                // Now that RaftApp's already made a snapshot resource then we will commit the snapshot entry.
+                                let snapshot_entry = Entry {
+                                    command: Command::serialize(&Command::Snapshot {
+                                        membership: self.applied_membership.lock().await.clone(),
+                                    }),
+                                    ..apply_entry
+                                };
+                                let delay =
+                                    raft_core.config.read().await.snapshot_insertion_delay();
+                                log::info!(
+                                    "copy snapshot is made and will be inserted in {:?}",
+                                    delay
+                                );
 
-                                // Snapshot becomes orphan when this code fails but it is allowed.
-                                let ok = self.storage.put_tag(apply_index, new_tag).await.is_ok();
-                                // Inserting a snapshot entry with its corresponding snapshot tag/resource is not allowed
-                                // because it is assumed that the at least lastest snapshot entry must have a snapshot tag/resource.
-                                if ok {
-                                    let snapshot_entry = Entry {
-                                        command: Command::serialize(&Command::Snapshot {
-                                            membership: self
-                                                .applied_membership
-                                                .lock()
-                                                .await
-                                                .clone(),
-                                        }),
-                                        ..apply_entry
-                                    };
-                                    let delay =
-                                        raft_core.config.read().await.snapshot_insertion_delay();
-                                    log::info!(
-                                        "copy snapshot is made and will be inserted in {:?}",
-                                        delay
-                                    );
-
-                                    let _ = self.snapshot_queue.insert(snapshot_entry, delay).await;
-                                }
+                                let _ = self.snapshot_queue.insert(snapshot_entry, delay).await;
                             }
                             MakeSnapshot::FoldSnapshot => {
                                 tokio::spawn(async move {
@@ -1471,12 +1450,14 @@ impl Log {
                     _ => {}
                 }
             }
-            let base_tag = self.storage.get_tag(base_snapshot_index).await?;
-            let new_tag = core
-                .app
-                .fold_snapshot(base_tag.as_ref(), app_messages, new_snapshot_index)
+            let base_snapshot = if base_snapshot_index == 1 {
+                None
+            } else {
+                Some(base_snapshot_index)
+            };
+            core.app
+                .fold_snapshot(base_snapshot, app_messages, new_snapshot_index)
                 .await?;
-            self.storage.put_tag(new_snapshot_index, new_tag).await?;
             let new_snapshot = {
                 let mut e = self.storage.get_entry(new_snapshot_index).await?.unwrap();
                 e.command = Command::serialize(&Command::Snapshot {
@@ -1492,36 +1473,30 @@ impl Log {
         }
     }
     async fn run_gc(&self, core: Arc<RaftCore>) -> anyhow::Result<()> {
+        let l = self.storage.get_head_index().await?;
         let r = self.get_snapshot_index();
-        log::debug!("gc .. {}", r);
+        log::debug!("gc {}..{}", l, r);
 
-        // Delete old snapshots
-        let ls: Vec<Index> = self
-            .storage
-            .list_tags()
-            .await?
-            .range(..r)
-            .map(|x| *x)
-            .collect();
-        for i in ls {
-            if let Some(tag) = self.storage.get_tag(i).await?.clone() {
-                core.app.delete_snapshot(&tag).await?;
-                self.storage.delete_tag(i).await?;
-            }
-        }
-        // Remove entries
-        self.storage.delete_before(r).await?;
-        // Remove acks
-        let ls: Vec<u64> = self
-            .ack_chans
-            .read()
-            .await
-            .range(..r)
-            .map(|x| *x.0)
-            .collect();
-        for i in ls {
+        for i in l..r {
+            // Remove remaining ack?
+            // Not sure it really exists.
             self.ack_chans.write().await.remove(&i);
+
+            let entry = self.storage.get_entry(i).await?;
+            let entry = entry.unwrap();
+            match Command::deserialize(&entry.command) {
+                Command::Snapshot { .. } => {
+                    // Delete snapshot entry.
+                    // There should be snapshot resource to this snapshot entry.
+                    core.app.delete_snapshot(i).await?;
+                }
+                _ => {}
+            }
+            // Delete the entry.
+            // but after everything is successfully deleted.
+            self.storage.delete_entry(i).await?;
         }
+
         Ok(())
     }
 }

@@ -164,35 +164,22 @@ impl Storage {
 use anyhow::Result;
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
-    async fn list_tags(&self) -> Result<BTreeSet<Index>> {
-        let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        let iter = self.db.iterator_cf(cf, IteratorMode::Start);
-        let mut r = BTreeSet::new();
-        for (k, _) in iter {
-            r.insert(decode_index(&k));
-        }
-        Ok(r)
-    }
-    async fn delete_tag(&self, i: Index) -> Result<()> {
-        let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        self.db.delete_cf(&cf, encode_index(i))?;
-        Ok(())
-    }
-    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) -> Result<()> {
-        let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        self.db.put_cf(&cf, encode_index(i), x)?;
-        Ok(())
-    }
-    async fn get_tag(&self, i: Index) -> Result<Option<crate::SnapshotTag>> {
-        let cf = self.db.cf_handle(CF_TAGS).unwrap();
-        let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
-        Ok(b.map(|x| x.into()))
-    }
-    async fn delete_before(&self, r: Index) -> Result<()> {
+    async fn delete_entry(&self, i: Index) -> Result<()> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
-        self.db
-            .delete_range_cf(cf, encode_index(0), encode_index(r))?;
+        self.db.delete_cf(cf, encode_index(i))?;
         Ok(())
+    }
+    async fn get_head_index(&self) -> Result<Index> {
+        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let mut iter = self.db.raw_iterator_cf(cf);
+        iter.seek_to_first();
+        // The iterator is empty
+        if !iter.valid() {
+            return Ok(0);
+        }
+        let key = iter.key().unwrap();
+        let v = decode_index(key);
+        Ok(v)
     }
     async fn get_last_index(&self) -> Result<Index> {
         let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
@@ -271,14 +258,11 @@ async fn test_rocksdb_persistency() -> Result<()> {
             membership: HashSet::new(),
         }),
     };
-    let tag: crate::SnapshotTag = vec![].into();
 
-    s.put_tag(1, tag.clone()).await?;
     s.insert_entry(1, sn.clone()).await?;
     s.insert_entry(2, e.clone()).await?;
     s.insert_entry(3, e.clone()).await?;
     s.insert_entry(4, e.clone()).await?;
-    s.put_tag(3, tag.clone()).await?;
     s.insert_entry(3, sn.clone()).await?;
 
     drop(s);
@@ -291,9 +275,6 @@ async fn test_rocksdb_persistency() -> Result<()> {
             voted_for: None
         }
     );
-    assert!(s.get_tag(1).await?.is_some());
-    assert!(s.get_tag(2).await?.is_none());
-    assert!(s.get_tag(3).await?.is_some());
     assert_eq!(super::find_last_snapshot_index(&s).await?, Some(3));
     assert_eq!(s.get_last_index().await?, 4);
 

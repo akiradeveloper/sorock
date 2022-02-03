@@ -7,38 +7,25 @@ use tokio::sync::{Mutex, RwLock};
 pub struct Storage {
     entries: Arc<RwLock<BTreeMap<u64, super::Entry>>>,
     ballot: Arc<Mutex<Ballot>>,
-    tags: Arc<RwLock<BTreeMap<u64, crate::SnapshotTag>>>,
 }
 impl Storage {
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(BTreeMap::new())),
             ballot: Arc::new(Mutex::new(Ballot::new())),
-            tags: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 }
 use anyhow::Result;
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
-    async fn delete_tag(&self, i: Index) -> Result<()> {
-        self.tags.write().await.remove(&i);
-        Ok(())
-    }
-    async fn list_tags(&self) -> Result<BTreeSet<Index>> {
-        let mut r = BTreeSet::new();
-        for k in self.tags.read().await.keys() {
-            r.insert(*k);
-        }
+    async fn get_head_index(&self) -> Result<Index> {
+        let x = self.entries.read().await;
+        let r = match x.iter().next() {
+            Some((k, _)) => *k,
+            None => 0,
+        };
         Ok(r)
-    }
-    async fn get_tag(&self, i: Index) -> Result<Option<crate::SnapshotTag>> {
-        let r = self.tags.read().await.get(&i).cloned();
-        Ok(r)
-    }
-    async fn put_tag(&self, i: Index, x: crate::SnapshotTag) -> Result<()> {
-        self.tags.write().await.insert(i, x);
-        Ok(())
     }
     async fn get_last_index(&self) -> Result<Index> {
         let x = self.entries.read().await;
@@ -48,15 +35,8 @@ impl super::RaftStorage for Storage {
         };
         Ok(r)
     }
-    async fn delete_before(&self, r: u64) -> Result<()> {
-        let ls: Vec<u64> = self.entries.read().await.range(..r).map(|x| *x.0).collect();
-        for i in ls {
-            self.entries.write().await.remove(&i);
-        }
-        let ls: Vec<u64> = self.tags.read().await.range(..r).map(|x| *x.0).collect();
-        for i in ls {
-            self.tags.write().await.remove(&i);
-        }
+    async fn delete_entry(&self, i: Index) -> Result<()> {
+        self.entries.write().await.remove(&i);
         Ok(())
     }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
