@@ -1,4 +1,5 @@
 use lol_core::{
+    simple,
     simple::{RaftAppSimple, ToRaftApp},
     Index,
 };
@@ -68,7 +69,8 @@ async fn run_server() {
         let app = MyRaftApp {
             my_app: Arc::clone(&my_app),
         };
-        let app = ToRaftApp::new(app);
+        let store = simple::BytesInventory::new();
+        let app = ToRaftApp::new(app, store);
         let storage = lol_core::storage::memory::Storage::new();
 
         let id = "http://localhost:50000".parse().unwrap();

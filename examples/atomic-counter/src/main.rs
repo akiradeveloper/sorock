@@ -1,27 +1,18 @@
 use atomic_counter::{Rep, Req};
 use bytes::Bytes;
-use lol_core::snapshot::{BytesSnapshot, SnapshotTag};
+use lol_core::snapshot::BytesSnapshot;
 use lol_core::Index;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Clone)]
-struct Tag(Bytes);
-impl Tag {
-    fn from_snapshot_index(snapshot_index: u64) -> Self {
-        let bin = bincode::serialize(&snapshot_index).unwrap();
-        Tag(bin.into())
-    }
-}
-
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct Resource(u64);
 
 struct MyApp {
     v: AtomicU64,
-    snapshot_inventory: Arc<RwLock<HashMap<Tag, Resource>>>,
+    snapshot_inventory: Arc<RwLock<HashMap<Index, Resource>>>,
 }
 impl MyApp {
     fn new() -> Self {
@@ -63,22 +54,17 @@ impl lol_core::RaftApp for MyApp {
         }
     }
 
-    async fn install_snapshot(
-        &self,
-        snapshot: Option<&lol_core::snapshot::SnapshotTag>,
-        apply_index: Index,
-    ) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, snapshot: Option<Index>) -> anyhow::Result<()> {
         match snapshot {
             None => {
                 self.v.store(0, Ordering::SeqCst);
             }
             Some(x) => {
-                let tag = Tag(x.contents.clone());
                 let resource = self
                     .snapshot_inventory
                     .read()
                     .await
-                    .get(&tag)
+                    .get(&x)
                     .unwrap()
                     .clone();
                 self.v.store(resource.0, Ordering::SeqCst);
@@ -89,19 +75,18 @@ impl lol_core::RaftApp for MyApp {
 
     async fn fold_snapshot(
         &self,
-        old_snapshot: Option<&lol_core::snapshot::SnapshotTag>,
+        old_snapshot: Option<Index>,
         requests: Vec<&[u8]>,
         snapshot_index: Index,
-    ) -> anyhow::Result<lol_core::snapshot::SnapshotTag> {
+    ) -> anyhow::Result<()> {
         let mut acc = match old_snapshot {
             None => 0,
             Some(x) => {
-                let tag = Tag(x.contents.clone());
                 let resource = self
                     .snapshot_inventory
                     .read()
                     .await
-                    .get(&tag)
+                    .get(&x)
                     .unwrap()
                     .clone();
                 resource.0
@@ -114,55 +99,46 @@ impl lol_core::RaftApp for MyApp {
                 _ => unreachable!(),
             }
         }
-        let new_tag = Tag::from_snapshot_index(snapshot_index);
         let new_resource = Resource(acc);
         self.snapshot_inventory
             .write()
             .await
-            .insert(new_tag.clone(), new_resource);
-        Ok(SnapshotTag {
-            contents: new_tag.0,
-        })
+            .insert(snapshot_index, new_resource);
+        Ok(())
     }
 
     async fn save_snapshot(
         &self,
         st: lol_core::snapshot::SnapshotStream,
-        snapshot_index: lol_core::Index,
-    ) -> anyhow::Result<lol_core::snapshot::SnapshotTag> {
+        snapshot_index: Index,
+    ) -> anyhow::Result<()> {
         let b = BytesSnapshot::save_snapshot_stream(st).await?;
         let v: u64 = bincode::deserialize(&b.contents).unwrap();
         let resource = Resource(v);
-        let tag = Tag::from_snapshot_index(snapshot_index);
         self.snapshot_inventory
             .write()
             .await
-            .insert(tag.clone(), resource);
-        let tag = SnapshotTag { contents: tag.0 };
-        Ok(tag)
+            .insert(snapshot_index, resource);
+        Ok(())
     }
 
-    async fn open_snapshot(
-        &self,
-        x: &lol_core::snapshot::SnapshotTag,
-    ) -> lol_core::snapshot::SnapshotStream {
-        let tag = Tag(x.contents.clone());
+    async fn open_snapshot(&self, x: Index) -> anyhow::Result<lol_core::snapshot::SnapshotStream> {
         let resource = self
             .snapshot_inventory
             .read()
             .await
-            .get(&tag)
+            .get(&x)
             .unwrap()
             .clone();
         let b: BytesSnapshot = BytesSnapshot {
             contents: bincode::serialize(&resource.0).unwrap().into(),
         };
-        b.open_snapshot_stream().await
+        let st = b.open_snapshot_stream().await;
+        Ok(st)
     }
 
-    async fn delete_snapshot(&self, x: &lol_core::snapshot::SnapshotTag) -> anyhow::Result<()> {
-        let tag = Tag(x.contents.clone());
-        self.snapshot_inventory.write().await.remove(&tag);
+    async fn delete_snapshot(&self, x: Index) -> anyhow::Result<()> {
+        self.snapshot_inventory.write().await.remove(&x);
         Ok(())
     }
 }

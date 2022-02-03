@@ -6,23 +6,6 @@ mod util;
 
 use ::bytes::Bytes;
 
-/// Snapshot tag is a tag that bound to some snapshot resource.
-/// If the resource is a file the tag is the path to the file, for example.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SnapshotTag {
-    pub contents: Bytes,
-}
-impl AsRef<[u8]> for SnapshotTag {
-    fn as_ref(&self) -> &[u8] {
-        self.contents.as_ref()
-    }
-}
-impl From<Vec<u8>> for SnapshotTag {
-    fn from(x: Vec<u8>) -> SnapshotTag {
-        SnapshotTag { contents: x.into() }
-    }
-}
-
 use crate::proto_compiled::GetSnapshotRep;
 use futures::stream::Stream;
 
@@ -53,6 +36,7 @@ pub(crate) fn into_in_stream(
 }
 
 /// Basic snapshot type that contains all the data in the byte sequence.
+#[derive(Clone)]
 pub struct BytesSnapshot {
     pub contents: Bytes,
 }
@@ -78,5 +62,26 @@ impl BytesSnapshot {
         let cursor = std::io::Cursor::new(&mut v);
         util::read_snapshot_stream(cursor, st).await?;
         Ok(BytesSnapshot { contents: v.into() })
+    }
+}
+
+use std::path::{Path, PathBuf};
+
+pub struct FileSnapshot {
+    pub path: PathBuf,
+}
+impl FileSnapshot {
+    pub async fn open_snapshot_stream(&self) -> anyhow::Result<SnapshotStream> {
+        let f = tokio::fs::File::open(&self.path).await?;
+        Ok(Box::pin(util::into_snapshot_stream(f)))
+    }
+}
+impl FileSnapshot {
+    pub async fn save_snapshot_stream(st: SnapshotStream, path: &Path) -> anyhow::Result<Self> {
+        let f = tokio::fs::File::create(path).await?;
+        util::read_snapshot_stream(f, st).await?;
+        Ok(FileSnapshot {
+            path: path.to_owned(),
+        })
     }
 }
