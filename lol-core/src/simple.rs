@@ -16,8 +16,8 @@ pub trait RaftAppSimple: Sync + Send + 'static {
     ) -> anyhow::Result<Vec<u8>>;
 }
 
-/// ToRaftApp turns an instance of RaftAppCompat into
-/// RaftApp instance.
+/// ToRaftApp turns an instance of RaftAppSimple into
+/// a RaftApp instance.
 pub struct ToRaftApp<A: RaftAppSimple> {
     compat_app: A,
 }

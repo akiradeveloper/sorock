@@ -35,7 +35,7 @@ mod quorum_join;
 mod server;
 #[cfg(feature = "simple")]
 #[cfg_attr(docsrs, doc(cfg(feature = "simple")))]
-/// Simple RaftApp trait.
+/// Simplified RaftApp trait.
 pub mod simple;
 /// The snapshot abstraction and some basic implementations.
 pub mod snapshot;
