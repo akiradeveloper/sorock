@@ -23,7 +23,7 @@ A Raft implementation in Rust language. To support this project please give it a
 
 ```
 [dependencies]
-lol-core = "0.7"
+lol-core = "0.8"
 ```
 
 ```rust
