@@ -5,7 +5,7 @@ WORKDIR '/work'
 RUN apt-get update && apt-get install -y \
 	ruby clang \
 	build-essential \
-	iputils-ping net-tools sudo
+	iputils-ping net-tools sudo less
 
 ARG USER
 ARG UID
