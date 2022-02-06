@@ -12,6 +12,8 @@ pub mod file;
 #[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
 pub mod disk;
 
+mod persistency;
+
 /// Serialized Ballot.
 /// Ballot is a record of the previous vote.
 #[derive(Clone, Debug, PartialEq)]
@@ -34,66 +36,6 @@ pub struct Entry {
     pub(crate) prev_clock: Clock,
     pub(crate) this_clock: Clock,
     pub(crate) command: Bytes,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct EntryB {
-    prev_clock: (u64, u64),
-    this_clock: (u64, u64),
-    command: bytes::Bytes,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-struct BallotB {
-    term: u64,
-    voted_for: Option<Id>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-struct SnapshotIndexB(u64);
-
-impl From<Vec<u8>> for Entry {
-    fn from(x: Vec<u8>) -> Self {
-        let x: EntryB = bincode::deserialize(&x).unwrap();
-        Entry {
-            prev_clock: Clock {
-                term: x.prev_clock.0,
-                index: x.prev_clock.1,
-            },
-            this_clock: Clock {
-                term: x.this_clock.0,
-                index: x.this_clock.1,
-            },
-            command: x.command.into(),
-        }
-    }
-}
-impl Into<Vec<u8>> for Entry {
-    fn into(self) -> Vec<u8> {
-        let x = EntryB {
-            prev_clock: (self.prev_clock.term, self.prev_clock.index),
-            this_clock: (self.this_clock.term, self.this_clock.index),
-            command: self.command,
-        };
-        bincode::serialize(&x).unwrap()
-    }
-}
-
-impl From<Vec<u8>> for Ballot {
-    fn from(x: Vec<u8>) -> Self {
-        let x: BallotB = bincode::deserialize(&x).unwrap();
-        Ballot {
-            cur_term: x.term,
-            voted_for: x.voted_for,
-        }
-    }
-}
-impl Into<Vec<u8>> for Ballot {
-    fn into(self) -> Vec<u8> {
-        let x = BallotB {
-            term: self.cur_term,
-            voted_for: self.voted_for,
-        };
-        bincode::serialize(&x).unwrap()
-    }
 }
 
 /// The abstraction for the backing storage.

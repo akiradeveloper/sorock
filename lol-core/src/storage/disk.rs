@@ -164,49 +164,18 @@ async fn test_rocksdb_storage() -> Result<()> {
 
 #[tokio::test]
 async fn test_rocksdb_persistency() -> Result<()> {
-    use super::RaftStorage;
-    use crate::Command;
-    use std::collections::HashSet;
-
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");
     let builder = StorageBuilder::new(&path);
     builder.destory();
     builder.create();
+
     let s = builder.open();
+    super::persistency::test_pre_close(s).await?;
 
-    let e = Entry {
-        prev_clock: Clock { term: 0, index: 0 },
-        this_clock: Clock { term: 0, index: 0 },
-        command: Command::serialize(&Command::Noop),
-    };
-    let sn = Entry {
-        prev_clock: Clock { term: 0, index: 0 },
-        this_clock: Clock { term: 0, index: 0 },
-        command: Command::serialize(&Command::Snapshot {
-            membership: HashSet::new(),
-        }),
-    };
-    s.insert_entry(1, sn.clone()).await?;
-    s.insert_entry(2, e.clone()).await?;
-    s.insert_entry(3, e.clone()).await?;
-    s.insert_entry(4, e.clone()).await?;
-    s.insert_entry(3, sn.clone()).await?;
-
-    drop(s);
     let s = builder.open();
+    super::persistency::test_post_close(s).await?;
 
-    assert_eq!(
-        s.load_ballot().await?,
-        Ballot {
-            cur_term: 0,
-            voted_for: None
-        }
-    );
-    assert_eq!(super::find_last_snapshot_index(&s).await?, Some(3));
-    assert_eq!(s.get_last_index().await?, 4);
-
-    drop(s);
     builder.destory();
     Ok(())
 }
