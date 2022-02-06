@@ -17,6 +17,7 @@ pub trait RaftAppSimple: Sync + Send + 'static {
     ) -> anyhow::Result<Vec<u8>>;
 }
 
+/// The store of snapshot resources.
 #[async_trait]
 pub trait SnapshotStore: Sync + Send + 'static {
     async fn save_snapshot_stream(
@@ -32,6 +33,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+/// In-memory implementation of `SnapshotStore`.
 pub struct BytesInventory {
     resources: Arc<RwLock<HashMap<Index, BytesSnapshot>>>,
 }
@@ -66,6 +68,7 @@ impl SnapshotStore for BytesInventory {
 
 use std::path::{Path, PathBuf};
 
+/// Persistent implementation of `SnapshotStore`.
 pub struct FileInventory {
     root_dir: PathBuf,
 }

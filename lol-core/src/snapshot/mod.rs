@@ -67,6 +67,7 @@ impl BytesSnapshot {
 
 use std::path::{Path, PathBuf};
 
+/// Persistent snapshot type that stores all the data in a normal file.
 pub struct FileSnapshot {
     pub path: PathBuf,
 }
