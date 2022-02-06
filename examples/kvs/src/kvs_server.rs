@@ -208,19 +208,18 @@ async fn main() {
             simple::FileInventory::create(&root_dir).unwrap();
         }
         ToRaftApp::new(app, simple::FileInventory::new(root_dir))
-        // ToRaftApp::new(app, simple::BytesInventory::new())
     } else {
         ToRaftApp::new(app, simple::BytesInventory::new())
     };
     let service = if let Some(storage_id) = opt.use_persistency {
+        use lol_core::storage::file::Storage;
         let path = format!("/tmp/lol/{}/store", storage_id);
         let path = Path::new(&path);
-        let builder = lol_core::storage::disk::StorageBuilder::new(&path);
         if opt.reset_persistency {
-            builder.destory();
-            builder.create();
+            Storage::destory(&path).unwrap();
+            Storage::create(&path).unwrap();
         }
-        let storage = builder.open();
+        let storage = Storage::open(&path);
         lol_core::make_raft_service(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
