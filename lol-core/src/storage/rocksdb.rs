@@ -26,20 +26,12 @@ fn comparator_fn(x: &[u8], y: &[u8]) -> Ordering {
     x.cmp(&y)
 }
 
-pub struct StorageBuilder {
-    path: PathBuf,
-}
-impl StorageBuilder {
-    pub fn new(path: &Path) -> Self {
-        StorageBuilder {
-            path: path.to_owned(),
-        }
-    }
-    pub fn destory(&self) {
+impl Storage {
+    pub fn destroy(path: &Path) {
         let opts = Options::default();
-        DB::destroy(&opts, &self.path).unwrap();
+        DB::destroy(&opts, path).unwrap();
     }
-    pub fn create(&self) {
+    pub fn create(path: &Path) {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
@@ -50,12 +42,7 @@ impl StorageBuilder {
             ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
             ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
         ];
-        let db = DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap();
-
-        // let mut opts = Options::default();
-        // opts.set_comparator("by_index_key", comparator_fn);
-        // db.create_cf(CF_ENTRIES, &opts).unwrap();
-        // db.create_cf(CF_CTRL, &Options::default()).unwrap();
+        let db = DB::open_cf_descriptors(&db_opts, path, cf_descs).unwrap();
 
         let initial_ballot = Ballot {
             cur_term: 0,
@@ -65,7 +52,7 @@ impl StorageBuilder {
         let b: Vec<u8> = initial_ballot.into();
         db.put_cf(&cf, BALLOT, b).unwrap();
     }
-    fn open_db(&self) -> DB {
+    fn open_db(path: &Path) -> DB {
         let db_opts = Options::default();
         let mut opts = Options::default();
         opts.set_comparator(CMP, comparator_fn);
@@ -74,21 +61,17 @@ impl StorageBuilder {
             ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
             ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
         ];
-        DB::open_cf_descriptors(&db_opts, &self.path, cf_descs).unwrap()
+        DB::open_cf_descriptors(&db_opts, path, cf_descs).unwrap()
     }
-    pub fn open(&self) -> Storage {
-        let db = self.open_db();
-        Storage::new(db)
+    pub fn open(path: &Path) -> Storage {
+        let db = Self::open_db(path);
+        Self {
+            db
+        }
     }
 }
-
 pub struct Storage {
     db: DB,
-}
-impl Storage {
-    fn new(db: DB) -> Self {
-        Self { db }
-    }
 }
 use anyhow::Result;
 #[async_trait::async_trait]
@@ -151,14 +134,13 @@ impl super::RaftStorage for Storage {
 async fn test_rocksdb_storage() -> Result<()> {
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk1.db");
-    let builder = StorageBuilder::new(&path);
-    builder.destory();
-    builder.create();
-    let s = builder.open();
+    Storage::destroy(path);
+    Storage::create(path);
 
+    let s = Storage::open(path);
     super::test_storage(s).await?;
 
-    builder.destory();
+    Storage::destroy(path);
     Ok(())
 }
 
@@ -166,16 +148,15 @@ async fn test_rocksdb_storage() -> Result<()> {
 async fn test_rocksdb_persistency() -> Result<()> {
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/disk2.db");
-    let builder = StorageBuilder::new(&path);
-    builder.destory();
-    builder.create();
+    Storage::destroy(path);
+    Storage::create(path);
 
-    let s = builder.open();
+    let s = Storage::open(path);
     super::persistency::test_pre_close(s).await?;
 
-    let s = builder.open();
+    let s = Storage::open(path);
     super::persistency::test_post_close(s).await?;
 
-    builder.destory();
+    Storage::destroy(path);
     Ok(())
 }
