@@ -5,12 +5,13 @@ use std::collections::BTreeSet;
 /// In-memory implementation backed by BTreeMap.
 pub mod memory;
 
+/// Persistent implementation backed by normal files.
 pub mod file;
 
 /// Persistent implementation backed by RocksDB.
 #[cfg(feature = "persistency")]
 #[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
-pub mod disk;
+pub mod rocksdb;
 
 mod persistency;
 
