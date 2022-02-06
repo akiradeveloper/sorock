@@ -230,13 +230,12 @@ async fn main() {
                 lol_core::make_raft_service(app, storage, id, config).await
             }
             USE_ROCKSDB_BACKEND => {
-                use lol_core::storage::disk::StorageBuilder;
-                let builder = StorageBuilder::new(&path);
+                use lol_core::storage::rocksdb::Storage;
                 if opt.reset_persistency {
-                    builder.destory();
-                    builder.create();
+                    Storage::destroy(&path);
+                    Storage::create(&path);
                 }
-                let storage = builder.open();
+                let storage = Storage::open(&path);
                 lol_core::make_raft_service(app, storage, id, config).await
             }
             _ => unreachable!(),
