@@ -5,11 +5,25 @@ use std::thread;
 use std::time::Duration;
 
 #[test]
-fn test_persistency_one_node_start() {
+fn test_one_node_start_file() {
     let env = env_new(
         0,
         kvs_server(vec![
             "--use-persistency=0",
+            "--reset-persistency",
+            "--compaction-interval-sec=0",
+        ]),
+    );
+    env.stop(0);
+}
+
+#[test]
+fn test_one_node_start_rocksdb() {
+    let env = env_new(
+        0,
+        kvs_server(vec![
+            "--use-persistency=0",
+            "--persistency-backend=1",
             "--reset-persistency",
             "--compaction-interval-sec=0",
         ]),
