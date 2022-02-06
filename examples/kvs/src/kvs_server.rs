@@ -11,12 +11,17 @@ use structopt::StructOpt;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
 
+const USE_FILE_BACKEND: u8 = 0;
+const USE_ROCKSDB_BACKEND: u8 = 1;
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvs-server")]
 struct Opt {
     // use persistent storage with is identified by the given id.
     #[structopt(long)]
     use_persistency: Option<u8>,
+    #[structopt(long, default_value = "0")]
+    persistency_backend: u8,
     // if this is set, the persistent storage is reset.
     #[structopt(long)]
     reset_persistency: bool,
@@ -212,15 +217,30 @@ async fn main() {
         ToRaftApp::new(app, simple::BytesInventory::new())
     };
     let service = if let Some(storage_id) = opt.use_persistency {
-        use lol_core::storage::file::Storage;
         let path = format!("/tmp/lol/{}/store", storage_id);
         let path = Path::new(&path);
-        if opt.reset_persistency {
-            Storage::destory(&path).unwrap();
-            Storage::create(&path).unwrap();
+        match opt.persistency_backend {
+            USE_FILE_BACKEND => {
+                use lol_core::storage::file::Storage;
+                if opt.reset_persistency {
+                    Storage::destory(&path).unwrap();
+                    Storage::create(&path).unwrap();
+                }
+                let storage = Storage::open(&path);
+                lol_core::make_raft_service(app, storage, id, config).await
+            }
+            USE_ROCKSDB_BACKEND => {
+                use lol_core::storage::disk::StorageBuilder;
+                let builder = StorageBuilder::new(&path);
+                if opt.reset_persistency {
+                    builder.destory();
+                    builder.create();
+                }
+                let storage = builder.open();
+                lol_core::make_raft_service(app, storage, id, config).await
+            }
+            _ => unreachable!(),
         }
-        let storage = Storage::open(&path);
-        lol_core::make_raft_service(app, storage, id, config).await
     } else {
         let storage = lol_core::storage::memory::Storage::new();
         lol_core::make_raft_service(app, storage, id, config).await
