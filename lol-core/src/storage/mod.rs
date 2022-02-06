@@ -9,8 +9,8 @@ pub mod memory;
 pub mod file;
 
 /// Persistent implementation backed by RocksDB.
-#[cfg(feature = "persistency")]
-#[cfg_attr(docsrs, doc(cfg(feature = "persistency")))]
+#[cfg(feature = "rocksdb-backend")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rocksdb-backend")))]
 pub mod rocksdb;
 
 mod persistency;
