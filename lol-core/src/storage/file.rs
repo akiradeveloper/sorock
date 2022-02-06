@@ -56,10 +56,10 @@ impl Storage {
         std::fs::write(ballot_path, init_ballot)?;
         Ok(())
     }
-    pub fn open(root_dir: &Path) -> Self {
-        Self {
+    pub fn open(root_dir: &Path) -> anyhow::Result<Self> {
+        Ok(Self {
             root_dir: root_dir.to_owned(),
-        }
+        })
     }
 }
 #[async_trait::async_trait]
@@ -119,7 +119,7 @@ async fn test_file_storage() -> anyhow::Result<()> {
     let path = Path::new("/tmp/lol/file1.db");
     Storage::destory(&path).unwrap();
     Storage::create(&path).unwrap();
-    let s = Storage::open(&path);
+    let s = Storage::open(&path).unwrap();
 
     super::test_storage(s).await?;
 
@@ -134,10 +134,10 @@ async fn test_file_storage_persistency() -> anyhow::Result<()> {
     Storage::destory(&path).unwrap();
     Storage::create(&path).unwrap();
 
-    let s = Storage::open(&path);
+    let s = Storage::open(&path).unwrap();
     super::persistency::test_pre_close(s).await?;
 
-    let s = Storage::open(&path);
+    let s = Storage::open(&path).unwrap();
     super::persistency::test_post_close(s).await?;
 
     Storage::destory(&path).unwrap();
