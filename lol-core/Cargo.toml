@@ -44,10 +44,9 @@ prost-build = "0.9"
 
 [features]
 default = []
-full = ["simple", "gateway", "persistency"]
 simple = []
 gateway = ["tower", "http"]
-persistency = ["rocksdb"]
+rocksdb-backend = ["rocksdb"]
 
 [package.metadata.docs.rs]
 all-features = true
