@@ -2,7 +2,6 @@
 members = [
     "lol-core",
     "lol-admin",
-    "lol-bridge",
     "lol-monitor",
 
     # internal
