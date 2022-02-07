@@ -37,7 +37,7 @@ pub(crate) fn into_in_stream(
 
 /// Basic snapshot type that contains all the data in the byte sequence.
 #[derive(Clone)]
-pub struct BytesSnapshot {
+pub(crate) struct BytesSnapshot {
     pub contents: Bytes,
 }
 impl AsRef<[u8]> for BytesSnapshot {
@@ -68,7 +68,7 @@ impl BytesSnapshot {
 use std::path::{Path, PathBuf};
 
 /// Persistent snapshot type that stores all the data in a normal file.
-pub struct FileSnapshot {
+pub(crate) struct FileSnapshot {
     pub path: PathBuf,
 }
 impl FileSnapshot {
