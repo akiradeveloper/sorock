@@ -322,7 +322,7 @@ impl Raft for Server {
             .unwrap();
         if in_stream.is_none() {
             return Err(tonic::Status::not_found(
-                "requested snapshot is not in the inventory",
+                "requested snapshot is not in the repository",
             ));
         }
         let in_stream = in_stream.unwrap();

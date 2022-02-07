@@ -17,9 +17,9 @@ pub trait RaftAppSimple: Sync + Send + 'static {
     ) -> anyhow::Result<Vec<u8>>;
 }
 
-/// The store of snapshot resources.
+/// The store of the snapshot resources.
 #[async_trait]
-pub trait SnapshotStore: Sync + Send + 'static {
+pub trait SnapshotRepository: Sync + Send + 'static {
     async fn save_snapshot_stream(
         &self,
         st: SnapshotStream,
@@ -33,11 +33,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-/// In-memory implementation of `SnapshotStore`.
-pub struct BytesInventory {
+/// In-memory implementation of `SnapshotRepository`.
+pub struct BytesRepository {
     resources: Arc<RwLock<HashMap<Index, BytesSnapshot>>>,
 }
-impl BytesInventory {
+impl BytesRepository {
     pub fn new() -> Self {
         Self {
             resources: Arc::new(RwLock::new(HashMap::new())),
@@ -45,7 +45,7 @@ impl BytesInventory {
     }
 }
 #[async_trait]
-impl SnapshotStore for BytesInventory {
+impl SnapshotRepository for BytesRepository {
     async fn save_snapshot_stream(
         &self,
         st: SnapshotStream,
@@ -68,11 +68,11 @@ impl SnapshotStore for BytesInventory {
 
 use std::path::{Path, PathBuf};
 
-/// Persistent implementation of `SnapshotStore`.
-pub struct FileInventory {
+/// Persistent implementation of `SnapshotRepository`.
+pub struct FileRepository {
     root_dir: PathBuf,
 }
-impl FileInventory {
+impl FileRepository {
     pub fn destroy(root_dir: &Path) -> anyhow::Result<()> {
         std::fs::remove_dir_all(root_dir).ok();
         Ok(())
@@ -91,7 +91,7 @@ impl FileInventory {
     }
 }
 #[async_trait]
-impl SnapshotStore for FileInventory {
+impl SnapshotRepository for FileRepository {
     async fn save_snapshot_stream(
         &self,
         st: SnapshotStream,
@@ -113,20 +113,20 @@ impl SnapshotStore for FileInventory {
     }
 }
 #[test]
-fn test_file_inventory() {
-    let path = Path::new("/tmp/lol-test-file-inventory");
-    FileInventory::destroy(&path).unwrap();
-    FileInventory::create(&path).unwrap();
+fn test_file_repository() {
+    let path = Path::new("/tmp/lol-test-file-repo");
+    FileRepository::destroy(&path).unwrap();
+    FileRepository::create(&path).unwrap();
 }
 
 /// ToRaftApp turns an instance of RaftAppSimple into
 /// a RaftApp instance.
 pub struct ToRaftApp {
     app: Box<dyn RaftAppSimple>,
-    store: Box<dyn SnapshotStore>,
+    store: Box<dyn SnapshotRepository>,
 }
 impl ToRaftApp {
-    pub fn new(app: impl RaftAppSimple, store: impl SnapshotStore) -> Self {
+    pub fn new(app: impl RaftAppSimple, store: impl SnapshotRepository) -> Self {
         Self {
             app: Box::new(app),
             store: Box::new(store),
