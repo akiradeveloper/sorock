@@ -1,10 +1,10 @@
 use super::{Ballot, Entry};
 use crate::{Clock, Id, Index};
+use anyhow::Result;
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use anyhow::Result;
 
 const CF_ENTRIES: &str = "entries";
 const CF_TAGS: &str = "tags";
@@ -70,9 +70,7 @@ impl Storage {
     }
     pub fn open(path: &Path) -> Result<Storage> {
         let db = Self::open_db(path)?;
-        Ok(Self {
-            db
-        })
+        Ok(Self { db })
     }
 }
 pub struct Storage {
