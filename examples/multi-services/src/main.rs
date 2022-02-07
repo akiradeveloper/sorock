@@ -69,7 +69,7 @@ async fn run_server() {
         let app = MyRaftApp {
             my_app: Arc::clone(&my_app),
         };
-        let store = simple::BytesInventory::new();
+        let store = simple::BytesRepository::new();
         let app = ToRaftApp::new(app, store);
         let storage = lol_core::storage::memory::Storage::new();
 

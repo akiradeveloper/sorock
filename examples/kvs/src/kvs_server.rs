@@ -209,12 +209,12 @@ async fn main() {
         let root_dir = format!("/tmp/lol/{}/snapshots", storage_id);
         let root_dir = Path::new(&root_dir);
         if opt.reset_persistency {
-            simple::FileInventory::destroy(&root_dir).unwrap();
-            simple::FileInventory::create(&root_dir).unwrap();
+            simple::FileRepository::destroy(&root_dir).unwrap();
+            simple::FileRepository::create(&root_dir).unwrap();
         }
-        ToRaftApp::new(app, simple::FileInventory::new(root_dir))
+        ToRaftApp::new(app, simple::FileRepository::new(root_dir))
     } else {
-        ToRaftApp::new(app, simple::BytesInventory::new())
+        ToRaftApp::new(app, simple::BytesRepository::new())
     };
     let service = if let Some(storage_id) = opt.use_persistency {
         let path = format!("/tmp/lol/{}/store", storage_id);
