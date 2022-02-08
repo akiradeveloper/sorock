@@ -5,10 +5,8 @@ use rocksdb::{ColumnFamilyDescriptor, Options, DB};
 use std::cmp::Ordering;
 use std::path::Path;
 
-const CF_ENTRIES: &str = "entries";
-const CF_TAGS: &str = "tags";
-const CF_CTRL: &str = "ctrl";
-const BALLOT: &str = "ballot";
+const CF_ENTRY: &str = "entry";
+const BALLOT_KEY: &str = "ballot";
 const CMP: &str = "index_asc";
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -40,20 +38,15 @@ impl Storage {
         db_opts.create_missing_column_families(true);
         let mut opts = Options::default();
         opts.set_comparator(CMP, comparator_fn);
-        let cf_descs = vec![
-            ColumnFamilyDescriptor::new(CF_ENTRIES, opts),
-            ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
-            ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
-        ];
+        let cf_descs = vec![ColumnFamilyDescriptor::new(CF_ENTRY, opts)];
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descs)?;
 
         let initial_ballot = Ballot {
             cur_term: 0,
             voted_for: None,
         };
-        let cf = db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = initial_ballot.into();
-        db.put_cf(&cf, BALLOT, b)?;
+        db.put(BALLOT_KEY, b)?;
 
         Ok(())
     }
@@ -61,11 +54,7 @@ impl Storage {
         let db_opts = Options::default();
         let mut opts = Options::default();
         opts.set_comparator(CMP, comparator_fn);
-        let cf_descs = vec![
-            ColumnFamilyDescriptor::new(CF_ENTRIES, opts),
-            ColumnFamilyDescriptor::new(CF_TAGS, Options::default()),
-            ColumnFamilyDescriptor::new(CF_CTRL, Options::default()),
-        ];
+        let cf_descs = vec![ColumnFamilyDescriptor::new(CF_ENTRY, opts)];
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descs)?;
         Ok(db)
     }
@@ -80,12 +69,12 @@ pub struct Storage {
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
     async fn delete_entry(&self, i: Index) -> Result<()> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let cf = self.db.cf_handle(CF_ENTRY).unwrap();
         self.db.delete_cf(cf, encode_index(i))?;
         Ok(())
     }
     async fn get_head_index(&self) -> Result<Index> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let cf = self.db.cf_handle(CF_ENTRY).unwrap();
         let mut iter = self.db.raw_iterator_cf(cf);
         iter.seek_to_first();
         // The iterator is empty
@@ -97,7 +86,7 @@ impl super::RaftStorage for Storage {
         Ok(v)
     }
     async fn get_last_index(&self) -> Result<Index> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let cf = self.db.cf_handle(CF_ENTRY).unwrap();
         let mut iter = self.db.raw_iterator_cf(cf);
         iter.seek_to_last();
         // The iterator is empty
@@ -109,25 +98,23 @@ impl super::RaftStorage for Storage {
         Ok(v)
     }
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let cf = self.db.cf_handle(CF_ENTRY).unwrap();
         let b: Vec<u8> = e.into();
         self.db.put_cf(&cf, encode_index(i), b)?;
         Ok(())
     }
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
-        let cf = self.db.cf_handle(CF_ENTRIES).unwrap();
+        let cf = self.db.cf_handle(CF_ENTRY).unwrap();
         let b: Option<Vec<u8>> = self.db.get_cf(&cf, encode_index(i))?;
         Ok(b.map(|x| x.into()))
     }
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
-        let cf = self.db.cf_handle(CF_CTRL).unwrap();
         let b: Vec<u8> = v.into();
-        self.db.put_cf(&cf, BALLOT, b)?;
+        self.db.put(BALLOT_KEY, b)?;
         Ok(())
     }
     async fn load_ballot(&self) -> Result<Ballot> {
-        let cf = self.db.cf_handle(CF_CTRL).unwrap();
-        let b = self.db.get_cf(&cf, BALLOT)?.unwrap();
+        let b = self.db.get(BALLOT_KEY)?.unwrap();
         let v = b.into();
         Ok(v)
     }
