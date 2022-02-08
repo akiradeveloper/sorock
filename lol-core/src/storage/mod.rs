@@ -39,7 +39,7 @@ pub struct Entry {
     pub(crate) command: Bytes,
 }
 
-/// The abstraction for the backing storage.
+/// The abstraction of the log storage.
 /// Conceptually it is considered as a sequence of log entries and the recent vote.
 #[async_trait::async_trait]
 pub trait RaftStorage: Sync + Send + 'static {

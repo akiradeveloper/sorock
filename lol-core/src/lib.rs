@@ -36,10 +36,10 @@ mod quorum_join;
 mod server;
 #[cfg(feature = "simple")]
 #[cfg_attr(docsrs, doc(cfg(feature = "simple")))]
-/// Simplified RaftApp trait.
+/// Simplified `RaftApp`.
 pub mod simple;
 mod snapshot;
-/// The abstraction for the backing storage and some implementations.
+/// The abstraction of the log storage and some implementations.
 pub mod storage;
 mod thread;
 mod thread_drop;
@@ -65,7 +65,7 @@ pub use crate::proto_compiled::raft_client::RaftClient;
 
 use storage::{Ballot, Entry};
 
-/// Plan to make a new snapshot.
+/// Decision to make a new snapshot.
 pub enum MakeSnapshot {
     /// No snapshot will be made.
     None,
@@ -75,7 +75,7 @@ pub enum MakeSnapshot {
     FoldSnapshot,
 }
 
-/// The abstraction for user-defined application runs on the RaftCore.
+/// The abstraction of user-defined application.
 ///
 /// Note about the error handling:
 /// In Raft, the great rule is the same log should result in the same state.
