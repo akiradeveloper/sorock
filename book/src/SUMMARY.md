@@ -2,10 +2,9 @@
 
 - [Architecture](overview-architecture.md)
   - [Log and Snapshot](log-snapshot.md)
-  - [Snapshot Resource and Tag](snapshot-tag.md)
+  - [Snapshot Repository](snapshot-repository.md)
   - [Snapshot Types (Copy and Fold)](snapshot-types.md)
-  - [Storage Abstraction](storage-abstraction.md)
-  - [RaftApp Bridge](bridge.md)
+  - [Log Abstraction](log-abstraction.md)
 - [Client Interactions](client-interactions.md)
   - [Optimized Query Processing](query-processing.md)
   - [Gateway](gateway.md)
