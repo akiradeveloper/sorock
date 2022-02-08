@@ -1,7 +1,7 @@
 use super::RaftStorage;
 use super::{Ballot, Entry};
-use crate::{Clock, Command, Id, Index, Term};
-use bytes::Bytes;
+use crate::{Clock, Command, Id};
+use anyhow::Result;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct EntryB {
@@ -63,7 +63,7 @@ impl Into<Vec<u8>> for Ballot {
     }
 }
 
-pub(crate) async fn test_pre_close(s: impl RaftStorage) -> anyhow::Result<()> {
+pub(crate) async fn test_pre_close(s: impl RaftStorage) -> Result<()> {
     use std::collections::HashSet;
 
     let e = Entry {
@@ -91,7 +91,7 @@ pub(crate) async fn test_pre_close(s: impl RaftStorage) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) async fn test_post_close(s: impl RaftStorage) -> anyhow::Result<()> {
+pub(crate) async fn test_post_close(s: impl RaftStorage) -> Result<()> {
     assert_eq!(
         s.load_ballot().await?,
         Ballot {

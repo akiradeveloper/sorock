@@ -1,10 +1,9 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Id, Index};
+use crate::Index;
 use anyhow::Result;
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, Options, DB};
+use rocksdb::{ColumnFamilyDescriptor, Options, DB};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const CF_ENTRIES: &str = "entries";
 const CF_TAGS: &str = "tags";
@@ -33,6 +32,8 @@ impl Storage {
         DB::destroy(&opts, path)?;
         Ok(())
     }
+    /// Create the initial state.
+    /// You should call `destory` before calling this function.
     pub fn create(path: &Path) -> Result<()> {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
@@ -68,7 +69,7 @@ impl Storage {
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descs)?;
         Ok(db)
     }
-    pub fn open(path: &Path) -> Result<Storage> {
+    pub fn open(path: &Path) -> Result<Self> {
         let db = Self::open_db(path)?;
         Ok(Self { db })
     }

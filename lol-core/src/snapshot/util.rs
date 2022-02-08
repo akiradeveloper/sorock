@@ -1,9 +1,10 @@
 use bytes::Bytes;
 use futures::stream::{Stream, StreamExt, TryStreamExt};
-use tokio::io::{AsyncRead, AsyncWrite, Result};
+use tokio::io;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec;
 
-fn into_bytes_stream<R>(r: R) -> impl Stream<Item = Result<Bytes>>
+fn into_bytes_stream<R>(r: R) -> impl Stream<Item = io::Result<Bytes>>
 where
     R: AsyncRead,
 {
@@ -15,8 +16,8 @@ pub fn into_snapshot_stream<R: AsyncRead>(reader: R) -> impl Stream<Item = anyho
 
 async fn read_bytes_stream<W: AsyncWrite + Unpin>(
     w: W,
-    mut st: impl Stream<Item = Result<Bytes>> + Unpin,
-) -> anyhow::Result<()> {
+    mut st: impl Stream<Item = io::Result<Bytes>> + Unpin,
+) -> io::Result<()> {
     use futures::SinkExt;
     let mut sink = codec::FramedWrite::new(w, codec::BytesCodec::new());
     sink.send_all(&mut st).await?;
@@ -25,7 +26,7 @@ async fn read_bytes_stream<W: AsyncWrite + Unpin>(
 pub async fn read_snapshot_stream<W: AsyncWrite + Unpin>(
     writer: W,
     st: impl Stream<Item = anyhow::Result<Bytes>> + Unpin,
-) -> anyhow::Result<()> {
+) -> io::Result<()> {
     let st = st.map(|res| res.map_err(|_| std::io::Error::from(std::io::ErrorKind::Other)));
     read_bytes_stream(writer, st).await
 }

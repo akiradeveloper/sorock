@@ -1,6 +1,7 @@
 use super::thread_drop::ThreadDrop;
 use crate::RaftCore;
 use crate::{Id, Index};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -40,7 +41,7 @@ impl Cluster {
             thread_drop: HashMap::new(),
         }
     }
-    async fn add_server(&mut self, id: Id, core: Arc<RaftCore>) -> anyhow::Result<()> {
+    async fn add_server(&mut self, id: Id, core: Arc<RaftCore>) -> Result<()> {
         if self.membership.contains(&id) {
             return Ok(());
         }
@@ -77,7 +78,7 @@ impl Cluster {
         &mut self,
         goal: &HashSet<Id>,
         core: Arc<RaftCore>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let cur = &self.membership;
         let (to_add, to_remove) = diff_set(cur, goal);
         // $4.4

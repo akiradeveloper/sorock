@@ -1,5 +1,6 @@
 use super::{Ballot, Entry};
-use crate::{Clock, Id, Index};
+use crate::Index;
+use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -18,11 +19,6 @@ fn test_extract_entry_index() {
     assert_eq!(extract_entry_index(&path2), 10000000000000);
 }
 
-// root-dir
-//   - entry (dir)
-//     - 1
-//     - 2
-//   - ballot (file)
 pub struct Storage {
     root_dir: PathBuf,
 }
@@ -33,7 +29,7 @@ impl Storage {
     pub fn entry_path(&self, i: Index) -> PathBuf {
         self.root_dir.join("entry").join(format!("{i}"))
     }
-    pub async fn entries(&self) -> anyhow::Result<BTreeSet<Index>> {
+    pub async fn entries(&self) -> Result<BTreeSet<Index>> {
         let root_dir = self.root_dir.join("entry");
         let mut dir_iter = tokio::fs::read_dir(root_dir).await?;
         let mut out = BTreeSet::new();
@@ -43,11 +39,13 @@ impl Storage {
         }
         Ok(out)
     }
-    pub fn destory(root_dir: &Path) -> anyhow::Result<()> {
+    pub fn destory(root_dir: &Path) -> Result<()> {
         std::fs::remove_dir_all(root_dir).ok();
         Ok(())
     }
-    pub fn create(root_dir: &Path) -> anyhow::Result<()> {
+    /// Create the initial state.
+    /// You should call `destory` before calling this function.
+    pub fn create(root_dir: &Path) -> Result<()> {
         std::fs::create_dir(root_dir)?;
         std::fs::create_dir(root_dir.join("entry"))?;
         let init_ballot = Ballot::new();
@@ -56,7 +54,7 @@ impl Storage {
         std::fs::write(ballot_path, init_ballot)?;
         Ok(())
     }
-    pub fn open(root_dir: &Path) -> anyhow::Result<Self> {
+    pub fn open(root_dir: &Path) -> Result<Self> {
         Ok(Self {
             root_dir: root_dir.to_owned(),
         })
@@ -64,18 +62,18 @@ impl Storage {
 }
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
-    async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()> {
+    async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
         let path = self.entry_path(i);
         let bin: Vec<u8> = e.into();
         tokio::fs::write(path, bin).await?;
         Ok(())
     }
-    async fn delete_entry(&self, i: Index) -> anyhow::Result<()> {
+    async fn delete_entry(&self, i: Index) -> Result<()> {
         let path = self.entry_path(i);
         fs::remove_file(&path).await?;
         Ok(())
     }
-    async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>> {
+    async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let path = self.entry_path(i);
         if !path.exists() {
             return Ok(None);
@@ -84,7 +82,7 @@ impl super::RaftStorage for Storage {
         let entry = Entry::from(bin);
         Ok(Some(entry))
     }
-    async fn get_head_index(&self) -> anyhow::Result<Index> {
+    async fn get_head_index(&self) -> Result<Index> {
         let entries = self.entries().await?;
         let r = match entries.iter().next() {
             Some(k) => *k,
@@ -92,7 +90,7 @@ impl super::RaftStorage for Storage {
         };
         Ok(r)
     }
-    async fn get_last_index(&self) -> anyhow::Result<Index> {
+    async fn get_last_index(&self) -> Result<Index> {
         let entries = self.entries().await?;
         let r = match entries.iter().next_back() {
             Some(k) => *k,
@@ -100,13 +98,13 @@ impl super::RaftStorage for Storage {
         };
         Ok(r)
     }
-    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
         let path = self.ballot_path();
         let bin: Vec<u8> = v.into();
         tokio::fs::write(path, bin).await?;
         Ok(())
     }
-    async fn load_ballot(&self) -> anyhow::Result<Ballot> {
+    async fn load_ballot(&self) -> Result<Ballot> {
         let path = self.ballot_path();
         let bin = tokio::fs::read(path).await?;
         Ok(Ballot::from(bin))
@@ -114,7 +112,7 @@ impl super::RaftStorage for Storage {
 }
 
 #[tokio::test]
-async fn test_file_storage() -> anyhow::Result<()> {
+async fn test_file_storage() -> Result<()> {
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/file1.db");
     Storage::destory(&path).unwrap();
@@ -128,7 +126,7 @@ async fn test_file_storage() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_file_storage_persistency() -> anyhow::Result<()> {
+async fn test_file_storage_persistency() -> Result<()> {
     let _ = std::fs::create_dir("/tmp/lol");
     let path = Path::new("/tmp/lol/file2.db");
     Storage::destory(&path).unwrap();

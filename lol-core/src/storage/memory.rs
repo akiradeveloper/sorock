@@ -1,6 +1,7 @@
 use super::{Ballot, Entry};
 use crate::Index;
-use std::collections::{BTreeMap, BTreeSet};
+use anyhow::Result;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
@@ -16,7 +17,6 @@ impl Storage {
         }
     }
 }
-use anyhow::Result;
 #[async_trait::async_trait]
 impl super::RaftStorage for Storage {
     async fn get_head_index(&self) -> Result<Index> {
