@@ -114,13 +114,13 @@ pub trait RaftApp: Sync + Send + 'static {
         snapshot_index: Index,
     ) -> Result<()>;
 
-    /// Make a snapshot resource and return the tag.
+    /// Make a snapshot resource from an in-coming `SnapshotStream`.
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
 
-    /// Make a snapshot stream from a snapshot resource bound to the tag.
+    /// Open a `SnapshotStream` from a snapshot resource.
     async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream>;
 
-    /// Delete a snapshot resource bound to the tag.
+    /// Delete a snapshot resource.
     async fn delete_snapshot(&self, x: Index) -> Result<()>;
 }
 
