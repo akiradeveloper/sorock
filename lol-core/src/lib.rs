@@ -38,8 +38,7 @@ mod server;
 #[cfg_attr(docsrs, doc(cfg(feature = "simple")))]
 /// Simplified RaftApp trait.
 pub mod simple;
-/// The snapshot abstraction and some basic implementations.
-pub mod snapshot;
+mod snapshot;
 /// The abstraction for the backing storage and some implementations.
 pub mod storage;
 mod thread;
@@ -116,18 +115,19 @@ pub trait RaftApp: Sync + Send + 'static {
     ) -> Result<()>;
 
     /// Make a snapshot resource and return the tag.
-    async fn save_snapshot(
-        &self,
-        st: snapshot::SnapshotStream,
-        snapshot_index: Index,
-    ) -> Result<()>;
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
 
     /// Make a snapshot stream from a snapshot resource bound to the tag.
-    async fn open_snapshot(&self, x: Index) -> Result<snapshot::SnapshotStream>;
+    async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream>;
 
     /// Delete a snapshot resource bound to the tag.
     async fn delete_snapshot(&self, x: Index) -> Result<()>;
 }
+
+/// The core-level stream type. It is just a stream of byte chunks.
+/// The length of each chunk may be different.
+pub type SnapshotStream =
+    std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
 type Term = u64;
 /// Log entry index.
@@ -669,10 +669,7 @@ impl RaftCore {
         self.app.save_snapshot(in_stream, snapshot_index).await?;
         Ok(())
     }
-    async fn make_snapshot_stream(
-        &self,
-        snapshot_index: Index,
-    ) -> Result<Option<snapshot::SnapshotStream>> {
+    async fn make_snapshot_stream(&self, snapshot_index: Index) -> Result<Option<SnapshotStream>> {
         let st = self.app.open_snapshot(snapshot_index).await?;
         Ok(Some(st))
     }

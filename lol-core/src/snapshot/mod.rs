@@ -10,10 +10,7 @@ use bytes::Bytes;
 use crate::proto_compiled::GetSnapshotRep;
 use futures::stream::Stream;
 
-/// The stream type that is used internally. it is considered as just a stream of bytes.
-/// The length of each bytes may vary.
-pub type SnapshotStream =
-    std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
+use crate::SnapshotStream;
 
 pub(crate) type SnapshotStreamOut = std::pin::Pin<
     Box<dyn futures::stream::Stream<Item = Result<GetSnapshotRep, tonic::Status>> + Send>,
