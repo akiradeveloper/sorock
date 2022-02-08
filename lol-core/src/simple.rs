@@ -1,5 +1,5 @@
-use crate::snapshot::{BytesSnapshot, FileSnapshot, SnapshotStream};
-use crate::{Index, MakeSnapshot, RaftApp};
+use crate::snapshot::{BytesSnapshot, FileSnapshot};
+use crate::{Index, MakeSnapshot, RaftApp, SnapshotStream};
 use ::bytes::Bytes;
 use anyhow::Result;
 use async_trait::async_trait;
