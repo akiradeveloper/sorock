@@ -1,3 +1,9 @@
+# 0.9.0 (2022-2-8)
+
+- Remove the concept of snapshot tag. (#260)
+- Remove lol-bridge.
+- Remove lol-monitor.
+
 # 0.8.0 (2022-2-3)
 
 - Rework API design.
