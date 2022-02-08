@@ -1,9 +1,10 @@
 use anyhow::anyhow;
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
 use kvs::{Rep, Req};
+use lol_core::simple;
 use lol_core::simple::{RaftAppSimple, ToRaftApp};
-use lol_core::{simple, Config, Index, Uri};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -53,7 +54,7 @@ struct KVS {
 }
 #[async_trait]
 impl RaftAppSimple for KVS {
-    async fn process_read(&self, x: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn process_read(&self, x: &[u8]) -> Result<Vec<u8>> {
         let msg = Req::deserialize(&x);
         match msg {
             Some(x) => match x {
@@ -79,7 +80,7 @@ impl RaftAppSimple for KVS {
             None => Err(anyhow!("the message not supported")),
         }
     }
-    async fn process_write(&self, x: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn process_write(&self, x: &[u8]) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
         let msg = Req::deserialize(&x);
         let res = match msg {
             Some(x) => match x {
@@ -110,7 +111,7 @@ impl RaftAppSimple for KVS {
         };
         Ok((res, new_snapshot))
     }
-    async fn install_snapshot(&self, x: Option<&[u8]>) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, x: Option<&[u8]>) -> Result<()> {
         if let Some(x) = x {
             let mut h = self.mem.write().await;
             let snapshot = Snapshot::deserialize(x.as_ref()).unwrap();
@@ -121,11 +122,7 @@ impl RaftAppSimple for KVS {
         }
         Ok(())
     }
-    async fn fold_snapshot(
-        &self,
-        old_snapshot: Option<&[u8]>,
-        xs: Vec<&[u8]>,
-    ) -> anyhow::Result<Vec<u8>> {
+    async fn fold_snapshot(&self, old_snapshot: Option<&[u8]>, xs: Vec<&[u8]>) -> Result<Vec<u8>> {
         let mut old = old_snapshot
             .map(|x| Snapshot::deserialize(x.as_ref()).unwrap())
             .unwrap_or(Snapshot { h: BTreeMap::new() });
@@ -212,7 +209,7 @@ async fn main() {
             simple::FileRepository::destroy(&root_dir).unwrap();
             simple::FileRepository::create(&root_dir).unwrap();
         }
-        ToRaftApp::new(app, simple::FileRepository::new(root_dir))
+        ToRaftApp::new(app, simple::FileRepository::open(root_dir).unwrap())
     } else {
         ToRaftApp::new(app, simple::BytesRepository::new())
     };
@@ -260,7 +257,7 @@ async fn main() {
         log::error!("failed to start kvs-server error={:?}", res);
     }
 }
-pub async fn wait_for_signal(tx: oneshot::Sender<()>) -> anyhow::Result<()> {
+pub async fn wait_for_signal(tx: oneshot::Sender<()>) -> Result<()> {
     use tokio::signal::unix;
     let mut stream = unix::signal(unix::SignalKind::interrupt())?;
     stream.recv().await;

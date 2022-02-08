@@ -1,7 +1,7 @@
+use anyhow::Result;
 use lol_core::{
     simple,
     simple::{RaftAppSimple, ToRaftApp},
-    Index,
 };
 use std::sync::Arc;
 
@@ -15,21 +15,17 @@ struct MyRaftApp {
 
 #[tonic::async_trait]
 impl RaftAppSimple for MyRaftApp {
-    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>> {
+    async fn process_read(&self, request: &[u8]) -> Result<Vec<u8>> {
         println!("raft: process {}", request.len());
         Ok(vec![])
     }
-    async fn process_write(&self, request: &[u8]) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
+    async fn process_write(&self, _: &[u8]) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
         unimplemented!()
     }
-    async fn install_snapshot(&self, snapshot: Option<&[u8]>) -> anyhow::Result<()> {
+    async fn install_snapshot(&self, _: Option<&[u8]>) -> Result<()> {
         Ok(())
     }
-    async fn fold_snapshot(
-        &self,
-        old_snapshot: Option<&[u8]>,
-        requests: Vec<&[u8]>,
-    ) -> anyhow::Result<Vec<u8>> {
+    async fn fold_snapshot(&self, _: Option<&[u8]>, _: Vec<&[u8]>) -> Result<Vec<u8>> {
         Ok(vec![])
     }
 }

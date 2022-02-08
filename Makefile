@@ -6,7 +6,6 @@ install:
 	cargo install --path examples/kvs --bin kvs-server
 	cargo install --path examples/kvs --bin kvs-client
 	cargo install --path lol-admin
-	cargo install --path lol-monitor
 
 test: install
 	cargo test -- --test-threads=1

@@ -4,7 +4,8 @@ mod queue;
 pub(crate) use queue::*;
 mod util;
 
-use ::bytes::Bytes;
+use anyhow::Result;
+use bytes::Bytes;
 
 use crate::proto_compiled::GetSnapshotRep;
 use futures::stream::Stream;
@@ -57,7 +58,7 @@ impl BytesSnapshot {
     }
 }
 impl BytesSnapshot {
-    pub async fn save_snapshot_stream(st: SnapshotStream) -> anyhow::Result<Self> {
+    pub async fn save_snapshot_stream(st: SnapshotStream) -> Result<Self> {
         let mut v: Vec<u8> = vec![];
         let cursor = std::io::Cursor::new(&mut v);
         util::read_snapshot_stream(cursor, st).await?;
@@ -72,13 +73,13 @@ pub(crate) struct FileSnapshot {
     pub path: PathBuf,
 }
 impl FileSnapshot {
-    pub async fn open_snapshot_stream(&self) -> anyhow::Result<SnapshotStream> {
+    pub async fn open_snapshot_stream(&self) -> Result<SnapshotStream> {
         let f = tokio::fs::File::open(&self.path).await?;
         Ok(Box::pin(util::into_snapshot_stream(f)))
     }
 }
 impl FileSnapshot {
-    pub async fn save_snapshot_stream(st: SnapshotStream, path: &Path) -> anyhow::Result<Self> {
+    pub async fn save_snapshot_stream(st: SnapshotStream, path: &Path) -> Result<Self> {
         let f = tokio::fs::File::create(path).await?;
         util::read_snapshot_stream(f, st).await?;
         Ok(FileSnapshot {

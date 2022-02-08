@@ -1,7 +1,7 @@
 #![deny(unused_must_use)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! Raft is a distributed consensus algorithm widely used nowadays
+//! Raft is a distributed consensus algorithm widely used recently
 //! to build distributed applications like etcd.
 //! However, while it is even understandable than notorious Paxos algorithm
 //! it is still difficult to implement correct and efficient implementation.
@@ -12,6 +12,7 @@
 //! and snapshot copying is very efficient.
 
 use anyhow::anyhow;
+use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
 use derive_builder::Builder;
@@ -87,7 +88,7 @@ pub enum MakeSnapshot {
 pub trait RaftApp: Sync + Send + 'static {
     /// Process read request.
     /// This operation should **not** change the state of the application.
-    async fn process_read(&self, request: &[u8]) -> anyhow::Result<Vec<u8>>;
+    async fn process_read(&self, request: &[u8]) -> Result<Vec<u8>>;
 
     /// Process write request.
     /// This may change the state of the application.
@@ -99,11 +100,11 @@ pub trait RaftApp: Sync + Send + 'static {
         &self,
         request: &[u8],
         entry_index: Index,
-    ) -> anyhow::Result<(Vec<u8>, MakeSnapshot)>;
+    ) -> Result<(Vec<u8>, MakeSnapshot)>;
 
     /// Special type of process_write but when the entry is a snapshot entry.
     /// Snapshot is None when apply_index is 1 which is the most youngest snapshot.
-    async fn install_snapshot(&self, snapshot: Option<Index>) -> anyhow::Result<()>;
+    async fn install_snapshot(&self, snapshot: Option<Index>) -> Result<()>;
 
     /// This function is called from the compaction thread.
     /// It should return new snapshot from accumulative computation with the old_snapshot and the subsequent log entries.
@@ -112,24 +113,24 @@ pub trait RaftApp: Sync + Send + 'static {
         old_snapshot: Option<Index>,
         requests: Vec<&[u8]>,
         snapshot_index: Index,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
 
     /// Make a snapshot resource and return the tag.
     async fn save_snapshot(
         &self,
         st: snapshot::SnapshotStream,
         snapshot_index: Index,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
 
     /// Make a snapshot stream from a snapshot resource bound to the tag.
-    async fn open_snapshot(&self, x: Index) -> anyhow::Result<snapshot::SnapshotStream>;
+    async fn open_snapshot(&self, x: Index) -> Result<snapshot::SnapshotStream>;
 
     /// Delete a snapshot resource bound to the tag.
-    async fn delete_snapshot(&self, x: Index) -> anyhow::Result<()>;
+    async fn delete_snapshot(&self, x: Index) -> Result<()>;
 }
 
 type Term = u64;
-/// Log index.
+/// Log entry index.
 pub type Index = u64;
 #[derive(Clone, Copy, Eq)]
 struct Clock {
@@ -311,9 +312,7 @@ impl RaftCore {
             .unwrap();
         r
     }
-    async fn find_last_membership<S: RaftStorage>(
-        storage: &S,
-    ) -> anyhow::Result<(Index, HashSet<Id>)> {
+    async fn find_last_membership<S: RaftStorage>(storage: &S) -> Result<(Index, HashSet<Id>)> {
         let last = storage.get_last_index().await?;
         let mut ret = (0, HashSet::new());
         for i in (1..=last).rev() {
@@ -332,7 +331,7 @@ impl RaftCore {
         }
         Ok(ret)
     }
-    async fn init_cluster(self: &Arc<Self>) -> anyhow::Result<()> {
+    async fn init_cluster(self: &Arc<Self>) -> Result<()> {
         let snapshot = Entry {
             prev_clock: Clock { term: 0, index: 0 },
             this_clock: Clock { term: 0, index: 1 },
@@ -369,7 +368,7 @@ impl RaftCore {
         self: &Arc<Self>,
         membership: &HashSet<Id>,
         index: Index,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         log::info!("change membership to {:?}", membership);
         self.cluster
             .write()
@@ -438,11 +437,7 @@ fn into_out_stream(
 }
 // Replication
 impl RaftCore {
-    async fn change_membership(
-        self: &Arc<Self>,
-        command: Bytes,
-        index: Index,
-    ) -> anyhow::Result<()> {
+    async fn change_membership(self: &Arc<Self>, command: Bytes, index: Index) -> Result<()> {
         match Command::deserialize(&command) {
             Command::Snapshot { membership } => {
                 self.set_membership(&membership, index).await?;
@@ -459,7 +454,7 @@ impl RaftCore {
         self.safe_term.fetch_max(term, Ordering::SeqCst);
     }
     // Leader calls this fucntion to append new entry to its log.
-    async fn queue_entry(self: &Arc<Self>, command: Bytes, ack: Option<Ack>) -> anyhow::Result<()> {
+    async fn queue_entry(self: &Arc<Self>, command: Bytes, ack: Option<Ack>) -> Result<()> {
         let term = self.load_ballot().await?.cur_term;
         // safe_term is a term that noop entry is successfully committed.
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
@@ -482,7 +477,7 @@ impl RaftCore {
         Ok(())
     }
     // Follower calls this function when it receives entries from the leader.
-    async fn queue_received_entry(self: &Arc<Self>, mut req: LogStream) -> anyhow::Result<bool> {
+    async fn queue_received_entry(self: &Arc<Self>, mut req: LogStream) -> Result<bool> {
         let mut prev_clock = Clock {
             term: req.prev_log_term,
             index: req.prev_log_index,
@@ -519,11 +514,7 @@ impl RaftCore {
         }
         Ok(true)
     }
-    async fn prepare_replication_stream(
-        self: &Arc<Self>,
-        l: Index,
-        r: Index,
-    ) -> anyhow::Result<LogStream> {
+    async fn prepare_replication_stream(self: &Arc<Self>, l: Index, r: Index) -> Result<LogStream> {
         let head = self.log.storage.get_entry(l).await?.unwrap();
         let Clock {
             term: prev_log_term,
@@ -557,7 +548,7 @@ impl RaftCore {
             entries: Box::pin(st),
         })
     }
-    async fn advance_replication(self: &Arc<Self>, follower_id: Id) -> anyhow::Result<bool> {
+    async fn advance_replication(self: &Arc<Self>, follower_id: Id) -> Result<bool> {
         let peer = self
             .cluster
             .read()
@@ -599,7 +590,7 @@ impl RaftCore {
             .prepare_replication_stream(old_progress.next_index, old_progress.next_index + n)
             .await?;
 
-        let res: anyhow::Result<_> = async {
+        let res: Result<_> = async {
             let endpoint =
                 Endpoint::from(follower_id.uri().clone()).connect_timeout(Duration::from_secs(5));
             let mut conn = RaftClient::connect(endpoint).await?;
@@ -644,7 +635,7 @@ impl RaftCore {
 
         Ok(true)
     }
-    async fn find_new_agreement(&self) -> anyhow::Result<Index> {
+    async fn find_new_agreement(&self) -> Result<Index> {
         let mut match_indices = vec![];
 
         // In leader stepdown, leader is out of the membership
@@ -665,7 +656,7 @@ impl RaftCore {
 }
 // Snapshot
 impl RaftCore {
-    async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> anyhow::Result<()> {
+    async fn fetch_snapshot(&self, snapshot_index: Index, to: Id) -> Result<()> {
         let endpoint = Endpoint::from(to.uri().clone()).connect_timeout(Duration::from_secs(5));
 
         let mut conn = RaftClient::connect(endpoint).await?;
@@ -681,17 +672,17 @@ impl RaftCore {
     async fn make_snapshot_stream(
         &self,
         snapshot_index: Index,
-    ) -> anyhow::Result<Option<snapshot::SnapshotStream>> {
+    ) -> Result<Option<snapshot::SnapshotStream>> {
         let st = self.app.open_snapshot(snapshot_index).await?;
         Ok(Some(st))
     }
 }
 // Election
 impl RaftCore {
-    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()> {
+    async fn save_ballot(&self, v: Ballot) -> Result<()> {
         self.log.storage.save_ballot(v).await
     }
-    async fn load_ballot(&self) -> anyhow::Result<Ballot> {
+    async fn load_ballot(&self) -> Result<Ballot> {
         self.log.storage.load_ballot().await
     }
     async fn detect_election_timeout(&self) -> bool {
@@ -707,7 +698,7 @@ impl RaftCore {
         candidate_last_log_clock: Clock,
         force_vote: bool,
         pre_vote: bool,
-    ) -> anyhow::Result<bool> {
+    ) -> Result<bool> {
         let allow_side_effects = !pre_vote;
 
         if !force_vote {
@@ -793,7 +784,7 @@ impl RaftCore {
         aim_term: Term,
         force_vote: bool,
         pre_vote: bool,
-    ) -> anyhow::Result<bool> {
+    ) -> Result<bool> {
         let (others, remaining) = {
             let membership = self.cluster.read().await.membership.clone();
             let n = membership.len();
@@ -842,7 +833,7 @@ impl RaftCore {
                     // We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
                     pre_vote,
                 };
-                let res: anyhow::Result<_> = async {
+                let res: Result<_> = async {
                     let endpoint =
                         Endpoint::from(endpoint.uri().clone()).timeout(Duration::from_secs(5));
                     let mut conn = RaftClient::connect(endpoint).await?;
@@ -859,7 +850,7 @@ impl RaftCore {
         let ok = quorum_join::quorum_join(remaining, vote_requests).await;
         Ok(ok)
     }
-    async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> anyhow::Result<()> {
+    async fn after_votes(self: &Arc<Self>, aim_term: Term, ok: bool) -> Result<()> {
         if ok {
             log::info!("got enough votes from the cluster. promoted to leader");
 
@@ -887,7 +878,7 @@ impl RaftCore {
         }
         Ok(())
     }
-    async fn try_promote(self: &Arc<Self>, force_vote: bool) -> anyhow::Result<()> {
+    async fn try_promote(self: &Arc<Self>, force_vote: bool) -> Result<()> {
         // Pre-Vote phase.
         let pre_aim_term = {
             let _ballot_guard = self.vote_token.acquire().await;
@@ -941,7 +932,7 @@ impl RaftCore {
 
         Ok(())
     }
-    async fn send_heartbeat(&self, follower_id: Id) -> anyhow::Result<()> {
+    async fn send_heartbeat(&self, follower_id: Id) -> Result<()> {
         let endpoint = Endpoint::from(follower_id.uri().clone()).timeout(Duration::from_secs(5));
         let req = {
             let term = self.load_ballot().await?.cur_term;
@@ -977,7 +968,7 @@ impl RaftCore {
         leader_id: Id,
         leader_term: Term,
         leader_commit: Index,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let ballot_guard = self.vote_token.acquire().await;
         let mut ballot = self.load_ballot().await?;
         if leader_term < ballot.cur_term {
@@ -1095,7 +1086,7 @@ impl Log {
             apply_error_seq: 0.into(),
         }
     }
-    async fn get_last_log_index(&self) -> anyhow::Result<Index> {
+    async fn get_last_log_index(&self) -> Result<Index> {
         self.storage.get_last_index().await
     }
     fn get_snapshot_index(&self) -> Index {
@@ -1106,7 +1097,7 @@ impl Log {
         command: Bytes,
         ack: Option<Ack>,
         term: Term,
-    ) -> anyhow::Result<Index> {
+    ) -> Result<Index> {
         let _token = self.append_token.acquire().await;
 
         let cur_last_log_index = self.storage.get_last_index().await?;
@@ -1138,7 +1129,7 @@ impl Log {
         entry: Entry,
         sender_id: Id,
         core: Arc<RaftCore>,
-    ) -> anyhow::Result<TryInsertResult> {
+    ) -> Result<TryInsertResult> {
         let _token = self.append_token.acquire().await;
 
         let Clock {
@@ -1229,22 +1220,18 @@ impl Log {
             Ok(TryInsertResult::Inserted)
         }
     }
-    async fn insert_entry(&self, e: Entry) -> anyhow::Result<()> {
+    async fn insert_entry(&self, e: Entry) -> Result<()> {
         self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
     }
-    async fn insert_snapshot(&self, e: Entry) -> anyhow::Result<()> {
+    async fn insert_snapshot(&self, e: Entry) -> Result<()> {
         let new_snapshot_index = e.this_clock.index;
         self.storage.insert_entry(e.this_clock.index, e).await?;
         self.snapshot_index
             .fetch_max(new_snapshot_index, Ordering::SeqCst);
         Ok(())
     }
-    async fn advance_commit_index(
-        &self,
-        new_agreement: Index,
-        core: Arc<RaftCore>,
-    ) -> anyhow::Result<()> {
+    async fn advance_commit_index(&self, new_agreement: Index, core: Arc<RaftCore>) -> Result<()> {
         let _token = self.commit_token.acquire().await;
 
         let old_agreement = self.commit_index.load(Ordering::SeqCst);
@@ -1297,7 +1284,7 @@ impl Log {
         self.commit_notify.notify_one();
         Ok(())
     }
-    async fn advance_last_applied(&self, raft_core: Arc<RaftCore>) -> anyhow::Result<()> {
+    async fn advance_last_applied(&self, raft_core: Arc<RaftCore>) -> Result<()> {
         let (apply_index, apply_entry, command) = {
             let apply_index = self.last_applied.load(Ordering::SeqCst) + 1;
             let mut e = self.storage.get_entry(apply_index).await?.unwrap();
@@ -1408,7 +1395,7 @@ impl Log {
         &self,
         new_snapshot_index: Index,
         core: Arc<RaftCore>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         assert!(new_snapshot_index <= self.last_applied.load(Ordering::SeqCst));
 
         let _token = self.compaction_token.acquire().await;
@@ -1472,7 +1459,7 @@ impl Log {
             unreachable!()
         }
     }
-    async fn run_gc(&self, core: Arc<RaftCore>) -> anyhow::Result<()> {
+    async fn run_gc(&self, core: Arc<RaftCore>) -> Result<()> {
         let l = self.storage.get_head_index().await?;
         let r = self.get_snapshot_index();
         log::debug!("gc {}..{}", l, r);

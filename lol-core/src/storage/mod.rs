@@ -1,6 +1,6 @@
 use crate::{Clock, Command, Id, Index, Term};
+use anyhow::Result;
 use bytes::Bytes;
-use std::collections::BTreeSet;
 
 /// In-memory implementation backed by BTreeMap.
 pub mod memory;
@@ -43,18 +43,16 @@ pub struct Entry {
 /// Conceptually it is considered as a sequence of log entries and the recent vote.
 #[async_trait::async_trait]
 pub trait RaftStorage: Sync + Send + 'static {
-    async fn insert_entry(&self, i: Index, e: Entry) -> anyhow::Result<()>;
-    async fn delete_entry(&self, i: Index) -> anyhow::Result<()>;
-    async fn get_entry(&self, i: Index) -> anyhow::Result<Option<Entry>>;
-    async fn get_head_index(&self) -> anyhow::Result<Index>;
-    async fn get_last_index(&self) -> anyhow::Result<Index>;
-    async fn save_ballot(&self, v: Ballot) -> anyhow::Result<()>;
-    async fn load_ballot(&self) -> anyhow::Result<Ballot>;
+    async fn insert_entry(&self, i: Index, e: Entry) -> Result<()>;
+    async fn delete_entry(&self, i: Index) -> Result<()>;
+    async fn get_entry(&self, i: Index) -> Result<Option<Entry>>;
+    async fn get_head_index(&self) -> Result<Index>;
+    async fn get_last_index(&self) -> Result<Index>;
+    async fn save_ballot(&self, v: Ballot) -> Result<()>;
+    async fn load_ballot(&self) -> Result<Ballot>;
 }
 
-pub(crate) async fn find_last_snapshot_index<S: RaftStorage>(
-    storage: &S,
-) -> anyhow::Result<Option<Index>> {
+pub(crate) async fn find_last_snapshot_index<S: RaftStorage>(storage: &S) -> Result<Option<Index>> {
     let last = storage.get_last_index().await?;
     for i in (1..=last).rev() {
         let e = storage.get_entry(i).await?.unwrap();
@@ -67,7 +65,7 @@ pub(crate) async fn find_last_snapshot_index<S: RaftStorage>(
 }
 
 #[cfg(test)]
-async fn test_storage<S: RaftStorage>(s: S) -> anyhow::Result<()> {
+async fn test_storage<S: RaftStorage>(s: S) -> Result<()> {
     use crate::Uri;
     use std::collections::HashSet;
 
