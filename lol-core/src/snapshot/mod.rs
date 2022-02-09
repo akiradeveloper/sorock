@@ -18,7 +18,7 @@ pub(crate) type SnapshotStreamOut = std::pin::Pin<
 
 pub(crate) fn into_out_stream(in_stream: SnapshotStream) -> SnapshotStreamOut {
     let out_stream = in_stream.map(|res| {
-        res.map(|x| GetSnapshotRep { chunk: x.to_vec() })
+        res.map(|x| GetSnapshotRep { chunk: x })
             .map_err(|_| tonic::Status::unknown("streaming error"))
     });
     Box::pin(out_stream)
