@@ -6,7 +6,7 @@ The snapshot entity that is made from the stream and sent in stream is called **
 
 The library does't care what it actually is and where it is actually placed but let's call it **snapshot repository**.
 
-![](images/snapshot-tag.png)
+![](images/snapshot-repository.png)
 
 In `RaftApp`'s `process_write`, you can create a new snapshot resource and save it in the snapshot repository.
 The function then return `MakeSnapshot::CopySnapshot` to tell the `RaftCore` that a new snapshot is made.
