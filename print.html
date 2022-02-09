@@ -185,7 +185,7 @@ but this would destroy the interfaces and not beatiful. Then we have to find a n
 <p>In the previous section, we have learned that the snapshot is placed in somewhere outside the log entry and copied to other nodes in streaming.</p>
 <p>The snapshot entity that is made from the stream and sent in stream is called <strong>snapshot resource</strong>.</p>
 <p>The library does't care what it actually is and where it is actually placed but let's call it <strong>snapshot repository</strong>.</p>
-<p><img src="images/snapshot-tag.png" alt="" /></p>
+<p><img src="images/snapshot-repository.png" alt="" /></p>
 <p>In <code>RaftApp</code>'s <code>process_write</code>, you can create a new snapshot resource and save it in the snapshot repository.
 The function then return <code>MakeSnapshot::CopySnapshot</code> to tell the <code>RaftCore</code> that a new snapshot is made.
 If <code>RaftCore</code> is told that a new snapshot is made it tries to commit a snapshot entry corresponding to it.</p>
