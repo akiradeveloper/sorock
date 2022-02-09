@@ -67,11 +67,13 @@ use storage::{Ballot, Entry};
 
 /// Decision to make a new snapshot.
 pub enum MakeSnapshot {
-    /// No snapshot will be made.
+    /// Nothing will happen about snapshot.
     None,
-    /// Copy snapshot will be made.
+    /// Copy snapshot has been made in `RaftApp`.
+    /// Returning this requests `RaftCore` to commit a snapshot entry.
     CopySnapshot,
-    /// Fold snapshot will be made.
+    /// Returning this requests `RaftCore` to make a Fold snapshot
+    /// and then commit a snapshot entry.
     FoldSnapshot,
 }
 
