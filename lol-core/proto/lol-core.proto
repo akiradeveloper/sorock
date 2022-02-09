@@ -22,11 +22,6 @@ message ApplyRep {
     bytes message = 1;
 }
 message CommitRep {}
-message Entry {
-    uint64 term = 1;
-    uint64 index = 2;
-    bytes command = 3;
-}
 message AppendStreamHeader {
     string sender_id = 1;
     uint64 prev_log_term = 2;
