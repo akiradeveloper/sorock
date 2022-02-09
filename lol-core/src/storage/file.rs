@@ -23,13 +23,13 @@ pub struct Storage {
     root_dir: PathBuf,
 }
 impl Storage {
-    pub fn ballot_path(&self) -> PathBuf {
+    fn ballot_path(&self) -> PathBuf {
         self.root_dir.join("ballot")
     }
-    pub fn entry_path(&self, i: Index) -> PathBuf {
+    fn entry_path(&self, i: Index) -> PathBuf {
         self.root_dir.join("entry").join(format!("{i}"))
     }
-    pub async fn entries(&self) -> Result<BTreeSet<Index>> {
+    async fn entries(&self) -> Result<BTreeSet<Index>> {
         let root_dir = self.root_dir.join("entry");
         let mut dir_iter = tokio::fs::read_dir(root_dir).await?;
         let mut out = BTreeSet::new();
