@@ -1,8 +1,8 @@
-# Overview of the architecture
+# RaftCore
 
-This chapter describes the overview of the architecture.
+The rest of this chapter explains the internal of the `RaftService`.
 
-![](images/overview.png)
+![](images/raft-core.png)
 
 `RaftCore` is the heart of the Raft system. It includes internal states and functions that typically produces side effects.
 

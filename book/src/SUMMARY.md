@@ -1,6 +1,7 @@
 # Summary
 
-- [Architecture](overview-architecture.md)
+- [Architecture](architecture.md)
+  - [RaftCore](raft-core.md)
   - [Log and Snapshot](log-snapshot.md)
   - [Snapshot Repository](snapshot-repository.md)
   - [Snapshot Types (Copy and Fold)](snapshot-types.md)
