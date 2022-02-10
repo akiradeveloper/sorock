@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="overview-architecture.html"><strong aria-hidden="true">1.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="log-snapshot.html"><strong aria-hidden="true">1.1.</strong> Log and Snapshot</a></li><li class="chapter-item expanded "><a href="snapshot-repository.html"><strong aria-hidden="true">1.2.</strong> Snapshot Repository</a></li><li class="chapter-item expanded "><a href="snapshot-types.html"><strong aria-hidden="true">1.3.</strong> Snapshot Types (Copy and Fold)</a></li><li class="chapter-item expanded "><a href="log-abstraction.html"><strong aria-hidden="true">1.4.</strong> Log Abstraction</a></li></ol></li><li class="chapter-item expanded "><a href="client-interactions.html"><strong aria-hidden="true">2.</strong> Client Interactions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="query-processing.html"><strong aria-hidden="true">2.1.</strong> Optimized Query Processing</a></li><li class="chapter-item expanded "><a href="gateway.html"><strong aria-hidden="true">2.2.</strong> Gateway</a></li></ol></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">3.</strong> Cluster Management</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="membership-change.html"><strong aria-hidden="true">3.1.</strong> Single-server changes</a></li></ol></li><li class="chapter-item expanded "><a href="election.html"><strong aria-hidden="true">4.</strong> Leader Election</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="failure-detection.html"><strong aria-hidden="true">4.1.</strong> Leader Failure Detection</a></li><li class="chapter-item expanded "><a href="timeout-now.html"><strong aria-hidden="true">4.2.</strong> Leadership Transfer Extension</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">5.</strong> Tools</a></li><li class="chapter-item expanded "><a href="references.html"><strong aria-hidden="true">6.</strong> References</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">1.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="raft-core.html"><strong aria-hidden="true">1.1.</strong> RaftCore</a></li><li class="chapter-item expanded "><a href="log-snapshot.html"><strong aria-hidden="true">1.2.</strong> Log and Snapshot</a></li><li class="chapter-item expanded "><a href="snapshot-repository.html"><strong aria-hidden="true">1.3.</strong> Snapshot Repository</a></li><li class="chapter-item expanded "><a href="snapshot-types.html"><strong aria-hidden="true">1.4.</strong> Snapshot Types (Copy and Fold)</a></li><li class="chapter-item expanded "><a href="log-abstraction.html"><strong aria-hidden="true">1.5.</strong> Log Abstraction</a></li></ol></li><li class="chapter-item expanded "><a href="client-interactions.html"><strong aria-hidden="true">2.</strong> Client Interactions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="query-processing.html"><strong aria-hidden="true">2.1.</strong> Optimized Query Processing</a></li><li class="chapter-item expanded "><a href="gateway.html"><strong aria-hidden="true">2.2.</strong> Gateway</a></li></ol></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">3.</strong> Cluster Management</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="membership-change.html"><strong aria-hidden="true">3.1.</strong> Single-server changes</a></li></ol></li><li class="chapter-item expanded "><a href="election.html"><strong aria-hidden="true">4.</strong> Leader Election</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="failure-detection.html"><strong aria-hidden="true">4.1.</strong> Leader Failure Detection</a></li><li class="chapter-item expanded "><a href="timeout-now.html"><strong aria-hidden="true">4.2.</strong> Leadership Transfer Extension</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">5.</strong> Tools</a></li><li class="chapter-item expanded "><a href="references.html"><strong aria-hidden="true">6.</strong> References</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -132,20 +132,40 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#overview-of-the-architecture" id="overview-of-the-architecture">Overview of the architecture</a></h1>
-<p>This chapter describes the overview of the architecture.</p>
-<p><img src="images/overview.png" alt="" /></p>
-<p><code>RaftCore</code> is the heart of the Raft system. It includes internal states and functions that typically produces side effects.</p>
-<p>Around the <code>RaftCore</code>, there are many companion threads that indefinitely loops and sends messages to <code>RaftCore</code>.</p>
-<p>How much threads are there? As of 0.7, there are 7 threads around the core. This architecure is much like typical operating system that daemon threads are orbiting around the kernel.</p>
-<p>The last element of the system is <code>RaftApp</code>. 
-As its name suggests, it is a user application which runs on the <code>RaftCore</code>. The responsibility of the <code>RaftApp</code> is said to be only two things:</p>
-<ol>
-<li>Apply the messages to the state machine.</li>
-<li>Make a new snapshot.</li>
-</ol>
-<p>By connecting your <code>RaftApp</code> with <code>RaftCore</code>, you can build your own Raft process that interacts with other Raft processes to form a Raft cluster of your own.</p>
-<p>If you are ready to implement your own <code>RaftApp</code>, API doc and the KVS implementation under <code>example/kvs/</code> would help.</p>
+                        <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
+<p>lol fully depends on <a href="https://github.com/hyperium/tonic">Tonic</a> and
+Tonic is a library to build a gRPC server on top of <a href="https://github.com/hyperium/hyper">Hyper</a>.</p>
+<p>To build a gRPC application on top of Tonic,
+user has to implement a <code>tower::Service</code> which is generated from a Proto file
+describing the service.</p>
+<p>lol offers <code>RaftService</code> which is a Raft implementation of the <code>tower::Service</code>.
+With the user application which implements <code>RaftApp</code>,
+<code>RaftService</code> is made.</p>
+<p><img src="images/raft-service.png" alt="" /></p>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>let raft_service = lol_core::make_raft_service(app, ...).await;
+let mut builder = tonic::transport::Server::builder();
+builder
+	.add_service(raft_service)
+	.serve(socket)
+	.await
+<span class="boring">}
+</span></code></pre></pre>
+<p>In Raft, log entries are replicated across the nodes and snapshot is
+copied when it is needed.
+To implement these peer-to-peer communications, lol uses gRPC's streaming API for the best efficiency.
+Another optimization is that it reduces copies of the message payloads with the help of <a href="https://github.com/serde-rs/bytes">serde-bytes</a>
+and prost's <a href="https://docs.rs/prost-build/latest/prost_build/struct.Config.html#method.bytes">bytes</a> configuration.</p>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>service Raft {
+    rpc SendAppendEntry (stream AppendEntryReq) returns (AppendEntryRep);
+    rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 
@@ -154,7 +174,7 @@ As its name suggests, it is a user application which runs on the <code>RaftCore<
                         
 
                         
-                            <a rel="next" href="log-snapshot.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="raft-core.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -168,7 +188,7 @@ As its name suggests, it is a user application which runs on the <code>RaftCore<
                 
 
                 
-                    <a rel="next" href="log-snapshot.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="raft-core.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
