@@ -1,3 +1,8 @@
+# 0.9.1 (2022-2-12)
+
+- Remove unnecessary copy in snapshot stream (#269)
+- Improve doc
+
 # 0.9.0 (2022-2-8)
 
 - Remove the concept of snapshot tag. (#260)
