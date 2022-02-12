@@ -25,8 +25,6 @@ builder
 In Raft, log entries are replicated across the nodes and snapshot is
 copied when it is needed.
 To implement these peer-to-peer communications, lol uses gRPC's streaming API for the best efficiency.
-Another optimization is that it reduces copies of the message payloads with the help of [serde-bytes](https://github.com/serde-rs/bytes)
-and prost's [bytes](https://docs.rs/prost-build/latest/prost_build/struct.Config.html#method.bytes) configuration.
 
 ```rust
 service Raft {
@@ -34,3 +32,5 @@ service Raft {
     rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
 ```
 
+Another cool optimization is that it reduces copies of the message payloads (a.k.a. Zero-copy) with the help of [serde-bytes](https://github.com/serde-rs/bytes)
+and prost's [bytes](https://docs.rs/prost-build/latest/prost_build/struct.Config.html#method.bytes) configuration.
