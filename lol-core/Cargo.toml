@@ -14,7 +14,7 @@ keywords = ["raft"]
 
 [dependencies]
 tokio = { version = "1.10", features = ["macros", "fs"] }
-tokio-util = { version = "0.6", features = ["codec", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "time"] }
 tokio-stream = "0.1"
 tonic = "0.6"
 http-serde = "1"
