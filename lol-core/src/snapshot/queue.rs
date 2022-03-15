@@ -34,13 +34,24 @@ impl SnapshotQueue {
         })
     }
     pub async fn run_once(&self, raft_core: Arc<RaftCore>) {
-        while let Some(Ok(expired)) = self.q.lock().await.next().await {
-            let InsertEntry { e, tx } = expired.into_inner();
-            let snapshot_index = e.this_clock.index;
-            let ok = raft_core.log.insert_snapshot(e).await.is_ok();
-            let _ = tx.send(ok);
-            if ok {
-                log::info!("new snapshot entry is inserted at index {}", snapshot_index);
+        loop {
+            let mut writer = self.q.lock().await;
+            let fut = futures::future::poll_fn(|ctx| writer.poll_expired(ctx));
+            match futures::future::poll_immediate(fut).await {
+                // First `Some` means it is ready.
+                // Second `Some` means there is an entry in the queue.
+                Some(Some(Ok(expired))) => {
+                    let InsertEntry { e, tx } = expired.into_inner();
+                    let snapshot_index = e.this_clock.index;
+                    let ok = raft_core.log.insert_snapshot(e).await.is_ok();
+                    let _ = tx.send(ok);
+                    if ok {
+                        log::info!("new snapshot entry is inserted at index {}", snapshot_index);
+                    }
+                }
+                // If it is pending or queue is empty.
+                // Don't do anything but break.
+                _ => break,
             }
         }
     }
