@@ -40,7 +40,7 @@ impl SnapshotQueue {
             match futures::future::poll_immediate(fut).await {
                 // First `Some` means it is ready.
                 // Second `Some` means there is an entry in the queue.
-                Some(Some(Ok(expired))) => {
+                Some(Some(expired)) => {
                     let InsertEntry { e, tx } = expired.into_inner();
                     let snapshot_index = e.this_clock.index;
                     let ok = raft_core.log.insert_snapshot(e).await.is_ok();
