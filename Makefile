@@ -8,7 +8,7 @@ install:
 	cargo install --path lol-admin
 
 test: install
-	cargo test -- --test-threads=1
+	cargo test
 
 bench: install
 	cargo +nightly bench
