@@ -20,19 +20,25 @@ impl Drop for ThreadDrop {
         }
     }
 }
-#[tokio::test]
-async fn test_thread_drop() {
-    use std::time::Duration;
-    let hdl = tokio::spawn(async {
-        loop {
-            println!("I am alive!!!");
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
-    });
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    let mut td = ThreadDrop::new();
-    td.register_abort_on_drop(hdl);
-    drop(td);
-    println!("Dropped. It should be silent now.");
-    tokio::time::sleep(Duration::from_secs(1)).await;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_thread_drop() {
+        use std::time::Duration;
+        let hdl = tokio::spawn(async {
+            loop {
+                println!("I am alive!!!");
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        });
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let mut td = ThreadDrop::new();
+        td.register_abort_on_drop(hdl);
+        drop(td);
+        println!("Dropped. It should be silent now.");
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 }

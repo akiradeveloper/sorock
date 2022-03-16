@@ -10,14 +10,6 @@ fn extract_entry_index(path: &Path) -> Index {
     let name = name.to_str().unwrap();
     name.parse().unwrap()
 }
-#[test]
-fn test_extract_entry_index() {
-    let path1 = Path::new("/root/entry/10");
-    assert_eq!(extract_entry_index(&path1), 10);
-
-    let path2 = Path::new("/root/entry/10000000000000");
-    assert_eq!(extract_entry_index(&path2), 10000000000000);
-}
 
 pub struct Storage {
     root_dir: PathBuf,
@@ -117,6 +109,15 @@ mod tests {
 
     use super::*;
     use crate::storage;
+
+    #[test]
+    fn test_extract_entry_index() {
+        let path1 = Path::new("/root/entry/10");
+        assert_eq!(extract_entry_index(&path1), 10);
+
+        let path2 = Path::new("/root/entry/10000000000000");
+        assert_eq!(extract_entry_index(&path2), 10000000000000);
+    }
 
     #[tokio::test]
     #[serial]

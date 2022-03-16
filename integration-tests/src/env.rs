@@ -137,27 +137,7 @@ pub fn wait_for_consensus<T: Eq + Clone>(
     }
     ret
 }
-#[test]
-fn test_wait_for_consensus() {
-    let mut nodes = vec![];
-    for i in 0..100 {
-        nodes.push(i);
-    }
 
-    let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |id| Some(id));
-    assert_eq!(r, None);
-    let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |_| Some(10));
-    assert_eq!(r, Some(10));
-    let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |_| {
-        None as Option<u8>
-    });
-    assert_eq!(r, None);
-    let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |id| match id {
-        0 => Some(0),
-        _ => None,
-    });
-    assert_eq!(r, None);
-}
 /// Wait for some value computed by `f` to be `should_be`.
 pub fn eventually<T: Eq>(timeout: Duration, should_be: T, f: impl Fn() -> T) -> bool {
     use std::time::Instant;
@@ -174,5 +154,32 @@ pub fn eventually<T: Eq>(timeout: Duration, should_be: T, f: impl Fn() -> T) -> 
             return false;
         }
         remaining -= elapsed;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wait_for_consensus() {
+        let mut nodes = vec![];
+        for i in 0..100 {
+            nodes.push(i);
+        }
+
+        let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |id| Some(id));
+        assert_eq!(r, None);
+        let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |_| Some(10));
+        assert_eq!(r, Some(10));
+        let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |_| {
+            None as Option<u8>
+        });
+        assert_eq!(r, None);
+        let r = wait_for_consensus(Duration::from_secs(1), nodes.clone(), |id| match id {
+            0 => Some(0),
+            _ => None,
+        });
+        assert_eq!(r, None);
     }
 }
