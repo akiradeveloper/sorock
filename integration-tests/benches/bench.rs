@@ -159,12 +159,24 @@ fn do_bench_commit_huge(n: u8, command: impl Fn(u8) -> NodeCommand, b: &mut test
         assert!(r.is_ok());
     })
 }
-fn command_mem(i: u8) -> NodeCommand {
+fn command_mem(_: u8) -> NodeCommand {
     NodeCommand::new("kvs-server")
+}
+fn command_file(i: u8) -> NodeCommand {
+    let s = format!("--use-persistency={}", i);
+    NodeCommand::new("kvs-server").with_args(vec![
+        s.as_str(),
+        "--persistency-backend=0",
+        "--reset-persistency",
+    ])
 }
 fn command_rocks(i: u8) -> NodeCommand {
     let s = format!("--use-persistency={}", i);
-    NodeCommand::new("kvs-server").with_args(vec![s.as_str(), "--reset-persistency"])
+    NodeCommand::new("kvs-server").with_args(vec![
+        s.as_str(),
+        "--persistency-backend=1",
+        "--reset-persistency",
+    ])
 }
 #[bench]
 fn bench_commit_huge_1_mem(b: &mut test::Bencher) {
@@ -181,6 +193,22 @@ fn bench_commit_huge_16_mem(b: &mut test::Bencher) {
 #[bench]
 fn bench_commit_huge_64_mem(b: &mut test::Bencher) {
     do_bench_commit_huge(64, command_mem, b)
+}
+#[bench]
+fn bench_commit_huge_1_file(b: &mut test::Bencher) {
+    do_bench_commit_huge(1, command_file, b)
+}
+#[bench]
+fn bench_commit_huge_4_file(b: &mut test::Bencher) {
+    do_bench_commit_huge(4, command_file, b)
+}
+#[bench]
+fn bench_commit_huge_16_file(b: &mut test::Bencher) {
+    do_bench_commit_huge(16, command_file, b)
+}
+#[bench]
+fn bench_commit_huge_64_file(b: &mut test::Bencher) {
+    do_bench_commit_huge(64, command_file, b)
 }
 #[bench]
 fn bench_commit_huge_1_rocks(b: &mut test::Bencher) {
