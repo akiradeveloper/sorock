@@ -130,7 +130,7 @@ mod tests {
     #[serial]
     async fn test_rocksdb_storage() -> Result<()> {
         let _ = std::fs::create_dir("/tmp/lol");
-        let path = Path::new("/tmp/lol/disk1.db");
+        let path = Path::new("/tmp/lol/disk.db");
         Storage::destroy(path)?;
         Storage::create(path)?;
 
@@ -145,7 +145,7 @@ mod tests {
     #[serial]
     async fn test_rocksdb_persistency() -> Result<()> {
         let _ = std::fs::create_dir("/tmp/lol");
-        let path = Path::new("/tmp/lol/disk2.db");
+        let path = Path::new("/tmp/lol/disk.db");
         Storage::destroy(path)?;
         Storage::create(path)?;
 

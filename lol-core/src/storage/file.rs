@@ -123,7 +123,7 @@ mod tests {
     #[serial]
     async fn test_file_storage() -> Result<()> {
         let _ = std::fs::create_dir("/tmp/lol");
-        let path = Path::new("/tmp/lol/file1.db");
+        let path = Path::new("/tmp/lol/file.db");
         Storage::destory(&path).unwrap();
         Storage::create(&path).unwrap();
         let s = Storage::open(&path).unwrap();
@@ -138,7 +138,7 @@ mod tests {
     #[serial]
     async fn test_file_storage_persistency() -> Result<()> {
         let _ = std::fs::create_dir("/tmp/lol");
-        let path = Path::new("/tmp/lol/file2.db");
+        let path = Path::new("/tmp/lol/file.db");
         Storage::destory(&path).unwrap();
         Storage::create(&path).unwrap();
 
