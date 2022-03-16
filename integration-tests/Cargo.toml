@@ -17,3 +17,6 @@ bytes = "1"
 kvs = { path = "../examples/kvs" }
 lol-core = { path = "../lol-core", features = ["gateway"] }
 lol-admin = { path = "../lol-admin" }
+
+[dev-dependencies]
+serial_test = "*"

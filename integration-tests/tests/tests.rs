@@ -2,10 +2,12 @@ use integration_tests::cluster::*;
 use integration_tests::env::*;
 use integration_tests::kvs::*;
 
+use serial_test::serial;
 use std::thread;
 use std::time::Duration;
 
 #[test]
+#[serial]
 fn test_one_node_start_and_stop() {
     let env = init_cluster(1);
     for _ in 0..10 {
@@ -14,6 +16,7 @@ fn test_one_node_start_and_stop() {
     }
 }
 #[test]
+#[serial]
 fn test_pause() {
     let env = init_cluster(1);
     let r = Client::to(0, env.clone()).set("a", "1");
@@ -29,6 +32,7 @@ fn test_pause() {
     assert!(r.is_ok());
 }
 #[test]
+#[serial]
 fn test_add_existing_node() {
     let env = init_cluster(1);
     for _ in 0..100 {
@@ -37,6 +41,7 @@ fn test_add_existing_node() {
     ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone())
 }
 #[test]
+#[serial]
 fn test_env_drop() {
     for _ in 0..10 {
         let env = init_cluster(1);
@@ -46,6 +51,7 @@ fn test_env_drop() {
     }
 }
 #[test]
+#[serial]
 fn test_create_three_nodes_cluster() {
     let env = init_cluster(1);
     ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone());
@@ -66,10 +72,12 @@ fn test_create_three_nodes_cluster() {
     );
 }
 #[test]
+#[serial]
 fn test_init_cluster() {
     init_cluster(100);
 }
 #[test]
+#[serial]
 fn test_init_cluster_again() {
     let env = init_cluster(1);
     Admin::to(0, env.clone()).remove_server(0).unwrap();
@@ -77,6 +85,7 @@ fn test_init_cluster_again() {
     ensure_membership(Duration::from_secs(5), vec![0], vec![0], env.clone());
 }
 #[test]
+#[serial]
 fn test_one_node_operations() {
     let env = init_cluster(1);
     let x = Client::to(0, env.clone()).get("a").unwrap();
@@ -86,6 +95,7 @@ fn test_one_node_operations() {
     assert_eq!(x.0, Some("1".to_owned()));
 }
 #[test]
+#[serial]
 fn test_two_nodes_operations() {
     let env = init_cluster(1);
 
@@ -98,6 +108,7 @@ fn test_two_nodes_operations() {
     Client::to(1, env.clone()).set("b", "1").unwrap();
 }
 #[test]
+#[serial]
 fn test_three_nodes_operations() {
     let env = init_cluster(3);
 
@@ -108,6 +119,7 @@ fn test_three_nodes_operations() {
     assert_eq!(x.0, Some("1".to_owned()));
 }
 #[test]
+#[serial]
 fn test_16_nodes_operations() {
     let env = init_cluster(16);
     for i in 1..100 {
@@ -119,6 +131,7 @@ fn test_16_nodes_operations() {
     }
 }
 #[test]
+#[serial]
 fn test_two_down_consensus_failure() {
     let env = init_cluster(3);
 
@@ -130,6 +143,7 @@ fn test_two_down_consensus_failure() {
     assert!(r.is_err());
 }
 #[test]
+#[serial]
 fn test_one_down_consensus_success() {
     let env = init_cluster(3);
 
@@ -143,6 +157,7 @@ fn test_one_down_consensus_success() {
     assert!(r.is_ok());
 }
 #[test]
+#[serial]
 fn test_forwarding_err() {
     let env = init_cluster(3);
 
@@ -154,6 +169,7 @@ fn test_forwarding_err() {
     assert!(r.is_err());
 }
 #[test]
+#[serial]
 fn test_slow_node_catch_up() {
     let env = init_cluster(3);
     let e1 = env.clone();
@@ -171,6 +187,7 @@ fn test_slow_node_catch_up() {
     client.join().unwrap();
 }
 #[test]
+#[serial]
 fn test_add_new_node() {
     let env = init_cluster(2);
     for _ in 1..1000 {
@@ -185,6 +202,7 @@ fn test_add_new_node() {
     assert!(r.is_ok());
 }
 #[test]
+#[serial]
 fn test_replicate_fast_snapshot_to_slow_node() {
     let env = init_cluster(3);
     for _ in 1..500 {
@@ -211,6 +229,7 @@ fn test_replicate_fast_snapshot_to_slow_node() {
     assert!(r.is_ok());
 }
 #[test]
+#[serial]
 fn test_huge_replication() {
     let env = init_cluster(3);
     // 10^5
@@ -240,6 +259,7 @@ fn test_huge_replication() {
     assert_eq!(x.0.unwrap().len(), 100_000_000);
 }
 #[test]
+#[serial]
 fn test_huge_request() {
     let env = init_cluster(1);
     // 10^5
@@ -261,6 +281,7 @@ fn test_huge_request() {
     assert_eq!(x.0.unwrap().len(), 100_000_000);
 }
 #[test]
+#[serial]
 fn test_copy_snapshot() {
     let env = env_new(0, kvs_server(vec!["--copy-snapshot-mode"]));
     Client::to(0, env.clone()).set_rep("k", "1", 1).unwrap();
