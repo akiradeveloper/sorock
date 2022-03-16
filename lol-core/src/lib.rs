@@ -1475,18 +1475,19 @@ impl Log {
             self.ack_chans.write().await.remove(&i);
 
             let entry = self.storage.get_entry(i).await?;
-            let entry = entry.unwrap();
-            match Command::deserialize(&entry.command) {
-                Command::Snapshot { .. } => {
-                    // Delete snapshot entry.
-                    // There should be snapshot resource to this snapshot entry.
-                    core.app.delete_snapshot(i).await?;
+            if let Some(entry) = entry {
+                match Command::deserialize(&entry.command) {
+                    Command::Snapshot { .. } => {
+                        // Delete snapshot entry.
+                        // There should be snapshot resource to this snapshot entry.
+                        core.app.delete_snapshot(i).await?;
+                    }
+                    _ => {}
                 }
-                _ => {}
+                // Delete the entry.
+                // but after everything is successfully deleted.
+                self.storage.delete_entry(i).await?;
             }
-            // Delete the entry.
-            // but after everything is successfully deleted.
-            self.storage.delete_entry(i).await?;
         }
 
         Ok(())
