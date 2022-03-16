@@ -42,6 +42,9 @@ rocksdb = { version = "0.17", optional = true }
 tonic-build = "0.6"
 prost-build = "0.9"
 
+[dev-dependencies]
+serial_test = "*"
+
 [features]
 default = []
 simple = []

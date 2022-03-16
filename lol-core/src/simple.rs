@@ -102,11 +102,18 @@ impl SnapshotRepository for FileRepository {
         Ok(())
     }
 }
-#[test]
-fn test_file_repository() {
-    let path = Path::new("/tmp/lol-test-file-repo");
-    FileRepository::destroy(&path).unwrap();
-    FileRepository::create(&path).unwrap();
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    #[test]
+    #[serial]
+    fn test_file_repository() {
+        let path = Path::new("/tmp/lol-test-file-repo");
+        FileRepository::destroy(&path).unwrap();
+        FileRepository::create(&path).unwrap();
+    }
 }
 
 /// ToRaftApp turns an instance of RaftAppSimple into

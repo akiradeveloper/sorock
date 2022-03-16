@@ -4,11 +4,12 @@ use integration_tests::kvs::*;
 use lol_core::api::ClusterInfoReq;
 use lol_core::gateway as gateway_v2;
 use lol_core::RaftClient;
-use std::collections::HashSet;
+use serial_test::serial;
 use std::time::Duration;
 use tonic::transport::channel::Endpoint;
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_gateway() {
     let env = init_cluster(1);
     let connector = gateway_v2::Connector::new(|id| Endpoint::from(id.clone()));

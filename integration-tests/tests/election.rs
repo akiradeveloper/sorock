@@ -4,7 +4,10 @@ use integration_tests::kvs::*;
 use std::thread;
 use std::time::Duration;
 
+use serial_test::serial;
+
 #[test]
+#[serial]
 fn test_reelection_large_cluster() {
     let n = 8;
     let env = init_cluster(n);
@@ -19,6 +22,7 @@ fn test_reelection_large_cluster() {
     )
 }
 #[test]
+#[serial]
 fn test_reelection_after_leader_crash() {
     let env = init_cluster(3);
 
@@ -34,6 +38,7 @@ fn test_reelection_after_leader_crash() {
     );
 }
 #[test]
+#[serial]
 fn test_two_nodes_up_after_down() {
     let env = init_cluster(3);
 
@@ -49,6 +54,7 @@ fn test_two_nodes_up_after_down() {
     assert_eq!(v, Some("1".to_owned()));
 }
 #[test]
+#[serial]
 fn test_reelection_after_leader_stepdown() {
     let env = init_cluster(3);
 
@@ -65,6 +71,7 @@ fn test_reelection_after_leader_stepdown() {
     );
 }
 #[test]
+#[serial]
 fn test_timeout_now() {
     let env = init_cluster(3);
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();
@@ -76,6 +83,7 @@ fn test_timeout_now() {
     assert_eq!(cluster_info.leader_id, Some(env.get_node_id(2)));
 }
 #[test]
+#[serial]
 fn test_yield_leadership() {
     let env = init_cluster(3);
     let cluster_info = Admin::to(0, env.clone()).cluster_info().unwrap();

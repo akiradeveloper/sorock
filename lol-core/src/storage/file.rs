@@ -111,33 +111,43 @@ impl super::RaftStorage for Storage {
     }
 }
 
-#[tokio::test]
-async fn test_file_storage() -> Result<()> {
-    let _ = std::fs::create_dir("/tmp/lol");
-    let path = Path::new("/tmp/lol/file1.db");
-    Storage::destory(&path).unwrap();
-    Storage::create(&path).unwrap();
-    let s = Storage::open(&path).unwrap();
+#[cfg(test)]
+mod tests {
+    use serial_test::serial;
 
-    super::test_storage(s).await?;
+    use super::*;
+    use crate::storage;
 
-    Storage::destory(&path).unwrap();
-    Ok(())
-}
+    #[tokio::test]
+    #[serial]
+    async fn test_file_storage() -> Result<()> {
+        let _ = std::fs::create_dir("/tmp/lol");
+        let path = Path::new("/tmp/lol/file1.db");
+        Storage::destory(&path).unwrap();
+        Storage::create(&path).unwrap();
+        let s = Storage::open(&path).unwrap();
 
-#[tokio::test]
-async fn test_file_storage_persistency() -> Result<()> {
-    let _ = std::fs::create_dir("/tmp/lol");
-    let path = Path::new("/tmp/lol/file2.db");
-    Storage::destory(&path).unwrap();
-    Storage::create(&path).unwrap();
+        storage::test_storage(s).await?;
 
-    let s = Storage::open(&path).unwrap();
-    super::persistency::test_pre_close(s).await?;
+        Storage::destory(&path).unwrap();
+        Ok(())
+    }
 
-    let s = Storage::open(&path).unwrap();
-    super::persistency::test_post_close(s).await?;
+    #[tokio::test]
+    #[serial]
+    async fn test_file_storage_persistency() -> Result<()> {
+        let _ = std::fs::create_dir("/tmp/lol");
+        let path = Path::new("/tmp/lol/file2.db");
+        Storage::destory(&path).unwrap();
+        Storage::create(&path).unwrap();
 
-    Storage::destory(&path).unwrap();
-    Ok(())
+        let s = Storage::open(&path).unwrap();
+        storage::persistency::test_pre_close(s).await?;
+
+        let s = Storage::open(&path).unwrap();
+        storage::persistency::test_post_close(s).await?;
+
+        Storage::destory(&path).unwrap();
+        Ok(())
+    }
 }

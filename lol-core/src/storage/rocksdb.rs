@@ -120,33 +120,43 @@ impl super::RaftStorage for Storage {
     }
 }
 
-#[tokio::test]
-async fn test_rocksdb_storage() -> Result<()> {
-    let _ = std::fs::create_dir("/tmp/lol");
-    let path = Path::new("/tmp/lol/disk1.db");
-    Storage::destroy(path)?;
-    Storage::create(path)?;
+#[cfg(test)]
+mod tests {
+    use serial_test::serial;
 
-    let s = Storage::open(path)?;
-    super::test_storage(s).await?;
+    use super::*;
+    use crate::storage;
+    #[tokio::test]
+    #[serial]
+    async fn test_rocksdb_storage() -> Result<()> {
+        let _ = std::fs::create_dir("/tmp/lol");
+        let path = Path::new("/tmp/lol/disk1.db");
+        Storage::destroy(path)?;
+        Storage::create(path)?;
 
-    Storage::destroy(path)?;
-    Ok(())
-}
+        let s = Storage::open(path)?;
+        storage::test_storage(s).await?;
 
-#[tokio::test]
-async fn test_rocksdb_persistency() -> Result<()> {
-    let _ = std::fs::create_dir("/tmp/lol");
-    let path = Path::new("/tmp/lol/disk2.db");
-    Storage::destroy(path)?;
-    Storage::create(path)?;
+        Storage::destroy(path)?;
+        Ok(())
+    }
 
-    let s = Storage::open(path)?;
-    super::persistency::test_pre_close(s).await?;
+    #[tokio::test]
+    #[serial]
+    async fn test_rocksdb_persistency() -> Result<()> {
+        let _ = std::fs::create_dir("/tmp/lol");
+        let path = Path::new("/tmp/lol/disk2.db");
+        Storage::destroy(path)?;
+        Storage::create(path)?;
 
-    let s = Storage::open(path)?;
-    super::persistency::test_post_close(s).await?;
+        let s = Storage::open(path)?;
+        storage::persistency::test_pre_close(s).await?;
 
-    Storage::destroy(path)?;
-    Ok(())
+        let s = Storage::open(path)?;
+        storage::persistency::test_post_close(s).await?;
+
+        Storage::destroy(path)?;
+
+        Ok(())
+    }
 }

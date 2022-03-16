@@ -1,10 +1,12 @@
 use integration_tests::cluster::*;
 use integration_tests::kvs::*;
 
+use serial_test::serial;
 use std::thread;
 use std::time::Duration;
 
 #[test]
+#[serial]
 fn test_one_node_start_file() {
     let env = env_new(
         0,
@@ -18,6 +20,7 @@ fn test_one_node_start_file() {
 }
 
 #[test]
+#[serial]
 fn test_one_node_start_rocksdb() {
     let env = env_new(
         0,
@@ -32,6 +35,7 @@ fn test_one_node_start_rocksdb() {
 }
 
 #[test]
+#[serial]
 fn test_persistency_membership() {
     let env = env_new(
         0,
@@ -77,6 +81,7 @@ fn test_persistency_membership() {
 }
 
 #[test]
+#[serial]
 fn test_persistency_reboot() {
     let env = env_new(
         0,
