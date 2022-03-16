@@ -57,9 +57,15 @@ impl super::RaftStorage for Storage {
     }
 }
 
-#[tokio::test]
-async fn test_mem_storage() -> Result<()> {
-    let s = Storage::new();
-    super::test_storage(s).await?;
-    Ok(())
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage;
+
+    #[tokio::test]
+    async fn test_mem_storage() -> Result<()> {
+        let s = Storage::new();
+        storage::test_storage(s).await?;
+        Ok(())
+    }
 }

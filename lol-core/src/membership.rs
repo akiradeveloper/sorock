@@ -105,12 +105,18 @@ fn diff_set<T: Clone + Eq + std::hash::Hash>(
     let to_remove = cur - &intersection;
     (to_add, to_remove)
 }
-#[test]
-fn test_diff_set() {
-    use std::iter::FromIterator;
-    let cur = HashSet::from_iter(vec![1, 2, 3, 4]);
-    let goal = HashSet::from_iter(vec![3, 4, 5, 6]);
-    let (to_add, to_remove) = diff_set(&cur, &goal);
-    assert_eq!(to_add, HashSet::from_iter(vec![5, 6]));
-    assert_eq!(to_remove, HashSet::from_iter(vec![1, 2]));
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diff_set() {
+        use std::iter::FromIterator;
+        let cur = HashSet::from_iter(vec![1, 2, 3, 4]);
+        let goal = HashSet::from_iter(vec![3, 4, 5, 6]);
+        let (to_add, to_remove) = diff_set(&cur, &goal);
+        assert_eq!(to_add, HashSet::from_iter(vec![5, 6]));
+        assert_eq!(to_remove, HashSet::from_iter(vec![1, 2]));
+    }
 }

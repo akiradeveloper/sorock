@@ -161,35 +161,41 @@ impl From<Uri> for Id {
         Id(x)
     }
 }
-#[test]
-fn test_uri() {
-    let a = "https://192.168.1.1:8000";
-    let aa: Uri = a.parse().unwrap();
-    let b = "https://192.168.1.1:8000/";
-    let bb: Uri = b.parse().unwrap();
-    // the equality is made by the canonical form.
-    assert_eq!(aa, bb);
-    // the string repr is made by the canonical form.
-    assert_eq!(aa.to_string(), b);
-    assert_ne!(a, b);
-}
 
-#[test]
-fn test_id() {
-    let a = "https://192.168.100.200:8080";
-    let b: Id = a.parse().unwrap();
-    let c = a.to_string();
-    assert_eq!(a, c);
-    let d = c.parse().unwrap();
-    assert_eq!(b, d);
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_id_serde() {
-    let a: Id = "http://192.168.1.1:8080".parse().unwrap();
-    let b = bincode::serialize(&a).unwrap();
-    let c = bincode::deserialize(&b).unwrap();
-    assert_eq!(a, c);
+    #[test]
+    fn test_uri() {
+        let a = "https://192.168.1.1:8000";
+        let aa: Uri = a.parse().unwrap();
+        let b = "https://192.168.1.1:8000/";
+        let bb: Uri = b.parse().unwrap();
+        // the equality is made by the canonical form.
+        assert_eq!(aa, bb);
+        // the string repr is made by the canonical form.
+        assert_eq!(aa.to_string(), b);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_id() {
+        let a = "https://192.168.100.200:8080";
+        let b: Id = a.parse().unwrap();
+        let c = a.to_string();
+        assert_eq!(a, c);
+        let d = c.parse().unwrap();
+        assert_eq!(b, d);
+    }
+
+    #[test]
+    fn test_id_serde() {
+        let a: Id = "http://192.168.1.1:8080".parse().unwrap();
+        let b = bincode::serialize(&a).unwrap();
+        let c = bincode::deserialize(&b).unwrap();
+        assert_eq!(a, c);
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
