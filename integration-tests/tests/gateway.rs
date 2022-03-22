@@ -2,7 +2,7 @@ use integration_tests::cluster::*;
 use integration_tests::kvs::*;
 
 use lol_core::api::ClusterInfoReq;
-use lol_core::gateway as gateway_v2;
+use lol_core::gateway;
 use lol_core::RaftClient;
 use serial_test::serial;
 use std::time::Duration;
@@ -12,7 +12,7 @@ use tonic::transport::channel::Endpoint;
 #[serial]
 async fn test_gateway() {
     let env = init_cluster(1);
-    let connector = gateway_v2::Connector::new(|id| Endpoint::from(id.clone()));
+    let connector = gateway::Connector::new(|id| Endpoint::from(id.clone()));
     let gateway = connector.connect(env.get_node_id(0).parse().unwrap());
     env.start(1, kvs_server(vec![]));
     env.start(2, kvs_server(vec![]));
@@ -27,8 +27,8 @@ async fn test_gateway() {
     let res = cli2.request_cluster_info(ClusterInfoReq {}).await;
     assert!(res.is_ok());
 
-    // ND0をとめた時、リーダーがND1 or ND2に移る。
-    // Gatewayはこれに追従出来る。
+    // When we stop ND0, leadership is transferred to ND1 or ND2.
+    // With the gateway, succeeding requests direct to the new leader.
     env.stop(0);
     tokio::time::sleep(Duration::from_secs(2)).await;
     let res = cli1.request_cluster_info(ClusterInfoReq {}).await;
