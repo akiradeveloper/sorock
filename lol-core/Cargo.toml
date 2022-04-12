@@ -36,7 +36,7 @@ derive_builder = "0.10"
 tower = { version = "0.4.8", optional = true }
 http = { version = "0.2", optional = true }
 
-rocksdb = { version = "0.17", optional = true }
+rocksdb = { version = "0.18", optional = true }
 
 [build-dependencies]
 tonic-build = "0.7"
