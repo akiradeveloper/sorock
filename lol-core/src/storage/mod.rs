@@ -23,7 +23,8 @@ pub struct Ballot {
     pub(crate) voted_for: Option<Id>,
 }
 impl Ballot {
-    fn new() -> Self {
+    /// Create a new instance of a [`Ballot`].
+    pub fn new() -> Self {
         Self {
             cur_term: 0,
             voted_for: None,
