@@ -31,6 +31,7 @@ mod core_message;
 /// Gateway to interact with the cluster.
 pub mod gateway;
 mod membership;
+mod proto;
 mod query_queue;
 mod quorum_join;
 mod server;
@@ -49,7 +50,7 @@ use storage::RaftStorage;
 use tonic::transport::Endpoint;
 
 mod proto_compiled {
-    tonic::include_proto!("lol_core");
+    pub use crate::proto::lol_core::*;
 }
 
 /// Available message types for interaction with the cluster.
