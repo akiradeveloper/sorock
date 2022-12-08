@@ -1,4 +1,4 @@
-FROM 'rust:1.58.0'
+FROM 'rust:1.65.0'
 
 WORKDIR '/work'
 
@@ -7,6 +7,13 @@ RUN apt-get update && apt-get install -y \
 	build-essential \
 	iputils-ping net-tools sudo less \
 	cmake
+
+# Tonic 0.8 requires protoc to be installed.
+# https://github.com/hyperium/tonic/issues/1049
+RUN mkdir /protoc
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protoc-21.4-linux-$(uname -m).zip -P /protoc -O a.zip
+RUN unzip a.zip -d /protoc
+ENV PATH $PATH:/protoc/bin
 
 ARG USER
 ARG UID
