@@ -1,7 +1,14 @@
+# 0.9.2 (2022-12-8)
+
+- Fix: Locking in snapshot queue. (#280)
+- Fix: Avoid panic in GC. (#285)
+- Publish `Ballot::new` for storage implementors. (#298)
+- Dependency update: Tonic 0.8, RocksDB 0.19, etc.
+
 # 0.9.1 (2022-2-12)
 
-- Remove unnecessary copy in snapshot stream (#269)
-- Improve doc
+- Remove unnecessary copy in snapshot stream. (#269)
+- Improve doc.
 
 # 0.9.0 (2022-2-8)
 
