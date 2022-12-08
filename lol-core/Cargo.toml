@@ -43,7 +43,7 @@ tonic-build = "0.8"
 prost-build = "0.11"
 
 [dev-dependencies]
-serial_test = "*"
+serial_test = "0.9"
 
 [features]
 default = []
