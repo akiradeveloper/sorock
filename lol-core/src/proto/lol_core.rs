@@ -171,8 +171,8 @@ pub struct StatusRep {
 /// Generated client implementations.
 pub mod raft_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::http::Uri;
     use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
     pub struct RaftClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -203,7 +203,10 @@ pub mod raft_client {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> RaftClient<InterceptedService<T, F>>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> RaftClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -213,8 +216,9 @@ pub mod raft_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
-                Into<StdError> + Send + Sync,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+            >>::Error: Into<StdError> + Send + Sync,
         {
             RaftClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -237,28 +241,38 @@ pub mod raft_client {
             &mut self,
             request: impl tonic::IntoRequest<super::RequestVoteReq>,
         ) -> Result<tonic::Response<super::RequestVoteRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/RequestVote");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/RequestVote",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn send_append_entry(
             &mut self,
             request: impl tonic::IntoStreamingRequest<Message = super::AppendEntryReq>,
         ) -> Result<tonic::Response<super::AppendEntryRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/SendAppendEntry");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/SendAppendEntry",
+            );
             self.inner
                 .client_streaming(request.into_streaming_request(), path, codec)
                 .await
@@ -266,100 +280,133 @@ pub mod raft_client {
         pub async fn get_snapshot(
             &mut self,
             request: impl tonic::IntoRequest<super::GetSnapshotReq>,
-        ) -> Result<tonic::Response<tonic::codec::Streaming<super::GetSnapshotRep>>, tonic::Status>
-        {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/GetSnapshot");
+        ) -> Result<
+            tonic::Response<tonic::codec::Streaming<super::GetSnapshotRep>>,
+            tonic::Status,
+        > {
             self.inner
-                .server_streaming(request.into_request(), path, codec)
+                .ready()
                 .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/GetSnapshot",
+            );
+            self.inner.server_streaming(request.into_request(), path, codec).await
         }
         pub async fn request_apply(
             &mut self,
             request: impl tonic::IntoRequest<super::ApplyReq>,
         ) -> Result<tonic::Response<super::ApplyRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/RequestApply");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/RequestApply",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn request_commit(
             &mut self,
             request: impl tonic::IntoRequest<super::CommitReq>,
         ) -> Result<tonic::Response<super::CommitRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/RequestCommit");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/RequestCommit",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn low_level_request_apply(
             &mut self,
             request: impl tonic::IntoRequest<super::LowLevelApplyReq>,
         ) -> Result<tonic::Response<super::ApplyRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/LowLevelRequestApply");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/LowLevelRequestApply",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn low_level_request_commit(
             &mut self,
             request: impl tonic::IntoRequest<super::LowLevelCommitReq>,
         ) -> Result<tonic::Response<super::CommitRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/LowLevelRequestCommit");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/LowLevelRequestCommit",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn send_heartbeat(
             &mut self,
             request: impl tonic::IntoRequest<super::HeartbeatReq>,
         ) -> Result<tonic::Response<super::HeartbeatRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/SendHeartbeat");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/SendHeartbeat",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn timeout_now(
             &mut self,
             request: impl tonic::IntoRequest<super::TimeoutNowReq>,
         ) -> Result<tonic::Response<super::TimeoutNowRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/TimeoutNow");
             self.inner.unary(request.into_request(), path, codec).await
@@ -368,12 +415,15 @@ pub mod raft_client {
             &mut self,
             request: impl tonic::IntoRequest<super::AddServerReq>,
         ) -> Result<tonic::Response<super::AddServerRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/AddServer");
             self.inner.unary(request.into_request(), path, codec).await
@@ -382,26 +432,34 @@ pub mod raft_client {
             &mut self,
             request: impl tonic::IntoRequest<super::RemoveServerReq>,
         ) -> Result<tonic::Response<super::RemoveServerRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/RemoveServer");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/RemoveServer",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn tune_config(
             &mut self,
             request: impl tonic::IntoRequest<super::TuneConfigReq>,
         ) -> Result<tonic::Response<super::TuneConfigRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/TuneConfig");
             self.inner.unary(request.into_request(), path, codec).await
@@ -410,12 +468,15 @@ pub mod raft_client {
             &mut self,
             request: impl tonic::IntoRequest<super::GetConfigReq>,
         ) -> Result<tonic::Response<super::GetConfigRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/GetConfig");
             self.inner.unary(request.into_request(), path, codec).await
@@ -424,26 +485,34 @@ pub mod raft_client {
             &mut self,
             request: impl tonic::IntoRequest<super::ClusterInfoReq>,
         ) -> Result<tonic::Response<super::ClusterInfoRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/RequestClusterInfo");
+            let path = http::uri::PathAndQuery::from_static(
+                "/lol_core.Raft/RequestClusterInfo",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
         pub async fn status(
             &mut self,
             request: impl tonic::IntoRequest<super::StatusReq>,
         ) -> Result<tonic::Response<super::StatusRep>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/lol_core.Raft/Status");
             self.inner.unary(request.into_request(), path, codec).await
@@ -466,7 +535,9 @@ pub mod raft_server {
             request: tonic::Request<tonic::Streaming<super::AppendEntryReq>>,
         ) -> Result<tonic::Response<super::AppendEntryRep>, tonic::Status>;
         /// Server streaming response type for the GetSnapshot method.
-        type GetSnapshotStream: futures_core::Stream<Item = Result<super::GetSnapshotRep, tonic::Status>>
+        type GetSnapshotStream: futures_core::Stream<
+                Item = Result<super::GetSnapshotRep, tonic::Status>,
+            >
             + Send
             + 'static;
         async fn get_snapshot(
@@ -541,7 +612,10 @@ pub mod raft_server {
                 send_compression_encodings: Default::default(),
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -569,7 +643,10 @@ pub mod raft_server {
         type Response = http::Response<tonic::body::BoxBody>;
         type Error = std::convert::Infallible;
         type Future = BoxFuture<Self::Response, Self::Error>;
-        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -578,15 +655,21 @@ pub mod raft_server {
                 "/lol_core.Raft/RequestVote" => {
                     #[allow(non_camel_case_types)]
                     struct RequestVoteSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::RequestVoteReq> for RequestVoteSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::RequestVoteReq>
+                    for RequestVoteSvc<T> {
                         type Response = super::RequestVoteRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::RequestVoteReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).request_vote(request).await };
+                            let fut = async move {
+                                (*inner).request_vote(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -597,10 +680,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = RequestVoteSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -609,17 +693,25 @@ pub mod raft_server {
                 "/lol_core.Raft/SendAppendEntry" => {
                     #[allow(non_camel_case_types)]
                     struct SendAppendEntrySvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::ClientStreamingService<super::AppendEntryReq>
-                        for SendAppendEntrySvc<T>
-                    {
+                    impl<
+                        T: Raft,
+                    > tonic::server::ClientStreamingService<super::AppendEntryReq>
+                    for SendAppendEntrySvc<T> {
                         type Response = super::AppendEntryRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<tonic::Streaming<super::AppendEntryReq>>,
+                            request: tonic::Request<
+                                tonic::Streaming<super::AppendEntryReq>,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).send_append_entry(request).await };
+                            let fut = async move {
+                                (*inner).send_append_entry(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -630,10 +722,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = SendAppendEntrySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.client_streaming(method, req).await;
                         Ok(res)
                     };
@@ -642,17 +735,24 @@ pub mod raft_server {
                 "/lol_core.Raft/GetSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct GetSnapshotSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::ServerStreamingService<super::GetSnapshotReq> for GetSnapshotSvc<T> {
+                    impl<
+                        T: Raft,
+                    > tonic::server::ServerStreamingService<super::GetSnapshotReq>
+                    for GetSnapshotSvc<T> {
                         type Response = super::GetSnapshotRep;
                         type ResponseStream = T::GetSnapshotStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetSnapshotReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).get_snapshot(request).await };
+                            let fut = async move {
+                                (*inner).get_snapshot(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -663,10 +763,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = GetSnapshotSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -675,15 +776,21 @@ pub mod raft_server {
                 "/lol_core.Raft/RequestApply" => {
                     #[allow(non_camel_case_types)]
                     struct RequestApplySvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::ApplyReq> for RequestApplySvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::ApplyReq>
+                    for RequestApplySvc<T> {
                         type Response = super::ApplyRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ApplyReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).request_apply(request).await };
+                            let fut = async move {
+                                (*inner).request_apply(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -694,10 +801,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = RequestApplySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -706,15 +814,21 @@ pub mod raft_server {
                 "/lol_core.Raft/RequestCommit" => {
                     #[allow(non_camel_case_types)]
                     struct RequestCommitSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::CommitReq> for RequestCommitSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::CommitReq>
+                    for RequestCommitSvc<T> {
                         type Response = super::CommitRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::CommitReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).request_commit(request).await };
+                            let fut = async move {
+                                (*inner).request_commit(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -725,10 +839,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = RequestCommitSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -737,16 +852,21 @@ pub mod raft_server {
                 "/lol_core.Raft/LowLevelRequestApply" => {
                     #[allow(non_camel_case_types)]
                     struct LowLevelRequestApplySvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::LowLevelApplyReq> for LowLevelRequestApplySvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::LowLevelApplyReq>
+                    for LowLevelRequestApplySvc<T> {
                         type Response = super::ApplyRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::LowLevelApplyReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).low_level_request_apply(request).await };
+                            let fut = async move {
+                                (*inner).low_level_request_apply(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -757,10 +877,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = LowLevelRequestApplySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -770,17 +891,20 @@ pub mod raft_server {
                     #[allow(non_camel_case_types)]
                     struct LowLevelRequestCommitSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::LowLevelCommitReq>
-                        for LowLevelRequestCommitSvc<T>
-                    {
+                    for LowLevelRequestCommitSvc<T> {
                         type Response = super::CommitRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::LowLevelCommitReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).low_level_request_commit(request).await };
+                            let fut = async move {
+                                (*inner).low_level_request_commit(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -791,10 +915,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = LowLevelRequestCommitSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -803,15 +928,21 @@ pub mod raft_server {
                 "/lol_core.Raft/SendHeartbeat" => {
                     #[allow(non_camel_case_types)]
                     struct SendHeartbeatSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::HeartbeatReq> for SendHeartbeatSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::HeartbeatReq>
+                    for SendHeartbeatSvc<T> {
                         type Response = super::HeartbeatRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::HeartbeatReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).send_heartbeat(request).await };
+                            let fut = async move {
+                                (*inner).send_heartbeat(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -822,10 +953,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = SendHeartbeatSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -834,9 +966,13 @@ pub mod raft_server {
                 "/lol_core.Raft/TimeoutNow" => {
                     #[allow(non_camel_case_types)]
                     struct TimeoutNowSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::TimeoutNowReq> for TimeoutNowSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::TimeoutNowReq>
+                    for TimeoutNowSvc<T> {
                         type Response = super::TimeoutNowRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TimeoutNowReq>,
@@ -853,10 +989,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = TimeoutNowSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -865,9 +1002,13 @@ pub mod raft_server {
                 "/lol_core.Raft/AddServer" => {
                     #[allow(non_camel_case_types)]
                     struct AddServerSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::AddServerReq> for AddServerSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::AddServerReq>
+                    for AddServerSvc<T> {
                         type Response = super::AddServerRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::AddServerReq>,
@@ -884,10 +1025,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = AddServerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -896,15 +1038,21 @@ pub mod raft_server {
                 "/lol_core.Raft/RemoveServer" => {
                     #[allow(non_camel_case_types)]
                     struct RemoveServerSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::RemoveServerReq> for RemoveServerSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::RemoveServerReq>
+                    for RemoveServerSvc<T> {
                         type Response = super::RemoveServerRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::RemoveServerReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).remove_server(request).await };
+                            let fut = async move {
+                                (*inner).remove_server(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -915,10 +1063,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = RemoveServerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -927,9 +1076,13 @@ pub mod raft_server {
                 "/lol_core.Raft/TuneConfig" => {
                     #[allow(non_camel_case_types)]
                     struct TuneConfigSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::TuneConfigReq> for TuneConfigSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::TuneConfigReq>
+                    for TuneConfigSvc<T> {
                         type Response = super::TuneConfigRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TuneConfigReq>,
@@ -946,10 +1099,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = TuneConfigSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -958,9 +1112,13 @@ pub mod raft_server {
                 "/lol_core.Raft/GetConfig" => {
                     #[allow(non_camel_case_types)]
                     struct GetConfigSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::GetConfigReq> for GetConfigSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::GetConfigReq>
+                    for GetConfigSvc<T> {
                         type Response = super::GetConfigRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetConfigReq>,
@@ -977,10 +1135,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = GetConfigSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -989,15 +1148,21 @@ pub mod raft_server {
                 "/lol_core.Raft/RequestClusterInfo" => {
                     #[allow(non_camel_case_types)]
                     struct RequestClusterInfoSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::ClusterInfoReq> for RequestClusterInfoSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::ClusterInfoReq>
+                    for RequestClusterInfoSvc<T> {
                         type Response = super::ClusterInfoRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ClusterInfoReq>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).request_cluster_info(request).await };
+                            let fut = async move {
+                                (*inner).request_cluster_info(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1008,10 +1173,11 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = RequestClusterInfoSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1020,9 +1186,13 @@ pub mod raft_server {
                 "/lol_core.Raft/Status" => {
                     #[allow(non_camel_case_types)]
                     struct StatusSvc<T: Raft>(pub Arc<T>);
-                    impl<T: Raft> tonic::server::UnaryService<super::StatusReq> for StatusSvc<T> {
+                    impl<T: Raft> tonic::server::UnaryService<super::StatusReq>
+                    for StatusSvc<T> {
                         type Response = super::StatusRep;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::StatusReq>,
@@ -1039,23 +1209,28 @@ pub mod raft_server {
                         let inner = inner.0;
                         let method = StatusSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }
