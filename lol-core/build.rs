@@ -4,7 +4,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ".lol_core.AppendStreamEntry.command",
         ".lol_core.GetSnapshotRep.chunk",
     ]);
-    tonic_build::configure().compile_with_config(config, &["proto/lol_core.proto"], &["proto"])?;
+    // Output the generated rs files to `src/proto/`
+    tonic_build::configure()
+        .out_dir("src/proto/")
+        .compile_with_config(config, &["lol_core.proto"], &["proto"])?;
 
     Ok(())
 }
