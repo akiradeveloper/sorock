@@ -1,3 +1,7 @@
+# 0.9.5 (2022-12-8)
+
+- Fix.
+
 # 0.9.4 (2022-12-8)
 
 - Work around for docs.rs issue: Commit auto-generated code. (#307)
