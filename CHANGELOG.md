@@ -1,3 +1,7 @@
+# 0.9.4 (2022-12-8)
+
+- Work around for docs.rs issue: Commit auto-generated code. (#307)
+
 # 0.9.3 (2022-12-8)
 
 - Remove unnecessary flag: experimental_allow_proto3_optional. (#303)
