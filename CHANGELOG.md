@@ -1,3 +1,8 @@
+# 0.9.3 (2022-12-8)
+
+- Remove unnecessary flag: experimental_allow_proto3_optional. (#303)
+- Conform to proto style guide. (#304)
+
 # 0.9.2 (2022-12-8)
 
 - Fix: Locking in snapshot queue. (#280)
