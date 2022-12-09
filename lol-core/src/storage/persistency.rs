@@ -17,9 +17,9 @@ struct BallotB {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SnapshotIndexB(u64);
 
-impl From<Vec<u8>> for Entry {
-    fn from(x: Vec<u8>) -> Self {
-        let x: EntryB = bincode::deserialize(&x).unwrap();
+impl <B: AsRef<[u8]>> From<B> for Entry {
+    fn from(x: B) -> Self {
+        let x: EntryB = bincode::deserialize(x.as_ref()).unwrap();
         Entry {
             prev_clock: Clock {
                 term: x.prev_clock.0,
@@ -44,9 +44,9 @@ impl Into<Vec<u8>> for Entry {
     }
 }
 
-impl From<Vec<u8>> for Ballot {
-    fn from(x: Vec<u8>) -> Self {
-        let x: BallotB = bincode::deserialize(&x).unwrap();
+impl <B: AsRef<[u8]>> From<B> for Ballot {
+    fn from(x: B) -> Self {
+        let x: BallotB = bincode::deserialize(x.as_ref()).unwrap();
         Ballot {
             cur_term: x.term,
             voted_for: x.voted_for,
