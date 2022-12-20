@@ -15,14 +15,6 @@ RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/pro
 RUN unzip a.zip -d /protoc
 ENV PATH $PATH:/protoc/bin
 
-ARG USER
-ARG UID
-ARG GID
-RUN groupadd -g ${GID} ${USER}
-RUN useradd -d /home/${USER} -m -s /bin/bash -u ${UID} -g ${GID} -G root ${USER}
-RUN echo '%wheel ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-USER ${USER}
-
 RUN rustup component add rustfmt
 RUN rustup install nightly
 RUN rustup component add rustfmt --toolchain nightly
