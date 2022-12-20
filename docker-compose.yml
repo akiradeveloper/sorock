@@ -1,6 +1,17 @@
 version: '3'
+
 services:
   dev:
-    image: lol:dev
+    build:
+      context: . 
+      dockerfile: Dockerfile
+    working_dir: /work
     volumes:
-      - .:/work
+      - ./:/work
+      - rust_dev_target:/work/target
+    tty: true
+    environment:
+      CARGO_BUILD_TARGET_DIR: /work/target
+
+volumes:
+  rust_dev_target:

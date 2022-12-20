@@ -1,3 +1,4 @@
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyReq {
     #[prost(bytes = "vec", tag = "1")]
@@ -5,11 +6,13 @@ pub struct ApplyReq {
     #[prost(bool, tag = "2")]
     pub mutation: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitReq {
     #[prost(bytes = "vec", tag = "1")]
     pub message: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LowLevelApplyReq {
     #[prost(bool, tag = "1")]
@@ -19,6 +22,7 @@ pub struct LowLevelApplyReq {
     #[prost(bool, tag = "3")]
     pub mutation: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LowLevelCommitReq {
     #[prost(bool, tag = "1")]
@@ -26,13 +30,16 @@ pub struct LowLevelCommitReq {
     #[prost(bytes = "vec", tag = "2")]
     pub message: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyRep {
     #[prost(bytes = "vec", tag = "1")]
     pub message: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppendStreamHeader {
     #[prost(string, tag = "1")]
@@ -42,6 +49,7 @@ pub struct AppendStreamHeader {
     #[prost(uint64, tag = "3")]
     pub prev_log_index: u64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppendStreamEntry {
     #[prost(uint64, tag = "1")]
@@ -51,6 +59,7 @@ pub struct AppendStreamEntry {
     #[prost(bytes = "bytes", tag = "3")]
     pub command: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppendEntryReq {
     #[prost(oneof = "append_entry_req::Elem", tags = "1, 2")]
@@ -58,6 +67,7 @@ pub struct AppendEntryReq {
 }
 /// Nested message and enum types in `AppendEntryReq`.
 pub mod append_entry_req {
+    #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Elem {
         #[prost(message, tag = "1")]
@@ -66,6 +76,7 @@ pub mod append_entry_req {
         Entry(super::AppendStreamEntry),
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppendEntryRep {
     #[prost(bool, tag = "1")]
@@ -73,16 +84,19 @@ pub struct AppendEntryRep {
     #[prost(uint64, tag = "2")]
     pub last_log_index: u64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSnapshotReq {
     #[prost(uint64, tag = "1")]
     pub index: u64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSnapshotRep {
     #[prost(bytes = "bytes", tag = "1")]
     pub chunk: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RequestVoteReq {
     #[prost(uint64, tag = "1")]
@@ -98,11 +112,13 @@ pub struct RequestVoteReq {
     #[prost(bool, tag = "6")]
     pub pre_vote: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RequestVoteRep {
     #[prost(bool, tag = "1")]
     pub vote_granted: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HeartbeatReq {
     #[prost(uint64, tag = "1")]
@@ -112,42 +128,55 @@ pub struct HeartbeatReq {
     #[prost(uint64, tag = "3")]
     pub leader_commit: u64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HeartbeatRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TimeoutNowReq {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TimeoutNowRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddServerReq {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddServerRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoveServerReq {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoveServerRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TuneConfigReq {
     #[prost(uint64, optional, tag = "1")]
     pub compaction_interval_sec: ::core::option::Option<u64>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TuneConfigRep {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetConfigReq {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetConfigRep {
     #[prost(uint64, tag = "1")]
     pub compaction_interval_sec: u64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClusterInfoReq {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClusterInfoRep {
     #[prost(string, optional, tag = "1")]
@@ -155,8 +184,10 @@ pub struct ClusterInfoRep {
     #[prost(string, repeated, tag = "2")]
     pub membership: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StatusReq {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StatusRep {
     #[prost(uint64, tag = "1")]
