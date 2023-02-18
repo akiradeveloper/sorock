@@ -8,10 +8,10 @@ services:
     working_dir: /work
     volumes:
       - ./:/work
-      - rust_dev_target:/work/target
+      - rust_target:/work/rust_target
     tty: true
     environment:
-      CARGO_BUILD_TARGET_DIR: /work/target
+      CARGO_BUILD_TARGET_DIR: /work/rust_target
 
 volumes:
-  rust_dev_target:
+  rust_target:
