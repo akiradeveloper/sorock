@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package lol2;
+
+message Request {
+  bytes message = 1;
+  bool mutation = 2;
+}
+message Response {
+  bytes message = 1;
+}
+
+message Clock {
+  uint64 term = 1;
+  uint64 index = 2;
+}
+
+message KernRequest {
+  bytes message = 1;
+}
+
+message LogStreamHeader {
+  string sender_id = 1;
+  Clock prev_clock = 2;
+}
+message LogStreamEntry {
+  Clock clock = 1;
+  bytes command = 2;
+}
+message LogStreamChunk {
+  oneof elem {
+    LogStreamHeader header = 1;
+    LogStreamEntry entry = 2;
+  }
+}
+message SendLogStreamResponse {
+  bool success = 1;
+  uint64 log_last_index = 2;
+}
+
+message GetSnapshotRequest {
+  uint64 index = 1;
+}
+message SnapshotChunk {
+  bytes data = 1;
+}
+
+message VoteRequest {
+  uint64 vote_term = 1;
+  string candidate_id = 2;
+  Clock candidate_clock = 3;
+  bool force_vote = 4;
+  bool pre_vote = 5;
+}
+message VoteResponse {
+  bool vote_granted = 1;
+}
+
+message Heartbeat {
+  uint64 leader_term = 1;
+  string leader_id = 2;
+  uint64 leader_commit_index = 3;
+}
+
+message AddServerRequest {
+  string server_id = 1;
+}
+
+message RemoveServerRequest {
+  string server_id = 1;
+}
+
+message ClusterInfo {
+  optional string known_leader_id = 1;
+  repeated string known_members = 2;
+}
+
+service Raft {
+  rpc Process(Request) returns (Response);
+  rpc ProcessKernRequest (KernRequest) returns (google.protobuf.Empty);
+  rpc GetClusterInfo (google.protobuf.Empty) returns (ClusterInfo);
+  rpc RequestVote (VoteRequest) returns (VoteResponse);
+  rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
+  rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
+  rpc SendLogStream (stream LogStreamChunk) returns (SendLogStreamResponse);
+  rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
+  rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
+  rpc TimeoutNow (google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Noop (google.protobuf.Empty) returns (google.protobuf.Empty);
+}
