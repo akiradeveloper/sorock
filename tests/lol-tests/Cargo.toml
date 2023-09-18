@@ -1,0 +1,21 @@
+[package]
+name = "lol-tests"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+tokio-retry = "0.3"
+tonic = "0.10"
+
+env = { path = "../env" } 
+lol2 = { workspace = true }
+testapp = { path = "../testapp" }
+
+[dev-dependencies]
+env_logger = "*"
+serial_test = "2"
+test-log = "0.2.12"
+tokio = { version = "1", features = ["full"] }

@@ -12,4 +12,4 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - name: Compile
-              run: ./dev cargo build --all-features
+              run: ./dev cargo build

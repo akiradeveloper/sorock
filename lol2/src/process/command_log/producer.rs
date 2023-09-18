@@ -1,0 +1,151 @@
+use super::*;
+
+pub enum TryInsertResult {
+    Inserted,
+    Skipped,
+    Rejected,
+}
+
+impl CommandLog {
+    pub async fn append_new_entry(
+        &self,
+        command: Bytes,
+        completion: Option<Completion>,
+        term: Term,
+    ) -> Result<Index> {
+        let cur_last_log_index = self.get_log_last_index().await?;
+        let prev_clock = self
+            .storage
+            .get_entry(cur_last_log_index)
+            .await?
+            .unwrap()
+            .this_clock;
+        let append_index = cur_last_log_index + 1;
+        let this_clock = Clock {
+            term,
+            index: append_index,
+        };
+        let e = Entry {
+            prev_clock,
+            this_clock,
+            command,
+        };
+        self.insert_entry(e).await?;
+        if let Some(completion) = completion {
+            match completion {
+                Completion::User(completion) => {
+                    self.user_completions
+                        .lock()
+                        .unwrap()
+                        .insert(append_index, completion);
+                }
+                Completion::Kern(completion) => {
+                    self.kern_completions
+                        .lock()
+                        .unwrap()
+                        .insert(append_index, completion);
+                }
+            }
+        }
+        Ok(append_index)
+    }
+
+    pub async fn append_noop_barrier(&self, term: Term) -> Result<Index> {
+        let index = self
+            .append_new_entry(Command::serialize(Command::Noop), None, term)
+            .await?;
+        Ok(index)
+    }
+
+    pub async fn try_insert_entry(
+        &self,
+        entry: Entry,
+        sender_id: NodeId,
+        driver: RaftDriver,
+    ) -> Result<TryInsertResult> {
+        // If the entry is snapshot then we should insert this entry without consistency checks.
+        // Old entries before the new snapshot will be garbage collected.
+        if std::matches!(
+            Command::deserialize(&entry.command),
+            Command::Snapshot { .. }
+        ) {
+            let Clock {
+                term: _,
+                index: snapshot_index,
+            } = entry.this_clock;
+            warn!(
+                "log is too old. replicated a snapshot (idx={}) from leader",
+                snapshot_index
+            );
+
+            // Invariant: snapshot entry exists => snapshot exists
+            if let Err(e) = self
+                .app
+                .fetch_snapshot(snapshot_index, sender_id.clone(), driver)
+                .await
+            {
+                error!(
+                    "could not fetch app snapshot (idx={}) from sender {}",
+                    snapshot_index, sender_id,
+                );
+                return Err(e);
+            }
+
+            self.insert_snapshot(entry).await?;
+
+            self.commit_index
+                .store(snapshot_index - 1, Ordering::SeqCst);
+            self.kern_pointer
+                .store(snapshot_index - 1, Ordering::SeqCst);
+            self.user_pointer
+                .store(snapshot_index - 1, Ordering::SeqCst);
+
+            return Ok(TryInsertResult::Inserted);
+        }
+
+        let Clock {
+            term: _,
+            index: prev_index,
+        } = entry.prev_clock;
+        if let Some(prev_clock) = self
+            .storage
+            .get_entry(prev_index)
+            .await?
+            .map(|x| x.this_clock)
+        {
+            if prev_clock != entry.prev_clock {
+                // consistency check failed.
+                Ok(TryInsertResult::Rejected)
+            } else {
+                let Clock {
+                    term: _,
+                    index: this_index,
+                } = entry.this_clock;
+
+                // optimization to skip actual insertion.
+                if let Some(old_clock) = self
+                    .storage
+                    .get_entry(this_index)
+                    .await?
+                    .map(|e| e.this_clock)
+                {
+                    if old_clock == entry.this_clock {
+                        // If there is a entry with the same term and index
+                        // then the entry should be the same so to skip insertion.
+                        return Ok(TryInsertResult::Skipped);
+                    }
+                }
+
+                self.insert_entry(entry).await?;
+
+                // discard [this_index, )
+                self.user_completions.lock().unwrap().split_off(&this_index);
+                self.kern_completions.lock().unwrap().split_off(&this_index);
+
+                Ok(TryInsertResult::Inserted)
+            }
+        } else {
+            Ok(TryInsertResult::Rejected)
+        }
+    }
+}
