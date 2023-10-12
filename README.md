@@ -12,7 +12,10 @@ A Raft implementation in Rust language. To support this project please give it a
 
 ## Features
 
+![multi-raft](https://github.com/akiradeveloper/lol/assets/785824/2293cf2b-436a-45ed-a507-88e299e622bf)
+
 - Implements all basic [Raft](https://raft.github.io/) features: Replication, Leader Election, Log Compaction, Persistency, Dynamic Membership Change, Streaming Snapshot, etc.
+- Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
 - [Phi Accrual Failure Detector](https://github.com/akiradeveloper/phi-detector) is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number in prior to deployment and makes it possible to deploy Raft node in even Geo-distributed environment.
 
@@ -21,4 +24,4 @@ A Raft implementation in Rust language. To support this project please give it a
 - `docker compose build` to build test servers.
 - TERM1: `./log` to start log watcher.
 - TERM2: `./dev` to start the dev container.
-- TERM2: run `cargo test`.
+- TERM2: `cargo test`.
