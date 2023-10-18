@@ -1,37 +1,20 @@
 use super::*;
 
 impl RaftProcess {
-    async fn process_membership_change(&self, command: Bytes, index: Index) -> Result<()> {
-        match Command::deserialize(&command) {
-            Command::Snapshot { membership } => {
-                self.peers
-                    .set_membership(membership, index, Ref(self.voter.clone()))
-                    .await?;
-            }
-            Command::ClusterConfiguration { membership } => {
-                self.peers
-                    .set_membership(membership, index, Ref(self.voter.clone()))
-                    .await?;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    pub async fn queue_new_entry(
-        &self,
-        command: Bytes,
-        completion: Option<Completion>,
-    ) -> Result<Index> {
-        let cur_term = self.voter.allow_queue_entry().await?;
+    pub async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
+        ensure!(self.voter.allow_queue_entry().await?);
 
         let append_index = self
             .command_log
-            .append_new_entry(command.clone(), completion, cur_term)
+            .append_new_entry(command.clone(), None)
             .await?;
 
-        self.process_membership_change(command, append_index)
+        self.command_log
+            .register_completion(append_index, completion);
+
+        self.process_configuration_command(&command, append_index)
             .await?;
+
         Ok(append_index)
     }
 
@@ -51,8 +34,8 @@ impl RaftProcess {
                 .await?
             {
                 command_log::TryInsertResult::Inserted => {
-                    self.process_membership_change(command, insert_index)
-                        .await?;
+                    self.process_configuration_command(&command, insert_index)
+                        .await?
                 }
                 command_log::TryInsertResult::Skipped => {}
                 command_log::TryInsertResult::Rejected => {

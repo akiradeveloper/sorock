@@ -1,29 +1,40 @@
 use super::*;
 
 impl RaftProcess {
+    /// Process configuration change.
+    /// Configuration should be applied as soon as it is inserted into the log because doing so
+    /// guarantees that majority of the servers move to the configuration when the entry is committed.
+    /// Without this property, servers may still be in some old configuration which may cause split-brain
+    /// by electing two leaders in a single term which is not allowed in Raft.
+    pub async fn process_configuration_command(&self, command: &[u8], index: Index) -> Result<()> {
+        let config0 = match Command::deserialize(command) {
+            Command::Snapshot { membership } => Some(membership),
+            Command::ClusterConfiguration { membership } => Some(membership),
+            _ => None,
+        };
+        if let Some(config) = config0 {
+            self.peers
+                .set_membership(config, index, Ref(self.voter.clone()))
+                .await?;
+        }
+        Ok(())
+    }
+
     async fn init_cluster(&self) -> Result<()> {
+        let mut membership = HashSet::new();
+        membership.insert(self.driver.selfid());
+
+        let init_command = Command::serialize(Command::Snapshot {
+            membership: membership.clone(),
+        });
         let snapshot = Entry {
             prev_clock: Clock { term: 0, index: 0 },
             this_clock: Clock { term: 0, index: 1 },
-            command: Command::serialize(Command::Snapshot {
-                membership: HashSet::new(),
-            }),
+            command: init_command.clone(),
         };
-        self.command_log.insert_snapshot(snapshot).await?;
 
-        let mut membership = HashSet::new();
-        membership.insert(self.driver.selfid());
-        let add_server = Entry {
-            prev_clock: Clock { term: 0, index: 1 },
-            this_clock: Clock { term: 0, index: 2 },
-            command: Command::serialize(Command::ClusterConfiguration {
-                membership: membership.clone(),
-            }),
-        };
-        self.command_log.insert_entry(add_server).await?;
-        self.peers
-            .set_membership(membership, 2, Ref(self.voter.clone()))
-            .await?;
+        self.command_log.insert_snapshot(snapshot).await?;
+        self.process_configuration_command(&init_command, 1).await?;
 
         // After this function is called
         // this server immediately becomes the leader by self-vote and advance commit index.
@@ -59,15 +70,5 @@ impl RaftProcess {
         let conn = self.driver.connect(self.driver.selfid());
         conn.process_kern_request(req).await?;
         Ok(())
-    }
-
-    pub(crate) async fn request_cluster_info(&self) -> Result<response::ClusterInfo> {
-        let ballot = self.voter.read_ballot().await?;
-        let membership = self.peers.read_membership();
-        let info = response::ClusterInfo {
-            known_leader: ballot.voted_for,
-            known_members: membership.clone(),
-        };
-        Ok(info)
     }
 }

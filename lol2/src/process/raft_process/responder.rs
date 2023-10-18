@@ -36,11 +36,10 @@ impl RaftProcess {
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
                 }
-                kern_message::KernRequest::Noop => Command::Noop,
             };
             self.queue_new_entry(
                 Command::serialize(command),
-                Some(Completion::Kern(kern_completion)),
+                Completion::Kern(kern_completion),
             )
             .await?;
             rx.await?;
@@ -51,7 +50,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub async fn process_user_request(&self, req: request::UserRequest) -> Result<Bytes> {
+    pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
         let ballot = self.voter.read_ballot().await.unwrap();
 
         ensure!(ballot.voted_for.is_some());
@@ -62,27 +61,56 @@ impl RaftProcess {
             voter::ElectionState::Leader
         ) {
             let (user_completion, rx) = completion::prepare_user_completion();
-            if req.mutation {
-                let command = Command::Req {
-                    message: &req.message,
-                };
-                self.queue_new_entry(
-                    Command::serialize(command),
-                    Some(Completion::User(user_completion)),
-                )
-                .await?;
-            } else {
-                let commit_index = self.command_log.commit_index.load(Ordering::SeqCst);
-                let query = query_queue::Query {
-                    message: req.message,
-                    user_completion,
-                };
-                self.query_queue.register(commit_index, query).await;
-            }
+
+            let read_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
+            let query = query_queue::Query {
+                message: req.message,
+                user_completion,
+            };
+            self.query_queue.register(read_index, query).await;
+
             rx.await?
         } else {
+            // This check is to avoid looping.
+            ensure!(self.driver.selfid() != leader_id);
             let conn = self.driver.connect(leader_id);
-            conn.process_user_request(req).await?
+            conn.process_user_read_request(req).await?
+        };
+        Ok(resp)
+    }
+
+    pub async fn process_user_write_request(
+        &self,
+        req: request::UserWriteRequest,
+    ) -> Result<Bytes> {
+        let ballot = self.voter.read_ballot().await.unwrap();
+
+        ensure!(ballot.voted_for.is_some());
+        let leader_id = ballot.voted_for.unwrap();
+
+        let resp = if std::matches!(
+            self.voter.read_election_state(),
+            voter::ElectionState::Leader
+        ) {
+            let (user_completion, rx) = completion::prepare_user_completion();
+
+            let command = Command::ExecuteRequest {
+                message: &req.message,
+                request_id: req.request_id,
+            };
+            self.queue_new_entry(
+                Command::serialize(command),
+                Completion::User(user_completion),
+            )
+            .await?;
+
+            rx.await?
+        } else {
+            // This check is to avoid looping.
+            ensure!(self.driver.selfid() != leader_id);
+
+            let conn = self.driver.connect(leader_id);
+            conn.process_user_write_request(req).await?
         };
         Ok(resp)
     }

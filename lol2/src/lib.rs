@@ -16,7 +16,7 @@ use process::RaftProcess;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::transport::Uri;
+use tonic::transport::{Endpoint, Uri};
 
 mod raft {
     tonic::include_proto!("lol2");
@@ -36,7 +36,11 @@ mod raft {
 )]
 pub struct NodeId(#[serde(with = "http_serde::uri")] Uri);
 impl NodeId {
-    pub fn new(uri: Uri) -> NodeId {
-        NodeId(uri)
+    pub fn new(uri: Uri) -> Self {
+        Self(uri)
+    }
+    pub fn from_str(url: &str) -> Result<Self> {
+        let url = url.parse()?;
+        Ok(Self(url))
     }
 }

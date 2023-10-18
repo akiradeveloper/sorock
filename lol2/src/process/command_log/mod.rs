@@ -3,26 +3,31 @@ use super::*;
 mod consumer;
 mod membership;
 mod producer;
-pub use producer::TryInsertResult;
+mod response_cache;
+use response_cache::ResponseCache;
 
+pub use producer::TryInsertResult;
 pub struct Inner {
-    pub commit_index: AtomicU64,
+    append_lock: tokio::sync::Mutex<()>,
+    storage: Box<dyn RaftLogStore>,
+
+    pub commit_pointer: AtomicU64,
     kern_pointer: AtomicU64,
     pub user_pointer: AtomicU64,
-    pub snapshot_index: AtomicU64,
+    pub snapshot_pointer: AtomicU64,
 
     /// Lock entries in range [snapshot_index, user_application_index]
-    pub snapshot_lock: tokio::sync::RwLock<()>,
+    snapshot_lock: tokio::sync::RwLock<()>,
 
     /// The index of the last membership.
     /// Unless `commit_index` >= membership_index`,
     /// new membership changes are not allowed to be queued.
-    pub membership_index: AtomicU64,
+    pub membership_pointer: AtomicU64,
 
-    storage: Box<dyn RaftLogStore>,
     app: App,
-    user_completions: std::sync::Mutex<BTreeMap<Index, completion::UserCompletion>>,
-    kern_completions: std::sync::Mutex<BTreeMap<Index, completion::KernCompletion>>,
+    response_cache: ResponseCache,
+    user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
+    kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -30,16 +35,18 @@ pub struct CommandLog(pub Arc<Inner>);
 impl CommandLog {
     pub fn new(storage: impl RaftLogStore, app: App) -> Self {
         let inner = Inner {
-            snapshot_index: AtomicU64::new(0),
-            commit_index: AtomicU64::new(0),
+            append_lock: tokio::sync::Mutex::new(()),
+            snapshot_pointer: AtomicU64::new(0),
+            commit_pointer: AtomicU64::new(0),
             kern_pointer: AtomicU64::new(0),
             user_pointer: AtomicU64::new(0),
-            membership_index: AtomicU64::new(0),
+            membership_pointer: AtomicU64::new(0),
             storage: Box::new(storage),
             app,
             snapshot_lock: tokio::sync::RwLock::new(()),
-            user_completions: std::sync::Mutex::new(BTreeMap::new()),
-            kern_completions: std::sync::Mutex::new(BTreeMap::new()),
+            user_completions: spin::Mutex::new(BTreeMap::new()),
+            kern_completions: spin::Mutex::new(BTreeMap::new()),
+            response_cache: ResponseCache::new(),
         };
         Self(inner.into())
     }
@@ -58,7 +65,7 @@ impl CommandLog {
             // so we can restart from installing the snapshot.
             snapshot_index - 1
         };
-        self.commit_index.store(start_index, Ordering::SeqCst);
+        self.commit_pointer.store(start_index, Ordering::SeqCst);
         self.kern_pointer.store(start_index, Ordering::SeqCst);
         self.user_pointer.store(start_index, Ordering::SeqCst);
 
@@ -68,13 +75,13 @@ impl CommandLog {
 
 impl Inner {
     pub async fn delete_old_snapshots(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_index.load(Ordering::Relaxed);
+        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 
     pub async fn delete_old_entries(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_index.load(Ordering::Relaxed);
+        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.storage
             .delete_entries_before(cur_snapshot_index)
             .await?;
@@ -84,13 +91,13 @@ impl Inner {
     pub async fn insert_snapshot(&self, e: Entry) -> Result<()> {
         let _g = self.snapshot_lock.write().await;
 
-        let cur_snapshot_index = self.snapshot_index.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let new_snapshot_index = e.this_clock.index;
         ensure!(new_snapshot_index > cur_snapshot_index);
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
 
-        self.snapshot_index
+        self.snapshot_pointer
             .store(new_snapshot_index, Ordering::SeqCst);
 
         info!("inserted a new snapshot@{new_snapshot_index}");
@@ -100,7 +107,7 @@ impl Inner {
     pub async fn open_snapshot(&self, index: Index) -> Result<SnapshotStream> {
         let _g = self.snapshot_lock.read().await;
 
-        let cur_snapshot_index = self.snapshot_index.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         ensure!(index == cur_snapshot_index);
 
         let st = self.app.open_snapshot(index).await?;
@@ -126,6 +133,6 @@ impl Inner {
     }
 
     pub fn allow_queue_new_membership(&self) -> bool {
-        self.commit_index.load(Ordering::SeqCst) >= self.membership_index.load(Ordering::SeqCst)
+        self.commit_pointer.load(Ordering::SeqCst) >= self.membership_pointer.load(Ordering::SeqCst)
     }
 }

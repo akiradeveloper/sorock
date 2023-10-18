@@ -35,15 +35,15 @@ impl Voter {
         let new_commit_index =
             std::cmp::min(leader_commit, self.command_log.get_log_last_index().await?);
         self.command_log
-            .commit_index
-            .fetch_max(new_commit_index, Ordering::SeqCst);
+            .commit_pointer
+            .store(new_commit_index, Ordering::SeqCst);
 
         Ok(())
     }
 
     pub async fn send_heartbeat(&self, follower_id: NodeId) -> Result<()> {
         let ballot = self.read_ballot().await?;
-        let leader_commit_index = self.command_log.commit_index.load(Ordering::SeqCst);
+        let leader_commit_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
         let req = request::Heartbeat {
             leader_id: self.driver.selfid(),
             leader_term: ballot.cur_term,

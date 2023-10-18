@@ -11,14 +11,14 @@ impl Thread {
         let election_state = self.voter.read_election_state();
         ensure!(std::matches!(election_state, voter::ElectionState::Leader));
 
-        let cur_commit_index = self.command_log.commit_index.load(Ordering::SeqCst);
+        let cur_commit_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
         let new_commit_index = self.peers.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {
             debug!("commit -> {new_commit_index}");
             self.command_log
-                .commit_index
-                .fetch_max(new_commit_index, Ordering::SeqCst);
+                .commit_pointer
+                .store(new_commit_index, Ordering::SeqCst);
         }
 
         Ok(())

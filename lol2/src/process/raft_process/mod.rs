@@ -81,11 +81,4 @@ impl RaftProcess {
         };
         Ok(RaftProcess(inner.into()))
     }
-
-    pub async fn noop(&self) -> Result<()> {
-        let req = request::KernRequest {
-            message: kern_message::KernRequest::Noop.serialize(),
-        };
-        self.process_kern_request(req).await
-    }
 }

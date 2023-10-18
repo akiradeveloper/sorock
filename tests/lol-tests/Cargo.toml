@@ -16,6 +16,8 @@ testapp = { path = "../testapp" }
 
 [dev-dependencies]
 env_logger = "*"
+futures = "0.3"
 serial_test = "2"
 test-log = "0.2.12"
 tokio = { version = "1", features = ["full"] }
+uuid = "1.5"

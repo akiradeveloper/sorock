@@ -5,7 +5,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut config = prost_build::Config::new();
     config.bytes(&[
-        ".lol2.Request.message",
+        ".lol2.WriteRequest.message",
+        ".lol2.ReadRequest.message",
         ".lol2.Response.message",
         ".lol2.KernRequest.message",
         ".lol2.LogStreamEntry.command",

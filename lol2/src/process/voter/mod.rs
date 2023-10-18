@@ -73,13 +73,12 @@ impl Voter {
 
     pub fn commit_safe_term(&self, term: Term) {
         info!("commit safe term={term}");
-        self.safe_term.fetch_max(term, Ordering::SeqCst);
+        self.safe_term.store(term, Ordering::SeqCst);
     }
 
-    pub async fn allow_queue_entry(&self) -> Result<Term> {
+    pub async fn allow_queue_entry(&self) -> Result<bool> {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
-        ensure!(cur_safe_term >= cur_term);
-        Ok(cur_term)
+        Ok(cur_safe_term == cur_term)
     }
 }

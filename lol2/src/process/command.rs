@@ -2,16 +2,20 @@ use super::*;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Command<'a> {
-    Noop,
-    Snapshot {
-        membership: HashSet<NodeId>,
-    },
+    Barrier(Term),
     ClusterConfiguration {
         membership: HashSet<NodeId>,
     },
-    Req {
+    Snapshot {
+        membership: HashSet<NodeId>,
+    },
+    ExecuteRequest {
         #[serde(with = "serde_bytes")]
         message: &'a [u8],
+        request_id: String,
+    },
+    CompleteRequest {
+        request_id: String,
     },
 }
 
