@@ -61,6 +61,7 @@ impl Voter {
 
         let grant = match &ballot.voted_for {
             None => {
+                info!("learn candidate as the new leader");
                 ballot.voted_for = Some(candidate_id.clone());
                 true
             }
@@ -199,7 +200,13 @@ impl Voter {
             info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = self.command_log.append_noop_barrier(vote_term).await?;
+            let index = self
+                .command_log
+                .append_new_entry(
+                    Command::serialize(Command::Barrier(vote_term)),
+                    Some(vote_term),
+                )
+                .await?;
             info!("noop barrier is queued@{index} (term={vote_term})");
 
             // Initialize replication progress

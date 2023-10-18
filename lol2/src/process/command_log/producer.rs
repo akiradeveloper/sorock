@@ -7,12 +7,9 @@ pub enum TryInsertResult {
 }
 
 impl CommandLog {
-    pub async fn append_new_entry(
-        &self,
-        command: Bytes,
-        completion: Option<Completion>,
-        term: Term,
-    ) -> Result<Index> {
+    pub async fn append_new_entry(&self, command: Bytes, term: Option<Term>) -> Result<Index> {
+        let _g = self.append_lock.lock().await;
+
         let cur_last_log_index = self.get_log_last_index().await?;
         let prev_clock = self
             .storage
@@ -21,8 +18,12 @@ impl CommandLog {
             .unwrap()
             .this_clock;
         let append_index = cur_last_log_index + 1;
+        let this_term = match term {
+            Some(t) => t,
+            None => prev_clock.term,
+        };
         let this_clock = Clock {
-            term,
+            term: this_term,
             index: append_index,
         };
         let e = Entry {
@@ -31,30 +32,8 @@ impl CommandLog {
             command,
         };
         self.insert_entry(e).await?;
-        if let Some(completion) = completion {
-            match completion {
-                Completion::User(completion) => {
-                    self.user_completions
-                        .lock()
-                        .unwrap()
-                        .insert(append_index, completion);
-                }
-                Completion::Kern(completion) => {
-                    self.kern_completions
-                        .lock()
-                        .unwrap()
-                        .insert(append_index, completion);
-                }
-            }
-        }
-        Ok(append_index)
-    }
 
-    pub async fn append_noop_barrier(&self, term: Term) -> Result<Index> {
-        let index = self
-            .append_new_entry(Command::serialize(Command::Noop), None, term)
-            .await?;
-        Ok(index)
+        Ok(append_index)
     }
 
     pub async fn try_insert_entry(
@@ -65,42 +44,42 @@ impl CommandLog {
     ) -> Result<TryInsertResult> {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
-        if std::matches!(
-            Command::deserialize(&entry.command),
-            Command::Snapshot { .. }
-        ) {
-            let Clock {
-                term: _,
-                index: snapshot_index,
-            } = entry.this_clock;
-            warn!(
-                "log is too old. replicated a snapshot (idx={}) from leader",
-                snapshot_index
-            );
-
-            // Invariant: snapshot entry exists => snapshot exists
-            if let Err(e) = self
-                .app
-                .fetch_snapshot(snapshot_index, sender_id.clone(), driver)
-                .await
-            {
-                error!(
-                    "could not fetch app snapshot (idx={}) from sender {}",
-                    snapshot_index, sender_id,
+        match Command::deserialize(&entry.command) {
+            Command::Snapshot { membership } => {
+                let Clock {
+                    term: _,
+                    index: snapshot_index,
+                } = entry.this_clock;
+                warn!(
+                    "log is too old. replicated a snapshot (idx={}) from leader",
+                    snapshot_index
                 );
-                return Err(e);
+
+                // Invariant: snapshot entry exists => snapshot exists
+                if let Err(e) = self
+                    .app
+                    .fetch_snapshot(snapshot_index, sender_id.clone(), driver)
+                    .await
+                {
+                    error!(
+                        "could not fetch app snapshot (idx={}) from sender {}",
+                        snapshot_index, sender_id,
+                    );
+                    return Err(e);
+                }
+
+                self.insert_snapshot(entry).await?;
+
+                self.commit_pointer
+                    .store(snapshot_index - 1, Ordering::SeqCst);
+                self.kern_pointer
+                    .store(snapshot_index - 1, Ordering::SeqCst);
+                self.user_pointer
+                    .store(snapshot_index - 1, Ordering::SeqCst);
+
+                return Ok(TryInsertResult::Inserted);
             }
-
-            self.insert_snapshot(entry).await?;
-
-            self.commit_index
-                .store(snapshot_index - 1, Ordering::SeqCst);
-            self.kern_pointer
-                .store(snapshot_index - 1, Ordering::SeqCst);
-            self.user_pointer
-                .store(snapshot_index - 1, Ordering::SeqCst);
-
-            return Ok(TryInsertResult::Inserted);
+            _ => {}
         }
 
         let Clock {
@@ -139,8 +118,8 @@ impl CommandLog {
                 self.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.user_completions.lock().unwrap().split_off(&this_index);
-                self.kern_completions.lock().unwrap().split_off(&this_index);
+                self.user_completions.lock().split_off(&this_index);
+                self.kern_completions.lock().split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)
             }

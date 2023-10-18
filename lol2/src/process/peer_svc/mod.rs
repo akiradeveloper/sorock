@@ -29,9 +29,9 @@ struct ThreadHandles {
 }
 
 pub struct Inner {
-    membership: std::sync::RwLock<HashSet<NodeId>>,
-    peer_contexts: std::sync::RwLock<HashMap<NodeId, PeerContexts>>,
-    peer_threads: std::sync::Mutex<HashMap<NodeId, ThreadHandles>>,
+    membership: spin::RwLock<HashSet<NodeId>>,
+    peer_contexts: spin::RwLock<HashMap<NodeId, PeerContexts>>,
+    peer_threads: spin::Mutex<HashMap<NodeId, ThreadHandles>>,
 
     command_log: CommandLog,
     driver: RaftDriver,
@@ -81,7 +81,7 @@ impl PeerSvc {
             return Ok(());
         }
 
-        if self.peer_contexts.read().unwrap().contains_key(&id) {
+        if self.peer_contexts.read().contains_key(&id) {
             return Ok(());
         }
 
@@ -90,7 +90,7 @@ impl PeerSvc {
             ReplicationProgress::new(last_log_index)
         };
 
-        let mut peer_contexts = self.peer_contexts.write().unwrap();
+        let mut peer_contexts = self.peer_contexts.write();
         peer_contexts.insert(
             id.clone(),
             PeerContexts {
@@ -102,14 +102,14 @@ impl PeerSvc {
             replicator_handle: thread::replication::new(id.clone(), self.clone(), voter.clone()),
             heartbeater_handle: thread::heartbeat::new(id.clone(), voter),
         };
-        self.peer_threads.lock().unwrap().insert(id, thread_handles);
+        self.peer_threads.lock().insert(id, thread_handles);
 
         Ok(())
     }
 
     fn remove_peer(&self, id: NodeId) {
-        self.peer_threads.lock().unwrap().remove(&id);
-        self.peer_contexts.write().unwrap().remove(&id);
+        self.peer_threads.lock().remove(&id);
+        self.peer_contexts.write().remove(&id);
     }
 
     pub async fn set_membership(
@@ -151,17 +151,17 @@ impl PeerSvc {
         }
 
         info!("membership changed -> {:?}", config);
-        *self.membership.write().unwrap() = config;
+        *self.membership.write() = config;
 
         self.command_log
-            .membership_index
-            .fetch_max(index, Ordering::SeqCst);
+            .membership_pointer
+            .store(index, Ordering::SeqCst);
 
         Ok(())
     }
 
     pub fn read_membership(&self) -> HashSet<NodeId> {
-        self.membership.read().unwrap().clone()
+        self.membership.read().clone()
     }
 
     pub async fn find_new_commit_index(&self) -> Result<Index> {
@@ -170,7 +170,7 @@ impl PeerSvc {
         let last_log_index = self.command_log.get_log_last_index().await?;
         match_indices.push(last_log_index);
 
-        let peer_contexts = self.peer_contexts.read().unwrap();
+        let peer_contexts = self.peer_contexts.read();
         for (_, peer) in peer_contexts.iter() {
             match_indices.push(peer.progress.match_index);
         }
@@ -184,7 +184,7 @@ impl PeerSvc {
     }
 
     pub fn reset_progress(&self, init_next_index: Index) {
-        let mut peer_contexts = self.peer_contexts.write().unwrap();
+        let mut peer_contexts = self.peer_contexts.write();
         for (_, peer) in peer_contexts.iter_mut() {
             peer.progress = ReplicationProgress::new(init_next_index);
         }
@@ -193,7 +193,7 @@ impl PeerSvc {
     /// Choose the most advanced follower and send it TimeoutNow.
     pub async fn transfer_leadership(&self) -> Result<()> {
         let mut xs = {
-            let peer_contexts = self.peer_contexts.read().unwrap();
+            let peer_contexts = self.peer_contexts.read();
             let mut out = vec![];
             for (id, peer) in peer_contexts.iter() {
                 let progress = peer.progress;

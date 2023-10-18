@@ -2,9 +2,12 @@ use super::*;
 
 pub mod request {
     use super::*;
-    pub struct UserRequest {
+    pub struct UserWriteRequest {
         pub message: Bytes,
-        pub mutation: bool,
+        pub request_id: String,
+    }
+    pub struct UserReadRequest {
+        pub message: Bytes,
     }
     pub struct KernRequest {
         pub message: Bytes,
@@ -41,9 +44,5 @@ pub mod response {
     pub struct SendLogStream {
         pub success: bool,
         pub log_last_index: Index,
-    }
-    pub struct ClusterInfo {
-        pub known_leader: Option<NodeId>,
-        pub known_members: HashSet<NodeId>,
     }
 }

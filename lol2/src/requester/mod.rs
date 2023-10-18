@@ -32,12 +32,23 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn process_user_request(&self, req: request::UserRequest) -> Result<Bytes> {
-        let req = raft::Request {
+    pub async fn process_user_write_request(
+        &self,
+        req: request::UserWriteRequest,
+    ) -> Result<Bytes> {
+        let req = raft::WriteRequest {
             message: req.message,
-            mutation: req.mutation,
+            request_id: req.request_id,
         };
-        let resp = self.cli.clone().process(req).await?.into_inner();
+        let resp = self.cli.clone().write(req).await?.into_inner();
+        Ok(resp.message)
+    }
+
+    pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
+        let req = raft::ReadRequest {
+            message: req.message,
+        };
+        let resp = self.cli.clone().read(req).await?.into_inner();
         Ok(resp.message)
     }
 

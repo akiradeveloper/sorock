@@ -7,10 +7,11 @@ impl Voter {
             voter::ElectionState::Leader
         ));
 
-        let last_membership_change_index = self.command_log.membership_index.load(Ordering::SeqCst);
+        let last_membership_change_index =
+            self.command_log.membership_pointer.load(Ordering::SeqCst);
         // Ensure the membership entry is committed otherwise add-server request may be lost.
         ensure!(
-            last_membership_change_index <= self.command_log.commit_index.load(Ordering::SeqCst)
+            last_membership_change_index <= self.command_log.commit_pointer.load(Ordering::SeqCst)
         );
 
         let config = self

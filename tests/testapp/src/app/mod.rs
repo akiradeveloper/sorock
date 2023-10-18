@@ -32,17 +32,24 @@ impl AppSnapshot {
         AppSnapshot(cur_state)
     }
 }
+
+struct InnerState {
+    index: u64,
+    counter: u64,
+}
 struct AppMain {
-    state_index: AtomicU64,
-    counter: AtomicU64,
+    state: RwLock<InnerState>,
     snapshots: RwLock<BTreeMap<u64, AppState>>,
 }
 impl AppMain {
     pub fn new() -> Self {
-        let mut snapshots = BTreeMap::new();
+        let init_state = InnerState {
+            index: 0,
+            counter: 0,
+        };
+        let snapshots = BTreeMap::new();
         Self {
-            state_index: AtomicU64::new(0),
-            counter: AtomicU64::new(0),
+            state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
         }
     }
@@ -50,17 +57,22 @@ impl AppMain {
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
     async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
+        let mut cur_state = self.state.write().unwrap();
+
         let req = testapp::AppWriteRequest::deserialize(bytes);
         let old_state = match req {
             AppWriteRequest::FetchAdd { bytes } => {
                 let add_val = bytes.len() as u64;
-                let n = self.counter.fetch_add(add_val, Ordering::SeqCst);
+                let n = cur_state.counter;
+                cur_state.counter += add_val;
                 n
             }
         };
-        self.state_index.store(entry_index, Ordering::SeqCst);
+        cur_state.index = entry_index;
+
         Ok(AppState(old_state).serialize())
     }
+
     async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
         let snapshot = if snapshot_index == 1 {
             AppState(0)
@@ -68,27 +80,30 @@ impl RaftApp for AppMain {
             ensure!(self.snapshots.read().unwrap().contains_key(&snapshot_index));
             *self.snapshots.read().unwrap().get(&snapshot_index).unwrap()
         };
-        self.state_index.store(snapshot_index, Ordering::SeqCst);
-        self.counter.store(snapshot.0, Ordering::SeqCst);
+
+        let mut cur_state = self.state.write().unwrap();
+        cur_state.index = snapshot_index;
+        cur_state.counter = snapshot.0;
+
         Ok(())
     }
+
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
-        let cur_state = self.counter.load(Ordering::SeqCst);
+        let cur_state = self.state.read().unwrap();
 
         let req = testapp::AppReadRequest::deserialize(bytes);
-        let cur_state = match req {
+        match req {
             AppReadRequest::MakeSnapshot => {
-                let n = self.counter.load(Ordering::SeqCst);
-                let idx = self.state_index.load(Ordering::SeqCst);
+                let idx = cur_state.index;
                 let mut snapshots = self.snapshots.write().unwrap();
-                snapshots.insert(idx, AppState(n));
-                n
+                snapshots.insert(idx, AppState(cur_state.counter));
             }
-            AppReadRequest::Read => cur_state,
+            AppReadRequest::Read => {}
         };
 
-        Ok(AppState(cur_state).serialize())
+        Ok(AppState(cur_state.counter).serialize())
     }
+
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots
@@ -97,6 +112,7 @@ impl RaftApp for AppMain {
             .insert(snapshot_index, snap.0);
         Ok(())
     }
+
     async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream> {
         ensure!(self.snapshots.read().unwrap().contains_key(&x));
         let cur_state = *self.snapshots.read().unwrap().get(&x).unwrap();
@@ -104,12 +120,14 @@ impl RaftApp for AppMain {
         let st = snap.into_stream();
         Ok(st)
     }
+
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
         let mut snapshots = self.snapshots.write().unwrap();
         let latter = snapshots.split_off(&x);
         *snapshots = latter;
         Ok(())
     }
+
     async fn propose_new_snapshot(&self) -> Result<Index> {
         let k = {
             let mut out = vec![];
@@ -140,6 +158,7 @@ impl RaftBallotStore for AppBallot {
         *self.inner.write().unwrap() = v;
         Ok(())
     }
+
     async fn load_ballot(&self) -> Result<Ballot> {
         let v = self.inner.read().unwrap().clone();
         Ok(v)
@@ -162,16 +181,19 @@ impl RaftLogStore for AppLog {
         self.inner.write().unwrap().insert(i, e);
         Ok(())
     }
+
     async fn delete_entries_before(&self, i: Index) -> Result<()> {
         let mut inner = self.inner.write().unwrap();
         let latter = inner.split_off(&i);
         *inner = latter;
         Ok(())
     }
+
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let e: Option<Entry> = self.inner.read().unwrap().get(&i).cloned();
         Ok(e)
     }
+
     async fn get_head_index(&self) -> Result<Index> {
         let reader = self.inner.read().unwrap();
         let n = match reader.first_key_value() {
@@ -180,6 +202,7 @@ impl RaftLogStore for AppLog {
         };
         Ok(n)
     }
+
     async fn get_last_index(&self) -> Result<Index> {
         let reader = self.inner.read().unwrap();
         let n = match reader.last_key_value() {

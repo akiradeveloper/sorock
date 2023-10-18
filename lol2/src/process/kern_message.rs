@@ -4,7 +4,6 @@ use super::*;
 pub enum KernRequest {
     AddServer(NodeId),
     RemoveServer(NodeId),
-    Noop,
 }
 
 impl KernRequest {

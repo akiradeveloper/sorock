@@ -17,19 +17,36 @@ pub struct ServiceImpl {
 impl raft::raft_server::Raft for ServiceImpl {
     type GetSnapshotStream = stream::SnapshotStreamOut;
 
-    async fn process(
+    async fn write(
         &self,
-        request: tonic::Request<raft::Request>,
+        request: tonic::Request<raft::WriteRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
-        let req = request::UserRequest {
+        let req = request::UserWriteRequest {
             message: req.message,
-            mutation: req.mutation,
+            request_id: req.request_id,
         };
         let resp = self
             .node
             .get_process()
-            .process_user_request(req)
+            .process_user_write_request(req)
+            .await
+            .unwrap();
+        Ok(tonic::Response::new(raft::Response { message: resp }))
+    }
+
+    async fn read(
+        &self,
+        request: tonic::Request<raft::ReadRequest>,
+    ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
+        let req = request.into_inner();
+        let req = request::UserReadRequest {
+            message: req.message,
+        };
+        let resp = self
+            .node
+            .get_process()
+            .process_user_read_request(req)
             .await
             .unwrap();
         Ok(tonic::Response::new(raft::Response { message: resp }))
@@ -49,34 +66,6 @@ impl raft::raft_server::Raft for ServiceImpl {
             .await
             .unwrap();
         Ok(tonic::Response::new(()))
-    }
-
-    async fn noop(
-        &self,
-        _: tonic::Request<()>,
-    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        self.node.get_process().noop().await.unwrap();
-        Ok(tonic::Response::new(()))
-    }
-
-    async fn get_cluster_info(
-        &self,
-        _: tonic::Request<()>,
-    ) -> std::result::Result<tonic::Response<raft::ClusterInfo>, tonic::Status> {
-        let resp = self
-            .node
-            .get_process()
-            .request_cluster_info()
-            .await
-            .unwrap();
-        Ok(tonic::Response::new(raft::ClusterInfo {
-            known_leader_id: resp.known_leader.map(|id| id.to_string()),
-            known_members: resp
-                .known_members
-                .into_iter()
-                .map(|id| id.to_string())
-                .collect(),
-        }))
     }
 
     async fn request_vote(

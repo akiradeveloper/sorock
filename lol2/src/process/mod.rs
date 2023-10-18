@@ -107,3 +107,9 @@ pub trait RaftBallotStore: Sync + Send + 'static {
     async fn save_ballot(&self, v: Ballot) -> Result<()>;
     async fn load_ballot(&self) -> Result<Ballot>;
 }
+
+#[derive(Clone, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize, Debug)]
+pub struct ExecutionKey {
+    pub client_id: String,
+    pub seq_num: u64,
+}

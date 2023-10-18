@@ -4,10 +4,17 @@ import "google/protobuf/empty.proto";
 
 package lol2;
 
-message Request {
+message WriteRequest {
   bytes message = 1;
-  bool mutation = 2;
+  // unique identifier of this request
+  // duplicated requests with the same unique identifier are only executed once.
+  string request_id = 2;
 }
+
+message ReadRequest {
+  bytes message = 1;
+}
+
 message Response {
   bytes message = 1;
 }
@@ -72,15 +79,10 @@ message RemoveServerRequest {
   string server_id = 1;
 }
 
-message ClusterInfo {
-  optional string known_leader_id = 1;
-  repeated string known_members = 2;
-}
-
 service Raft {
-  rpc Process(Request) returns (Response);
+  rpc Write(WriteRequest) returns (Response);
+  rpc Read(ReadRequest) returns (Response);
   rpc ProcessKernRequest (KernRequest) returns (google.protobuf.Empty);
-  rpc GetClusterInfo (google.protobuf.Empty) returns (ClusterInfo);
   rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
   rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
@@ -88,5 +90,4 @@ service Raft {
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
   rpc TimeoutNow (google.protobuf.Empty) returns (google.protobuf.Empty);
-  rpc Noop (google.protobuf.Empty) returns (google.protobuf.Empty);
 }
