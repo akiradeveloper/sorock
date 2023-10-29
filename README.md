@@ -33,3 +33,8 @@ gRPC and Multi-Raft. Therefore, called pure. The other side translates gRPC requ
 - TERM1: `./log` to start log watcher.
 - TERM2: `./dev` to start the dev container.
 - TERM2: `cargo test`.
+
+## Author
+
+Akira Hayakawa  
+EMail: ruby.wktk@gmail.com
