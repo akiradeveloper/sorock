@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn into_external_log_stream(
-    lane_id: u32,
+    lane_id: LaneId,
     st: LogStream,
 ) -> impl futures::stream::Stream<Item = raft::LogStreamChunk> {
     use raft::log_stream_chunk::Elem as ChunkElem;

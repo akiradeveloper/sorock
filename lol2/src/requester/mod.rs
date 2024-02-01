@@ -7,10 +7,10 @@ mod stream;
 
 pub struct Connection {
     cli: raft::RaftClient,
-    lane_id: u32,
+    lane_id: LaneId,
 }
 impl Connection {
-    pub fn new(cli: raft::RaftClient, lane_id: u32) -> Self {
+    pub fn new(cli: raft::RaftClient, lane_id: LaneId) -> Self {
         Self { cli, lane_id }
     }
 }

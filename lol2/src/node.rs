@@ -3,7 +3,7 @@ use super::*;
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
-    process: dashmap::DashMap<u32, RaftProcess>,
+    process: dashmap::DashMap<LaneId, RaftProcess>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -21,7 +21,7 @@ impl RaftNode {
         Self(inner.into())
     }
 
-    pub fn get_driver(&self, lane_id: u32) -> RaftDriver {
+    pub fn get_driver(&self, lane_id: LaneId) -> RaftDriver {
         RaftDriver {
             lane_id,
             self_node_id: self.self_node_id.clone(),
@@ -29,18 +29,18 @@ impl RaftNode {
         }
     }
 
-    pub fn attach_process(&self, lane_id: u32, p: RaftProcess) {
+    pub fn attach_process(&self, lane_id: LaneId, p: RaftProcess) {
         self.process.insert(lane_id, p);
     }
 
-    pub(crate) fn get_process(&self, lane_id: u32) -> RaftProcess {
+    pub(crate) fn get_process(&self, lane_id: LaneId) -> RaftProcess {
         self.process.get(&lane_id).unwrap().value().clone()
     }
 }
 
 #[derive(Clone)]
 pub struct RaftDriver {
-    lane_id: u32,
+    lane_id: LaneId,
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
 }

@@ -8,7 +8,7 @@ mod proto {
 }
 pub use proto::ping_client::PingClient;
 
-pub const APP_LANE_ID: u32 = 777;
+pub const APP_LANE_ID: lol2::LaneId = 777;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum AppWriteRequest {

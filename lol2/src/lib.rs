@@ -35,6 +35,7 @@ mod raft {
     derive_more::FromStr,
 )]
 pub struct NodeId(#[serde(with = "http_serde::uri")] Uri);
+
 impl NodeId {
     pub fn new(uri: Uri) -> Self {
         Self(uri)
@@ -44,3 +45,5 @@ impl NodeId {
         Ok(Self(url))
     }
 }
+
+pub type LaneId = u32;
