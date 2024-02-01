@@ -29,7 +29,7 @@ impl RaftNode {
         }
     }
 
-    pub fn attach_process(&self, p: RaftProcess) {
+    pub fn attach_process(&self, lane_id: u32, p: RaftProcess) {
         self.process.set(p).ok();
     }
 
