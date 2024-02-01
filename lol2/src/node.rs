@@ -21,9 +21,10 @@ impl RaftNode {
         Self(inner.into())
     }
 
-    pub fn get_driver(&self) -> RaftDriver {
+    pub fn get_driver(&self, lane_id: u32) -> RaftDriver {
         RaftDriver {
-            selfid: self.selfid.clone(),
+            lane_id,
+            self_node_id: self.selfid.clone(),
             cache: self.cache.clone(),
         }
     }
@@ -32,19 +33,20 @@ impl RaftNode {
         self.process.set(p).ok();
     }
 
-    pub(crate) fn get_process(&self) -> &RaftProcess {
+    pub(crate) fn get_process(&self, lane_id: u32) -> &RaftProcess {
         self.process.get().unwrap()
     }
 }
 
 #[derive(Clone)]
 pub struct RaftDriver {
-    selfid: NodeId,
+    lane_id: u32,
+    self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
 }
 impl RaftDriver {
-    pub(crate) fn selfid(&self) -> NodeId {
-        self.selfid.clone()
+    pub(crate) fn self_node_id(&self) -> NodeId {
+        self.self_node_id.clone()
     }
     pub(crate) fn connect(&self, id: NodeId) -> requester::Connection {
         let conn = self.cache.get_with(id.clone(), || {
@@ -52,6 +54,6 @@ impl RaftDriver {
             let chan = endpoint.connect_lazy();
             raft::RaftClient::new(chan)
         });
-        requester::Connection::new(conn)
+        requester::Connection::new(conn, self.lane_id)
     }
 }

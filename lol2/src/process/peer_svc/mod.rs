@@ -77,7 +77,7 @@ impl PeerSvc {
 
 impl PeerSvc {
     async fn add_peer(&self, id: NodeId, voter: Ref<Voter>) -> Result<()> {
-        if id == self.driver.selfid() {
+        if id == self.driver.self_node_id() {
             return Ok(());
         }
 

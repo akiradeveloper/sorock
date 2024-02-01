@@ -22,13 +22,14 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::WriteRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::UserWriteRequest {
             message: req.message,
             request_id: req.request_id,
         };
         let resp = self
             .node
-            .get_process()
+            .get_process(lane_id)
             .process_user_write_request(req)
             .await
             .unwrap();
@@ -40,12 +41,13 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::ReadRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::UserReadRequest {
             message: req.message,
         };
         let resp = self
             .node
-            .get_process()
+            .get_process(lane_id)
             .process_user_read_request(req)
             .await
             .unwrap();
@@ -57,11 +59,12 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::KernRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::KernRequest {
             message: req.message,
         };
         self.node
-            .get_process()
+            .get_process(lane_id)
             .process_kern_request(req)
             .await
             .unwrap();
@@ -73,6 +76,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::VoteRequest>,
     ) -> std::result::Result<tonic::Response<raft::VoteResponse>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::RequestVote {
             candidate_id: req.candidate_id.parse().unwrap(),
             candidate_clock: {
@@ -86,7 +90,12 @@ impl raft::raft_server::Raft for ServiceImpl {
             force_vote: req.force_vote,
             pre_vote: req.pre_vote,
         };
-        let resp = self.node.get_process().request_vote(req).await.unwrap();
+        let resp = self
+            .node
+            .get_process(lane_id)
+            .request_vote(req)
+            .await
+            .unwrap();
         Ok(tonic::Response::new(raft::VoteResponse {
             vote_granted: resp,
         }))
@@ -97,10 +106,15 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::AddServerRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::AddServer {
             server_id: req.server_id.parse().unwrap(),
         };
-        self.node.get_process().add_server(req).await.unwrap();
+        self.node
+            .get_process(lane_id)
+            .add_server(req)
+            .await
+            .unwrap();
         Ok(tonic::Response::new(()))
     }
 
@@ -109,10 +123,15 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::RemoveServerRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::RemoveServer {
             server_id: req.server_id.parse().unwrap(),
         };
-        self.node.get_process().remove_server(req).await.unwrap();
+        self.node
+            .get_process(lane_id)
+            .remove_server(req)
+            .await
+            .unwrap();
         Ok(tonic::Response::new(()))
     }
 
@@ -121,8 +140,13 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<tonic::Streaming<raft::LogStreamChunk>>,
     ) -> std::result::Result<tonic::Response<raft::SendLogStreamResponse>, tonic::Status> {
         let st = request.into_inner();
-        let st = stream::into_internal_log_stream(st).await;
-        let resp = self.node.get_process().send_log_stream(st).await.unwrap();
+        let (lane_id, st) = stream::into_internal_log_stream(st).await;
+        let resp = self
+            .node
+            .get_process(lane_id)
+            .send_log_stream(st)
+            .await
+            .unwrap();
         Ok(tonic::Response::new(raft::SendLogStreamResponse {
             success: resp.success,
             log_last_index: resp.log_last_index,
@@ -134,9 +158,10 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::GetSnapshotRequest>,
     ) -> std::result::Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let resp = self
             .node
-            .get_process()
+            .get_process(lane_id)
             .get_snapshot(req.index)
             .await
             .unwrap();
@@ -149,20 +174,31 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<raft::Heartbeat>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
+        let lane_id = req.lane_id;
         let req = request::Heartbeat {
             leader_id: req.leader_id.parse().unwrap(),
             leader_term: req.leader_term,
             leader_commit_index: req.leader_commit_index,
         };
-        self.node.get_process().send_heartbeat(req).await.unwrap();
+        self.node
+            .get_process(lane_id)
+            .send_heartbeat(req)
+            .await
+            .unwrap();
         Ok(tonic::Response::new(()))
     }
 
     async fn timeout_now(
         &self,
-        _: tonic::Request<()>,
+        req: tonic::Request<raft::TimeoutNowRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
-        self.node.get_process().send_timeout_now().await.unwrap();
+        let req = req.into_inner();
+        let lane_id = req.lane_id;
+        self.node
+            .get_process(lane_id)
+            .send_timeout_now()
+            .await
+            .unwrap();
         Ok(tonic::Response::new(()))
     }
 }

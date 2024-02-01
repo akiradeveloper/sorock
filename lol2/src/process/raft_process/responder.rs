@@ -72,7 +72,7 @@ impl RaftProcess {
             rx.await?
         } else {
             // This check is to avoid looping.
-            ensure!(self.driver.selfid() != leader_id);
+            ensure!(self.driver.self_node_id() != leader_id);
             let conn = self.driver.connect(leader_id);
             conn.process_user_read_request(req).await?
         };
@@ -107,7 +107,7 @@ impl RaftProcess {
             rx.await?
         } else {
             // This check is to avoid looping.
-            ensure!(self.driver.selfid() != leader_id);
+            ensure!(self.driver.self_node_id() != leader_id);
 
             let conn = self.driver.connect(leader_id);
             conn.process_user_write_request(req).await?

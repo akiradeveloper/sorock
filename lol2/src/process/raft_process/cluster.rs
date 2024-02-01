@@ -22,7 +22,7 @@ impl RaftProcess {
 
     async fn init_cluster(&self) -> Result<()> {
         let mut membership = HashSet::new();
-        membership.insert(self.driver.selfid());
+        membership.insert(self.driver.self_node_id());
 
         let init_command = Command::serialize(Command::Snapshot {
             membership: membership.clone(),
@@ -39,14 +39,14 @@ impl RaftProcess {
         // After this function is called
         // this server immediately becomes the leader by self-vote and advance commit index.
         // Consequently, when initial install_snapshot is called this server is already the leader.
-        let conn = self.driver.connect(self.driver.selfid());
+        let conn = self.driver.connect(self.driver.self_node_id());
         conn.send_timeout_now().await?;
 
         Ok(())
     }
 
     pub(crate) async fn add_server(&self, req: request::AddServer) -> Result<()> {
-        if self.peers.read_membership().is_empty() && req.server_id == self.driver.selfid() {
+        if self.peers.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
             // This is called the "cluster bootstrapping".
             // To add a node to a cluster we have to know some node in the cluster.
             // But what about the first node?
@@ -56,7 +56,7 @@ impl RaftProcess {
             let req = request::KernRequest {
                 message: msg.serialize(),
             };
-            let conn = self.driver.connect(self.driver.selfid());
+            let conn = self.driver.connect(self.driver.self_node_id());
             conn.process_kern_request(req).await?;
         }
         Ok(())
@@ -67,7 +67,7 @@ impl RaftProcess {
         let req = request::KernRequest {
             message: msg.serialize(),
         };
-        let conn = self.driver.connect(self.driver.selfid());
+        let conn = self.driver.connect(self.driver.self_node_id());
         conn.process_kern_request(req).await?;
         Ok(())
     }

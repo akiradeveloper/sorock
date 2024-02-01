@@ -21,6 +21,8 @@ struct EnvConfig {
     address: String,
 }
 
+const LANE_ID: u32 = 777;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
@@ -51,7 +53,7 @@ async fn main() -> Result<()> {
     let node_id = env_config.address.parse()?;
     let node = lol2::RaftNode::new(node_id);
 
-    let driver = node.get_driver();
+    let driver = node.get_driver(LANE_ID);
     let process = app::new(driver).await?;
     node.attach_process(process);
 

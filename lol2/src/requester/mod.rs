@@ -7,16 +7,20 @@ mod stream;
 
 pub struct Connection {
     cli: raft::RaftClient,
+    lane_id: u32,
 }
 impl Connection {
-    pub fn new(cli: raft::RaftClient) -> Self {
-        Self { cli }
+    pub fn new(cli: raft::RaftClient, lane_id: u32) -> Self {
+        Self { cli, lane_id }
     }
 }
 
 impl Connection {
     pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
-        let req = raft::GetSnapshotRequest { index };
+        let req = raft::GetSnapshotRequest {
+            lane_id: self.lane_id,
+            index,
+        };
         let st = self.cli.clone().get_snapshot(req).await?.into_inner();
         let st = Box::pin(stream::into_internal_snapshot_stream(st));
         Ok(st)
@@ -24,6 +28,7 @@ impl Connection {
 
     pub async fn send_heartbeat(&self, req: request::Heartbeat) -> Result<()> {
         let req = raft::Heartbeat {
+            lane_id: self.lane_id,
             leader_id: req.leader_id.to_string(),
             leader_term: req.leader_term,
             leader_commit_index: req.leader_commit_index,
@@ -37,6 +42,7 @@ impl Connection {
         req: request::UserWriteRequest,
     ) -> Result<Bytes> {
         let req = raft::WriteRequest {
+            lane_id: self.lane_id,
             message: req.message,
             request_id: req.request_id,
         };
