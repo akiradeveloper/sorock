@@ -13,6 +13,7 @@ pub fn new(node: RaftNode) -> raft::raft_server::RaftServer<ServiceImpl> {
 pub struct ServiceImpl {
     node: RaftNode,
 }
+
 #[tonic::async_trait]
 impl raft::raft_server::Raft for ServiceImpl {
     type GetSnapshotStream = stream::SnapshotStreamOut;

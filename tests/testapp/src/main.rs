@@ -5,7 +5,9 @@ mod app;
 mod proto {
     tonic::include_proto!("testapp");
 }
+
 struct PingApp;
+
 #[tonic::async_trait]
 impl proto::ping_server::Ping for PingApp {
     async fn ping(

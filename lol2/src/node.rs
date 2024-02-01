@@ -1,9 +1,9 @@
 use super::*;
 
 pub struct Inner {
-    selfid: NodeId,
+    self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
-    process: once_cell::sync::OnceCell<RaftProcess>,
+    process: dashmap::DashMap<u32, RaftProcess>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -14,9 +14,9 @@ impl RaftNode {
             .initial_capacity(1000)
             .time_to_live(Duration::from_secs(60));
         let inner = Inner {
-            selfid: id,
+            self_node_id: id,
             cache: builder.build(),
-            process: once_cell::sync::OnceCell::new(),
+            process: dashmap::DashMap::new(),
         };
         Self(inner.into())
     }
@@ -24,17 +24,17 @@ impl RaftNode {
     pub fn get_driver(&self, lane_id: u32) -> RaftDriver {
         RaftDriver {
             lane_id,
-            self_node_id: self.selfid.clone(),
+            self_node_id: self.self_node_id.clone(),
             cache: self.cache.clone(),
         }
     }
 
     pub fn attach_process(&self, lane_id: u32, p: RaftProcess) {
-        self.process.set(p).ok();
+        self.process.insert(lane_id, p);
     }
 
-    pub(crate) fn get_process(&self, lane_id: u32) -> &RaftProcess {
-        self.process.get().unwrap()
+    pub(crate) fn get_process(&self, lane_id: u32) -> RaftProcess {
+        self.process.get(&lane_id).unwrap().value().clone()
     }
 }
 

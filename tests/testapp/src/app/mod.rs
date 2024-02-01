@@ -24,6 +24,7 @@ impl AppSnapshot {
         let cursor = std::io::Cursor::new(bytes);
         Box::pin(snapshot::read(cursor))
     }
+
     pub async fn from_stream(st: SnapshotStream) -> Self {
         let mut v = vec![];
         let cursor = std::io::Cursor::new(&mut v);

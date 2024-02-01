@@ -25,7 +25,7 @@ pub struct Inner {
     thread_handles: ThreadHandles,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap)]
+#[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct RaftProcess(Arc<Inner>);
 impl RaftProcess {
     pub async fn new(
