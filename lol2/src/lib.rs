@@ -40,11 +40,6 @@ impl NodeId {
     pub fn new(uri: Uri) -> Self {
         Self(uri)
     }
-
-    pub fn from_str(url: &str) -> Result<Self> {
-        let url = url.parse()?;
-        Ok(Self(url))
-    }
 }
 
 pub type LaneId = u32;
