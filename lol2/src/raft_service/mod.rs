@@ -31,6 +31,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let resp = self
             .node
             .get_process(lane_id)
+            .unwrap()
             .process_user_write_request(req)
             .await
             .unwrap();
@@ -49,6 +50,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let resp = self
             .node
             .get_process(lane_id)
+            .unwrap()
             .process_user_read_request(req)
             .await
             .unwrap();
@@ -66,6 +68,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         };
         self.node
             .get_process(lane_id)
+            .unwrap()
             .process_kern_request(req)
             .await
             .unwrap();
@@ -94,6 +97,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let resp = self
             .node
             .get_process(lane_id)
+            .unwrap()
             .request_vote(req)
             .await
             .unwrap();
@@ -113,6 +117,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         };
         self.node
             .get_process(lane_id)
+            .unwrap()
             .add_server(req)
             .await
             .unwrap();
@@ -130,6 +135,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         };
         self.node
             .get_process(lane_id)
+            .unwrap()
             .remove_server(req)
             .await
             .unwrap();
@@ -145,6 +151,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let resp = self
             .node
             .get_process(lane_id)
+            .unwrap()
             .send_log_stream(st)
             .await
             .unwrap();
@@ -163,6 +170,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let resp = self
             .node
             .get_process(lane_id)
+            .unwrap()
             .get_snapshot(req.index)
             .await
             .unwrap();
@@ -183,6 +191,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         };
         self.node
             .get_process(lane_id)
+            .unwrap()
             .send_heartbeat(req)
             .await
             .unwrap();
@@ -197,6 +206,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         let lane_id = req.lane_id;
         self.node
             .get_process(lane_id)
+            .unwrap()
             .send_timeout_now()
             .await
             .unwrap();

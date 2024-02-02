@@ -1,9 +1,11 @@
 use super::*;
 
+use std::collections::HashMap;
+
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
-    process: dashmap::DashMap<LaneId, RaftProcess>,
+    process: spin::RwLock<HashMap<LaneId, RaftProcess>>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -16,7 +18,7 @@ impl RaftNode {
         let inner = Inner {
             self_node_id: id,
             cache: builder.build(),
-            process: dashmap::DashMap::new(),
+            process: HashMap::new().into(),
         };
         Self(inner.into())
     }
@@ -29,12 +31,18 @@ impl RaftNode {
         }
     }
 
+    /// Attach a Raft process to a lane.
     pub fn attach_process(&self, lane_id: LaneId, p: RaftProcess) {
-        self.process.insert(lane_id, p);
+        self.process.write().insert(lane_id, p);
     }
 
-    pub(crate) fn get_process(&self, lane_id: LaneId) -> RaftProcess {
-        self.process.get(&lane_id).unwrap().value().clone()
+    /// Detach a Raft process from a lane.
+    pub fn detach_process(&self, lane_id: LaneId) {
+        self.process.write().remove(&lane_id);
+    }
+
+    pub(crate) fn get_process(&self, lane_id: LaneId) -> Option<RaftProcess> {
+        self.process.read().get(&lane_id).cloned()
     }
 }
 
