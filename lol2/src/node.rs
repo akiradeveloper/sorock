@@ -48,6 +48,7 @@ impl RaftDriver {
     pub(crate) fn self_node_id(&self) -> NodeId {
         self.self_node_id.clone()
     }
+
     pub(crate) fn connect(&self, id: NodeId) -> requester::Connection {
         let conn = self.cache.get_with(id.clone(), || {
             let endpoint = tonic::transport::Endpoint::from(id.0);

@@ -18,6 +18,7 @@ impl AppWriteRequest {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
@@ -32,6 +33,7 @@ impl AppReadRequest {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
@@ -43,6 +45,7 @@ impl AppState {
     pub fn serialize(&self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
