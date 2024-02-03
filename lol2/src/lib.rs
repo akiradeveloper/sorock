@@ -16,7 +16,7 @@ use process::RaftProcess;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::transport::{Endpoint, Uri};
+use tonic::transport::Uri;
 
 mod raft {
     tonic::include_proto!("lol2");
