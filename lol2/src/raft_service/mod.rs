@@ -4,6 +4,7 @@ use process::*;
 
 mod stream;
 
+/// Create a Raft service backed by a Raft node.
 pub fn new(node: RaftNode) -> raft::raft_server::RaftServer<ServiceImpl> {
     let inner = ServiceImpl { node };
     raft::raft_server::RaftServer::new(inner)
