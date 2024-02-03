@@ -82,14 +82,17 @@ pub struct LogStreamElem {
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 struct Ref<T>(T);
 
+/// `RaftApp` is the representation of state machine in Raft.
+/// Beside the application state, it also contains the snapshot store
+/// where snapshot data is stored with a snapshot index as a key.
 #[async_trait::async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// Apply read request to the application.
-    /// This call should not change the state of the application.
+    /// Calling of this function should not change the state of the application.
     async fn process_read(&self, request: &[u8]) -> Result<Bytes>;
 
     /// Apply write request to the application.
-    /// This call may change the state of the application.
+    /// Calling of this function may change the state of the application.
     async fn process_write(&self, request: &[u8], entry_index: Index) -> Result<Bytes>;
 
     /// Replace the state of the application with the snapshot.
@@ -97,9 +100,11 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn install_snapshot(&self, snapshot_index: Index) -> Result<()>;
 
     /// Save snapshot with index `snapshot_index` to the snapshot store.
+    /// This function is called when the snapshot is fetched from the leader.
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
+    /// This function is called when a follower requests a snapshot from the leader.
     async fn open_snapshot(&self, snapshot_index: Index) -> Result<SnapshotStream>;
 
     /// Delete all the snapshots in range [,  i) from the snapshot store.
@@ -111,6 +116,8 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn get_latest_snapshot(&self) -> Result<Index>;
 }
 
+/// `RaftLogStore` is the representation of the log store in Raft.
+/// Conceptually, it is like `RwLock<BTreeMap<Index, Entry>>`.
 #[async_trait::async_trait]
 pub trait RaftLogStore: Sync + Send + 'static {
     /// Insert the entry at index `i` into the log.
@@ -129,6 +136,8 @@ pub trait RaftLogStore: Sync + Send + 'static {
     async fn get_last_index(&self) -> Result<Index>;
 }
 
+/// `RaftBallotStore` is the representation of the ballot store in Raft.
+/// Conceptually, it is like `RwLock<Ballot>`.
 #[async_trait::async_trait]
 pub trait RaftBallotStore: Sync + Send + 'static {
     /// Replace the current ballot with the new one.

@@ -8,7 +8,7 @@ pub struct Inner {
     process: spin::RwLock<HashMap<LaneId, RaftProcess>>,
 }
 
-/// Raft node contains a set of Raft processes.
+/// `RaftNode` contains a set of `RaftProcess`es.
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct RaftNode(Arc<Inner>);
 impl RaftNode {
@@ -49,7 +49,7 @@ impl RaftNode {
     }
 }
 
-/// Context to drive a Raft process.
+/// `RaftDriver` is a context to drive a `RaftProcess`.
 #[derive(Clone)]
 pub struct RaftDriver {
     lane_id: LaneId,

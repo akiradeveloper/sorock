@@ -23,7 +23,7 @@ mod raft {
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
-/// Identifier of a Raft node.
+/// Identifier of a `RaftNode`.
 #[derive(
     serde::Serialize,
     serde::Deserialize,
