@@ -5,17 +5,17 @@ use process::*;
 
 mod stream;
 
-pub struct Connection {
+pub struct Communicator {
     cli: raft::RaftClient,
     lane_id: LaneId,
 }
-impl Connection {
+impl Communicator {
     pub fn new(cli: raft::RaftClient, lane_id: LaneId) -> Self {
         Self { cli, lane_id }
     }
 }
 
-impl Connection {
+impl Communicator {
     pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
         let req = raft::GetSnapshotRequest {
             lane_id: self.lane_id,

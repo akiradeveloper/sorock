@@ -5,7 +5,7 @@ pub mod process;
 pub mod client;
 mod node;
 pub mod raft_service;
-mod requester;
+mod communicator;
 
 use anyhow::Result;
 use bytes::Bytes;

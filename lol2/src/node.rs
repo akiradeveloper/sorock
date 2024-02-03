@@ -57,12 +57,12 @@ impl RaftDriver {
         self.self_node_id.clone()
     }
 
-    pub(crate) fn connect(&self, id: NodeId) -> requester::Connection {
+    pub(crate) fn connect(&self, id: NodeId) -> communicator::Communicator {
         let conn = self.cache.get_with(id.clone(), || {
             let endpoint = tonic::transport::Endpoint::from(id.0);
             let chan = endpoint.connect_lazy();
             raft::RaftClient::new(chan)
         });
-        requester::Connection::new(conn, self.lane_id)
+        communicator::Communicator::new(conn, self.lane_id)
     }
 }
