@@ -129,7 +129,7 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn propose_new_snapshot(&self) -> Result<Index> {
+    async fn get_latest_snapshot(&self) -> Result<Index> {
         let k = {
             let mut out = vec![];
             let snapshots = self.snapshots.read().unwrap();

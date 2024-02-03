@@ -90,7 +90,7 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
     async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream>;
     async fn delete_snapshots_before(&self, x: Index) -> Result<()>;
-    async fn propose_new_snapshot(&self) -> Result<Index>;
+    async fn get_latest_snapshot(&self) -> Result<Index>;
 }
 
 #[async_trait::async_trait]
