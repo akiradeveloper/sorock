@@ -8,9 +8,11 @@ pub struct Inner {
     process: spin::RwLock<HashMap<LaneId, RaftProcess>>,
 }
 
+/// `RaftNode` contains a set of Raft processes.
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct RaftNode(Arc<Inner>);
 impl RaftNode {
+    /// Create a new `RaftNode` with a given node ID.
     pub fn new(id: NodeId) -> Self {
         let builder = moka::sync::Cache::builder()
             .initial_capacity(1000)
@@ -23,6 +25,7 @@ impl RaftNode {
         Self(inner.into())
     }
 
+    /// Get a Raft driver to drive a Raft process on a lane.
     pub fn get_driver(&self, lane_id: LaneId) -> RaftDriver {
         RaftDriver {
             lane_id,
@@ -46,6 +49,7 @@ impl RaftNode {
     }
 }
 
+/// `RaftDriver` is a context to drive a Raft process.
 #[derive(Clone)]
 pub struct RaftDriver {
     lane_id: LaneId,
