@@ -12,7 +12,8 @@ A Raft implementation in Rust language. To support this project please give it a
 
 ## Features
 
-![multi-raft](https://github.com/akiradeveloper/lol/assets/785824/2293cf2b-436a-45ed-a507-88e299e622bf)
+![スクリーンショット 2024-02-03 13 29 55](https://github.com/akiradeveloper/lol/assets/785824/f6a6ceef-98f3-4fcf-9ba8-3655d52bd3f0)
+
 
 - Implements all fundamental [Raft](https://raft.github.io/) features for production use.
 - Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.
@@ -24,7 +25,8 @@ A Raft implementation in Rust language. To support this project please give it a
 To implement Multi-Raft, the architecture is divided into two spaces. One in the lower side is called "Pure Raft" layer which is totally unaware of 
 gRPC and Multi-Raft. Therefore, called pure. The other side translates gRPC requests into pure requests and vice versa.
 
-![lol2 (1)](https://github.com/akiradeveloper/lol/assets/785824/dc605ed9-ca90-4e17-a370-ca1b939e43ce)
+![スクリーンショット 2024-02-03 13 30 09](https://github.com/akiradeveloper/lol/assets/785824/fd064ba6-be20-4934-839a-db8cd07a8f13)
+
 
 
 ## Development
