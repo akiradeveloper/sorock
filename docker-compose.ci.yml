@@ -2,7 +2,7 @@ version: '3'
 
 services:
   dev:
-    image: ghcr.io/lol/lol-dev:latest
+    image: ghcr.io/akiradeveloper/lol/lol-dev:latest
     working_dir: /work
     volumes:
       - ./:/work
@@ -11,7 +11,7 @@ services:
       - raft-network
 
   testapp:
-    image: ghcr.io/lol/lol-testapp:latest
+    image: ghcr.io/akiradeveloper/lol/lol-testapp:latest
     entrypoint:
       - /bin/sh
 
