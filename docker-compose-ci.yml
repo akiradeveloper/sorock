@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  dev:
+    image: lol-dev:latest
+    working_dir: /work
+    volumes:
+      - ./:/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - raft-network
+
+  testapp:
+    image: lol-testapp:latest
+    entrypoint:
+      - /bin/sh
+
+networks:
+  raft-network:
+    driver: bridge
