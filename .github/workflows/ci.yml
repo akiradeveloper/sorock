@@ -35,4 +35,4 @@ jobs:
                 cache-to: type=gha,mode=max
 
             - name: Run tests
-              run: docker compose -f docker-compose.ci.yml run --rm dev cargo test
+              run: docker compose -f docker-compose.ci.yml run --rm dev cargo test -v ./...
