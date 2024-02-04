@@ -29,6 +29,7 @@ jobs:
               with:
                 context: .
                 file: tests/testapp/Dockerfile
+                load: true
                 push: false
                 tags: lol-testapp:latest
                 cache-from: type=gha
