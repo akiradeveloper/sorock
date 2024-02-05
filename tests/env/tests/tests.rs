@@ -85,7 +85,6 @@ async fn connect_disconnect_network() -> Result<()> {
     assert!(env.ping(0).await.is_err());
 
     env.start(0).await?;
-    env.connect_network(0).await?;
     env.ping(0).await?;
 
     env.disconnect_network(0).await?;
