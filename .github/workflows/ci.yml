@@ -28,8 +28,8 @@ jobs:
                 push: false
                 load: true
                 tags: lol-dev:latest
-                cache-from: type=gha
-                cache-to: type=gha,mode=max
+                cache-from: type=gha,scope=dev
+                cache-to: type=gha,mode=max,scope=dev
 
             - name: Build (testapp)
               uses: docker/build-push-action@v5
@@ -39,8 +39,8 @@ jobs:
                 push: false
                 load: true
                 tags: lol-testapp:latest
-                cache-from: type=gha
-                cache-to: type=gha,mode=max
+                cache-from: type=gha,scope=testapp
+                cache-to: type=gha,mode=max,scope=testapp
 
             - name: Run tests
               run: |
