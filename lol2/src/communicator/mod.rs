@@ -16,7 +16,7 @@ impl Communicator {
 }
 
 impl Communicator {
-    pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
+    pub async fn get_snapshot(&self, index: Index) -> Result<snapshot::SnapshotStream> {
         let req = raft::GetSnapshotRequest {
             lane_id: self.lane_id,
             index,

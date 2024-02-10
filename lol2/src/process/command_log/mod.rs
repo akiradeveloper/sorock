@@ -104,7 +104,7 @@ impl Inner {
         Ok(())
     }
 
-    pub async fn open_snapshot(&self, index: Index) -> Result<SnapshotStream> {
+    pub async fn open_snapshot(&self, index: Index) -> Result<snapshot::SnapshotStream> {
         let _g = self.snapshot_lock.read().await;
 
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
