@@ -3,7 +3,7 @@ use super::*;
 impl PeerSvc {
     async fn prepare_replication_stream(
         selfid: NodeId,
-        command_log: CommandLog,
+        command_log: Ref<CommandLog>,
         l: Index,
         r: Index,
     ) -> Result<LogStream> {

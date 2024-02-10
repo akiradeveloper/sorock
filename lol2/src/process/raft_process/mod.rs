@@ -22,7 +22,7 @@ pub struct Inner {
     peers: PeerSvc,
     query_queue: QueryQueue,
     driver: RaftDriver,
-    thread_handles: ThreadHandles,
+    _thread_handles: ThreadHandles,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -36,12 +36,12 @@ impl RaftProcess {
     ) -> Result<Self> {
         let app = App::new(app);
 
-        let query_queue = QueryQueue::new(app.clone());
+        let query_queue = QueryQueue::new(Ref(app.clone()));
 
         let command_log = CommandLog::new(log_store, app.clone());
         command_log.restore_state().await?;
 
-        let peers = PeerSvc::new(command_log.clone(), driver.clone());
+        let peers = PeerSvc::new(Ref(command_log.clone()), driver.clone());
 
         let voter = Voter::new(
             ballot_store,
@@ -52,7 +52,7 @@ impl RaftProcess {
 
         peers.restore_state(Ref(voter.clone())).await?;
 
-        let thread_handles = ThreadHandles {
+        let _thread_handles = ThreadHandles {
             advance_kern_handle: thread::advance_kern::new(command_log.clone(), voter.clone()),
             advance_user_handle: thread::advance_user::new(command_log.clone(), app.clone()),
             advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
@@ -77,7 +77,7 @@ impl RaftProcess {
             peers,
             query_queue,
             driver,
-            thread_handles,
+            _thread_handles,
         };
         Ok(RaftProcess(inner.into()))
     }

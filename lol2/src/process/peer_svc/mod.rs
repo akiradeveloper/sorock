@@ -33,14 +33,14 @@ pub struct Inner {
     peer_contexts: spin::RwLock<HashMap<NodeId, PeerContexts>>,
     peer_threads: spin::Mutex<HashMap<NodeId, ThreadHandles>>,
 
-    command_log: CommandLog,
+    command_log: Ref<CommandLog>,
     driver: RaftDriver,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct PeerSvc(pub Arc<Inner>);
 impl PeerSvc {
-    pub fn new(command_log: CommandLog, driver: RaftDriver) -> Self {
+    pub fn new(command_log: Ref<CommandLog>, driver: RaftDriver) -> Self {
         let inner = Inner {
             membership: HashSet::new().into(),
             peer_contexts: HashMap::new().into(),
