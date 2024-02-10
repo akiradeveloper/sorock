@@ -19,7 +19,7 @@ impl Voter {
             .try_read_membership_change(last_membership_change_index)
             .await?
             .unwrap();
-        ensure!(!config.contains(&self.driver.selfid()));
+        ensure!(!config.contains(&self.driver.self_node_id()));
 
         info!("step down");
         self.write_election_state(voter::ElectionState::Follower);

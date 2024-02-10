@@ -73,60 +73,6 @@ impl Env {
         Ok(())
     }
 
-    pub async fn pause(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-        self.docker.pause_container(&container_id).await?;
-        Ok(())
-    }
-
-    pub async fn resume(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-        self.docker.unpause_container(&container_id).await?;
-        Ok(())
-    }
-
-    pub async fn pause_v2(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-
-        let inspect = self.docker.inspect_container(&container_id, None).await?;
-        let pid = inspect
-            .state
-            .and_then(|state| state.pid)
-            .ok_or(anyhow::anyhow!("no pid"))?;
-
-        let mut child = tokio::process::Command::new("kill")
-            .arg("-s")
-            .arg("SIGSTOP")
-            .arg(format!("{pid}"))
-            .spawn()?;
-        child.wait().await?;
-
-        Ok(())
-    }
-
-    pub async fn resume_v2(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-
-        let inspect = self.docker.inspect_container(&container_id, None).await?;
-        let pid = inspect
-            .state
-            .and_then(|state| state.pid)
-            .ok_or(anyhow::anyhow!("no pid"))?;
-
-        let mut child = tokio::process::Command::new("kill")
-            .arg("-s")
-            .arg("SIGCONT")
-            .arg(format!("{pid}"))
-            .spawn()?;
-        child.wait().await?;
-
-        Ok(())
-    }
-
     pub async fn connect_network(&mut self, id: u8) -> Result<()> {
         ensure!(self.containers.contains_key(&id));
         let container_id = self.containers.get(&id).unwrap().0.clone();
@@ -149,17 +95,6 @@ impl Env {
         Ok(())
     }
 
-    pub async fn disconnect_network(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-        let config = network::DisconnectNetworkOptions {
-            container: container_id,
-            ..Default::default()
-        };
-        self.docker.disconnect_network(NETWORK_NAME, config).await?;
-        Ok(())
-    }
-
     pub async fn ping(&self, id: u8) -> Result<()> {
         let chan = self.connect(0);
         let mut cli = testapp::PingClient::new(chan);
@@ -176,6 +111,7 @@ impl Env {
         chan
     }
 }
+
 impl Drop for Env {
     fn drop(&mut self) {
         for (id, container) in self.containers.drain() {

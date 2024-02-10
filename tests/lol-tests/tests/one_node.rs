@@ -71,6 +71,7 @@ async fn n1_many_retry_exec_once() -> Result<()> {
     let cli = lol2::client::RaftClient::new(chan);
 
     let req = lol2::client::WriteRequest {
+        lane_id: testapp::APP_LANE_ID,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
         }

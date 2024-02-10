@@ -84,7 +84,11 @@ impl Voter {
     pub fn get_election_timeout(&self) -> Option<Duration> {
         // This is optimization to avoid unnecessary election.
         // If the membership doesn't contain this node, it can't be receiving any heartbeat.
-        if !self.peers.read_membership().contains(&self.driver.selfid()) {
+        if !self
+            .peers
+            .read_membership()
+            .contains(&self.driver.self_node_id())
+        {
             return None;
         }
         self.leader_failure_detector.get_election_timeout()
@@ -116,7 +120,7 @@ impl Voter {
 
             // Vote to itself
             new_ballot.cur_term = vote_term;
-            new_ballot.voted_for = Some(self.driver.selfid());
+            new_ballot.voted_for = Some(self.driver.self_node_id());
             self.write_ballot(new_ballot).await?;
 
             // Becoming Candidate avoids this node starts another election during this election.
@@ -146,12 +150,12 @@ impl Voter {
     ) -> Result<bool> {
         let (others, remaining) = {
             let membership = self.peers.read_membership();
-            ensure!(membership.contains(&self.driver.selfid()));
+            ensure!(membership.contains(&self.driver.self_node_id()));
 
             let n = membership.len();
             let mut others = vec![];
             for id in membership {
-                if id != self.driver.selfid() {
+                if id != self.driver.self_node_id() {
                     others.push(id);
                 }
             }
@@ -168,7 +172,7 @@ impl Voter {
         // Let's get remaining votes out of others.
         let mut vote_requests = vec![];
         for endpoint in others {
-            let selfid = self.driver.selfid();
+            let selfid = self.driver.self_node_id();
             let conn = self.driver.connect(endpoint);
             vote_requests.push(async move {
                 let req = request::RequestVote {

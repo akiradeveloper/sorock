@@ -13,7 +13,7 @@ impl App {
         owner: NodeId,
         driver: RaftDriver,
     ) -> Result<()> {
-        if owner == driver.selfid() {
+        if owner == driver.self_node_id() {
             return Ok(());
         }
         if index < 2 {

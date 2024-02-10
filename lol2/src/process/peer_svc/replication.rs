@@ -3,7 +3,7 @@ use super::*;
 impl PeerSvc {
     async fn prepare_replication_stream(
         selfid: NodeId,
-        command_log: CommandLog,
+        command_log: Ref<CommandLog>,
         l: Index,
         r: Index,
     ) -> Result<LogStream> {
@@ -61,7 +61,7 @@ impl PeerSvc {
         assert!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.driver.selfid(),
+            self.driver.self_node_id(),
             self.command_log.clone(),
             old_progress.next_index,
             old_progress.next_index + n,

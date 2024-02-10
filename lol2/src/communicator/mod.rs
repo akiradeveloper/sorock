@@ -5,18 +5,22 @@ use process::*;
 
 mod stream;
 
-pub struct Connection {
+pub struct Communicator {
     cli: raft::RaftClient,
+    lane_id: LaneId,
 }
-impl Connection {
-    pub fn new(cli: raft::RaftClient) -> Self {
-        Self { cli }
+impl Communicator {
+    pub fn new(cli: raft::RaftClient, lane_id: LaneId) -> Self {
+        Self { cli, lane_id }
     }
 }
 
-impl Connection {
-    pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
-        let req = raft::GetSnapshotRequest { index };
+impl Communicator {
+    pub async fn get_snapshot(&self, index: Index) -> Result<snapshot::Stream> {
+        let req = raft::GetSnapshotRequest {
+            lane_id: self.lane_id,
+            index,
+        };
         let st = self.cli.clone().get_snapshot(req).await?.into_inner();
         let st = Box::pin(stream::into_internal_snapshot_stream(st));
         Ok(st)
@@ -24,6 +28,7 @@ impl Connection {
 
     pub async fn send_heartbeat(&self, req: request::Heartbeat) -> Result<()> {
         let req = raft::Heartbeat {
+            lane_id: self.lane_id,
             leader_id: req.leader_id.to_string(),
             leader_term: req.leader_term,
             leader_commit_index: req.leader_commit_index,
@@ -37,6 +42,7 @@ impl Connection {
         req: request::UserWriteRequest,
     ) -> Result<Bytes> {
         let req = raft::WriteRequest {
+            lane_id: self.lane_id,
             message: req.message,
             request_id: req.request_id,
         };
@@ -46,6 +52,7 @@ impl Connection {
 
     pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
         let req = raft::ReadRequest {
+            lane_id: self.lane_id,
             message: req.message,
         };
         let resp = self.cli.clone().read(req).await?.into_inner();
@@ -54,6 +61,7 @@ impl Connection {
 
     pub async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
         let req = raft::KernRequest {
+            lane_id: self.lane_id,
             message: req.message,
         };
         self.cli.clone().process_kern_request(req).await?;
@@ -61,12 +69,15 @@ impl Connection {
     }
 
     pub async fn send_timeout_now(&self) -> Result<()> {
-        self.cli.clone().timeout_now(()).await?;
+        let req = raft::TimeoutNowRequest {
+            lane_id: self.lane_id,
+        };
+        self.cli.clone().timeout_now(req).await?;
         Ok(())
     }
 
     pub async fn send_log_stream(&self, st: LogStream) -> Result<response::SendLogStream> {
-        let st = stream::into_external_log_stream(st);
+        let st = stream::into_external_log_stream(self.lane_id, st);
         let resp = self.cli.clone().send_log_stream(st).await?.into_inner();
         Ok(response::SendLogStream {
             success: resp.success,
@@ -76,6 +87,7 @@ impl Connection {
 
     pub async fn request_vote(&self, req: request::RequestVote) -> Result<bool> {
         let req = raft::VoteRequest {
+            lane_id: self.lane_id,
             candidate_id: req.candidate_id.to_string(),
             candidate_clock: {
                 let e = req.candidate_clock;

@@ -8,6 +8,8 @@ mod proto {
 }
 pub use proto::ping_client::PingClient;
 
+pub const APP_LANE_ID: lol2::LaneId = 777;
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum AppWriteRequest {
     FetchAdd { bytes: Vec<u8> },
@@ -16,6 +18,7 @@ impl AppWriteRequest {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
@@ -30,6 +33,7 @@ impl AppReadRequest {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
@@ -41,6 +45,7 @@ impl AppState {
     pub fn serialize(&self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         bincode::deserialize(bytes).unwrap()
     }
@@ -58,6 +63,7 @@ impl Client {
     pub async fn fetch_add(&mut self, n: u64) -> Result<u64> {
         let request_id = uuid::Uuid::new_v4().to_string();
         let req = WriteRequest {
+            lane_id: APP_LANE_ID,
             message: AppWriteRequest::FetchAdd {
                 bytes: vec![1u8; n as usize].into(),
             }
@@ -87,6 +93,7 @@ impl Client {
 
     pub async fn read(&self) -> Result<u64> {
         let req = ReadRequest {
+            lane_id: APP_LANE_ID,
             message: AppReadRequest::Read.serialize(),
         };
         let resp = self.cli.clone().read(req).await?.into_inner();
@@ -96,6 +103,7 @@ impl Client {
 
     pub async fn make_snapshot(&self) -> Result<u64> {
         let req = ReadRequest {
+            lane_id: APP_LANE_ID,
             message: AppReadRequest::MakeSnapshot.serialize(),
         };
         let resp = self.cli.clone().read(req).await?.into_inner();

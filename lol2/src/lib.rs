@@ -3,9 +3,9 @@
 pub mod process;
 
 pub mod client;
+mod communicator;
 mod node;
 pub mod raft_service;
-mod requester;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -16,13 +16,14 @@ use process::RaftProcess;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::transport::{Endpoint, Uri};
+use tonic::transport::Uri;
 
 mod raft {
     tonic::include_proto!("lol2");
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
+/// Identifier of a `RaftNode`.
 #[derive(
     serde::Serialize,
     serde::Deserialize,
@@ -35,12 +36,11 @@ mod raft {
     derive_more::FromStr,
 )]
 pub struct NodeId(#[serde(with = "http_serde::uri")] Uri);
+
 impl NodeId {
     pub fn new(uri: Uri) -> Self {
         Self(uri)
     }
-    pub fn from_str(url: &str) -> Result<Self> {
-        let url = url.parse()?;
-        Ok(Self(url))
-    }
 }
+
+pub type LaneId = u32;

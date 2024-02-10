@@ -33,6 +33,7 @@ impl Cluster {
     pub async fn add_server(&mut self, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(lol2::client::AddServerRequest {
+                lane_id: testapp::APP_LANE_ID,
                 server_id: Env::address_from_id(id),
             })
             .await?;
@@ -44,6 +45,7 @@ impl Cluster {
     pub async fn remove_server(&mut self, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(lol2::client::RemoveServerRequest {
+                lane_id: testapp::APP_LANE_ID,
                 server_id: Env::address_from_id(id),
             })
             .await?;

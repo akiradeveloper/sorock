@@ -14,7 +14,7 @@ impl CommandLog {
 
     pub async fn advance_snapshot_index(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
-        let proposed_snapshot_index = self.app.propose_new_snapshot().await?;
+        let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
         if proposed_snapshot_index > cur_snapshot_index {
             info!("find a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
 

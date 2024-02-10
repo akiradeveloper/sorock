@@ -5,7 +5,9 @@ mod app;
 mod proto {
     tonic::include_proto!("testapp");
 }
+
 struct PingApp;
+
 #[tonic::async_trait]
 impl proto::ping_server::Ping for PingApp {
     async fn ping(
@@ -51,9 +53,9 @@ async fn main() -> Result<()> {
     let node_id = env_config.address.parse()?;
     let node = lol2::RaftNode::new(node_id);
 
-    let driver = node.get_driver();
+    let driver = node.get_driver(testapp::APP_LANE_ID);
     let process = app::new(driver).await?;
-    node.attach_process(process);
+    node.attach_process(testapp::APP_LANE_ID, process);
 
     let raft_svc = lol2::raft_service::new(node);
     let ping_svc = proto::ping_server::PingServer::new(PingApp);

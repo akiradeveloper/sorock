@@ -1,10 +1,12 @@
 use super::*;
 
 pub fn into_external_log_stream(
+    lane_id: LaneId,
     st: LogStream,
 ) -> impl futures::stream::Stream<Item = raft::LogStreamChunk> {
     use raft::log_stream_chunk::Elem as ChunkElem;
     let header_stream = vec![ChunkElem::Header(raft::LogStreamHeader {
+        lane_id,
         sender_id: st.sender_id.to_string(),
         prev_clock: Some(raft::Clock {
             term: st.prev_clock.term,

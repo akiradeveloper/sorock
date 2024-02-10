@@ -7,14 +7,14 @@ pub struct Query {
 }
 
 pub struct Inner {
-    app: App,
+    app: Ref<App>,
     q: tokio::sync::RwLock<Impl>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct QueryQueue(Arc<Inner>);
 impl QueryQueue {
-    pub fn new(app: App) -> Self {
+    pub fn new(app: Ref<App>) -> Self {
         let inner = Inner {
             app,
             q: Impl::new().into(),
@@ -31,7 +31,7 @@ impl QueryQueue {
 
     pub async fn execute(&self, index: Index) -> bool {
         let mut q = self.q.write().await;
-        q.execute(index, self.app.clone()).await
+        q.execute(index, &self.app).await
     }
 }
 
@@ -54,7 +54,7 @@ impl Impl {
     }
 
     /// execute all awating queries in range [, index] in parallel
-    async fn execute(&mut self, index: Index, app: App) -> bool {
+    async fn execute(&mut self, index: Index, app: &App) -> bool {
         let futs = {
             let mut out = vec![];
             let ls: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
