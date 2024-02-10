@@ -21,13 +21,13 @@ pub async fn new(driver: lol2::RaftDriver) -> Result<RaftProcess> {
 
 struct AppSnapshot(AppState);
 impl AppSnapshot {
-    pub fn into_stream(self) -> snapshot::SnapshotStream {
+    pub fn into_stream(self) -> snapshot::Stream {
         let bytes = self.0.serialize();
         let cursor = std::io::Cursor::new(bytes);
         Box::pin(snapshot_io::read(cursor))
     }
 
-    pub async fn from_stream(st: snapshot::SnapshotStream) -> Self {
+    pub async fn from_stream(st: snapshot::Stream) -> Self {
         let mut v = vec![];
         let cursor = std::io::Cursor::new(&mut v);
         snapshot_io::write(cursor, st).await.unwrap();
@@ -107,7 +107,7 @@ impl RaftApp for AppMain {
         Ok(AppState(cur_state.counter).serialize())
     }
 
-    async fn save_snapshot(&self, st: snapshot::SnapshotStream, snapshot_index: Index) -> Result<()> {
+    async fn save_snapshot(&self, st: snapshot::Stream, snapshot_index: Index) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots
             .write()
@@ -116,7 +116,7 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn open_snapshot(&self, x: Index) -> Result<snapshot::SnapshotStream> {
+    async fn open_snapshot(&self, x: Index) -> Result<snapshot::Stream> {
         ensure!(self.snapshots.read().unwrap().contains_key(&x));
         let cur_state = *self.snapshots.read().unwrap().get(&x).unwrap();
         let snap = AppSnapshot(cur_state);

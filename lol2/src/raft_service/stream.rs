@@ -57,7 +57,7 @@ pub type SnapshotStreamOut = std::pin::Pin<
     Box<dyn futures::stream::Stream<Item = Result<raft::SnapshotChunk, tonic::Status>> + Send>,
 >;
 
-pub fn into_external_snapshot_stream(in_stream: snapshot::SnapshotStream) -> SnapshotStreamOut {
+pub fn into_external_snapshot_stream(in_stream: snapshot::Stream) -> SnapshotStreamOut {
     let out_stream = in_stream.map(|res| {
         res.map(|data| raft::SnapshotChunk { data })
             .map_err(|_| tonic::Status::unknown("streaming error"))

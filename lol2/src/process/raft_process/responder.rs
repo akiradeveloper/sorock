@@ -125,7 +125,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub async fn get_snapshot(&self, index: Index) -> Result<snapshot::SnapshotStream> {
+    pub async fn get_snapshot(&self, index: Index) -> Result<snapshot::Stream> {
         let st = self.command_log.open_snapshot(index).await?;
         Ok(st)
     }

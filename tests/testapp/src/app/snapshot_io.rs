@@ -1,8 +1,8 @@
 use super::*;
 
+use futures::stream::TryStreamExt;
 use futures::Stream;
 use futures::StreamExt;
-use futures::stream::TryStreamExt;
 use tokio::io;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec;
