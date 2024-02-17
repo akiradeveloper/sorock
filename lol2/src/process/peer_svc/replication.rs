@@ -39,7 +39,7 @@ impl PeerSvc {
             return Ok(false);
         }
 
-        // The entries to send may be deleted due to previous compactions.
+        // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
         let cur_snapshot_index = self.command_log.snapshot_pointer.load(Ordering::SeqCst);
         if old_progress.next_index < cur_snapshot_index {
@@ -58,7 +58,7 @@ impl PeerSvc {
 
         let n_max_possible = cur_last_log_index - old_progress.next_index + 1;
         let n = std::cmp::min(old_progress.next_max_cnt, n_max_possible);
-        assert!(n >= 1);
+        ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
             self.driver.self_node_id(),
