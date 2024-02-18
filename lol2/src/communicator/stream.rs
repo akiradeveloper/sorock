@@ -32,10 +32,10 @@ pub fn into_external_log_stream(
 
 pub fn into_internal_snapshot_stream(
     out_stream: impl Stream<Item = Result<raft::SnapshotChunk, tonic::Status>>,
-) -> impl Stream<Item = Result<Bytes, snapshot::Error>> {
+) -> impl Stream<Item = Result<Bytes>> {
     out_stream.map(|result| {
         result
             .map(|chunk| chunk.data.into())
-            .map_err(|e| snapshot::Error::new(std::io::ErrorKind::Other, e))
+            .map_err(|status| anyhow::anyhow!(status.to_string()))
     })
 }

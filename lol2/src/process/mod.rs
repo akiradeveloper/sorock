@@ -11,7 +11,6 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 mod api;
-pub mod snapshot;
 pub(crate) use api::*;
 mod peer_svc;
 use peer_svc::PeerSvc;
@@ -78,6 +77,9 @@ pub(crate) struct LogStreamElem {
     pub command: Bytes,
 }
 
+pub type SnapshotStream =
+    std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
+
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 struct Ref<T>(T);
 
@@ -100,11 +102,11 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Save snapshot with index `snapshot_index` to the snapshot store.
     /// This function is called when the snapshot is fetched from the leader.
-    async fn save_snapshot(&self, st: snapshot::Stream, snapshot_index: Index) -> Result<()>;
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
     /// This function is called when a follower requests a snapshot from the leader.
-    async fn open_snapshot(&self, snapshot_index: Index) -> Result<snapshot::Stream>;
+    async fn open_snapshot(&self, snapshot_index: Index) -> Result<SnapshotStream>;
 
     /// Delete all the snapshots in range [,  i) from the snapshot store.
     async fn delete_snapshots_before(&self, i: Index) -> Result<()>;
