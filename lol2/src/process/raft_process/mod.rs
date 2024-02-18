@@ -16,7 +16,7 @@ struct ThreadHandles {
     stepdown_handle: thread::ThreadHandle,
 }
 
-pub struct Inner {
+pub struct RaftProcess {
     command_log: CommandLog,
     voter: Voter,
     peers: PeerSvc,
@@ -25,8 +25,6 @@ pub struct Inner {
     _thread_handles: ThreadHandles,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
-pub struct RaftProcess(Arc<Inner>);
 impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
@@ -71,14 +69,13 @@ impl RaftProcess {
             stepdown_handle: thread::stepdown::new(voter.clone()),
         };
 
-        let inner = Inner {
+        Ok(Self {
             command_log,
             voter,
             peers,
             query_queue,
             driver,
             _thread_handles,
-        };
-        Ok(RaftProcess(inner.into()))
+        })
     }
 }

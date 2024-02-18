@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, raft::RaftClient>,
-    process: spin::RwLock<HashMap<LaneId, RaftProcess>>,
+    process: spin::RwLock<HashMap<LaneId, Arc<RaftProcess>>>,
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
@@ -36,7 +36,7 @@ impl RaftNode {
 
     /// Attach a Raft process to a lane.
     pub fn attach_process(&self, lane_id: LaneId, p: RaftProcess) {
-        self.process.write().insert(lane_id, p);
+        self.process.write().insert(lane_id, Arc::new(p));
     }
 
     /// Detach a Raft process from a lane.
@@ -44,7 +44,7 @@ impl RaftNode {
         self.process.write().remove(&lane_id);
     }
 
-    pub(crate) fn get_process(&self, lane_id: LaneId) -> Option<RaftProcess> {
+    pub(crate) fn get_process(&self, lane_id: LaneId) -> Option<Arc<RaftProcess>> {
         self.process.read().get(&lane_id).cloned()
     }
 }
