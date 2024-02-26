@@ -9,4 +9,6 @@ pub enum Error {
     LogStateError,
     #[error("entry not found at index {0}")]
     EntryNotFound(u64),
+    #[error(transparent)]
+    StreamChunkError(#[from] tonic::Status),
 }

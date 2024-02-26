@@ -36,6 +36,6 @@ pub fn into_internal_snapshot_stream(
     out_stream.map(|result| {
         result
             .map(|chunk| chunk.data.into())
-            .map_err(|status| anyhow::anyhow!(status.to_string()))
+            .map_err(|e| Error::StreamChunkError(e).into())
     })
 }
