@@ -119,11 +119,11 @@ impl Inner {
         Ok(last_log_index)
     }
 
+    // This function won't return None because every caller of this function
+    // doesn't care about the non-existence of the entry.
     pub async fn get_entry(&self, index: Index) -> Result<Entry> {
         let entry = self.storage.get_entry(index).await?;
-        // This function won't return None because every caller of this function
-        // doesn't want to know the non-existence of the entry.
-        ensure!(entry.is_some());
+        ensure!(entry.is_some(), Error::EntryNotFound(index));
         Ok(entry.unwrap())
     }
 

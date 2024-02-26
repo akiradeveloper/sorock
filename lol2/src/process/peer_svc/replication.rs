@@ -28,7 +28,12 @@ impl PeerSvc {
     }
 
     pub async fn advance_replication(&self, follower_id: NodeId) -> Result<bool> {
-        let peer = self.peer_contexts.read().get(&follower_id).unwrap().clone();
+        let peer = self
+            .peer_contexts
+            .read()
+            .get(&follower_id)
+            .context(Error::PeerNotFound(follower_id.clone()))?
+            .clone();
 
         let old_progress = peer.progress;
         let cur_last_log_index = self.command_log.get_log_last_index().await?;
@@ -51,7 +56,7 @@ impl PeerSvc {
             self.peer_contexts
                 .write()
                 .get_mut(&follower_id)
-                .unwrap()
+                .context(Error::PeerNotFound(follower_id.clone()))?
                 .progress = new_progress;
             return Ok(true);
         }
@@ -94,7 +99,7 @@ impl PeerSvc {
         self.peer_contexts
             .write()
             .get_mut(&follower_id)
-            .unwrap()
+            .context(Error::PeerNotFound(follower_id.clone()))?
             .progress = new_progress;
 
         Ok(true)

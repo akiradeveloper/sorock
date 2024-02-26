@@ -4,9 +4,12 @@ pub mod process;
 
 pub mod client;
 mod communicator;
+mod error;
 mod node;
 pub mod raft_service;
+use error::Error;
 
+use anyhow::Context;
 use anyhow::Result;
 use bytes::Bytes;
 use futures::Stream;
