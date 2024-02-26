@@ -20,7 +20,7 @@ impl Thread {
                     let this = self.clone();
                     async move { this.run_once().await }
                 };
-                let _ = defensive_panic_guard(fut).await;
+                fut.await.ok();
             }
         })
         .abort_handle();
