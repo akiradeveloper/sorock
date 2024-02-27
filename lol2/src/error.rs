@@ -3,7 +3,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("peer (id={0}) not found")]
+    #[error("process not found (lane_id={0})")]
+    ProcessNotFound(LaneId),
+    #[error("peer (node_id={0}) not found")]
     PeerNotFound(NodeId),
     #[error("log state is broken")]
     LogStateError,
