@@ -11,7 +11,7 @@ impl RaftProcess {
     }
 
     pub async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
-        let ballot = self.voter.read_ballot().await.unwrap();
+        let ballot = self.voter.read_ballot().await?;
 
         ensure!(ballot.voted_for.is_some());
         let leader_id = ballot.voted_for.unwrap();
@@ -51,7 +51,7 @@ impl RaftProcess {
     }
 
     pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
-        let ballot = self.voter.read_ballot().await.unwrap();
+        let ballot = self.voter.read_ballot().await?;
 
         ensure!(ballot.voted_for.is_some());
         let leader_id = ballot.voted_for.unwrap();
@@ -83,7 +83,7 @@ impl RaftProcess {
         &self,
         req: request::UserWriteRequest,
     ) -> Result<Bytes> {
-        let ballot = self.voter.read_ballot().await.unwrap();
+        let ballot = self.voter.read_ballot().await?;
 
         ensure!(ballot.voted_for.is_some());
         let leader_id = ballot.voted_for.unwrap();
@@ -125,7 +125,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub async fn get_snapshot(&self, index: Index) -> Result<snapshot::Stream> {
+    pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
         let st = self.command_log.open_snapshot(index).await?;
         Ok(st)
     }

@@ -11,12 +11,7 @@ impl CommandLog {
         let _g = self.append_lock.lock().await;
 
         let cur_last_log_index = self.get_log_last_index().await?;
-        let prev_clock = self
-            .storage
-            .get_entry(cur_last_log_index)
-            .await?
-            .unwrap()
-            .this_clock;
+        let prev_clock = self.get_entry(cur_last_log_index).await?.this_clock;
         let append_index = cur_last_log_index + 1;
         let this_term = match term {
             Some(t) => t,

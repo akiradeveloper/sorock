@@ -21,7 +21,7 @@ impl Thread {
                     let this = self.clone();
                     async move { this.advance_once().await }
                 };
-                while let Ok(Ok(true)) = defensive_panic_guard(fut()).await {}
+                while let Ok(true) = fut().await {}
             }
         })
         .abort_handle();

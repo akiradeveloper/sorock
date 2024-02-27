@@ -58,6 +58,7 @@ impl Voter {
     pub fn read_election_state(&self) -> ElectionState {
         *self.state.lock().unwrap()
     }
+
     pub fn write_election_state(&self, e: ElectionState) {
         info!("election state -> {e:?}");
         *self.state.lock().unwrap() = e;

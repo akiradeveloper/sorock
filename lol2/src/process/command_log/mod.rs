@@ -104,7 +104,7 @@ impl Inner {
         Ok(())
     }
 
-    pub async fn open_snapshot(&self, index: Index) -> Result<snapshot::Stream> {
+    pub async fn open_snapshot(&self, index: Index) -> Result<SnapshotStream> {
         let _g = self.snapshot_lock.read().await;
 
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
@@ -119,11 +119,11 @@ impl Inner {
         Ok(last_log_index)
     }
 
+    // This function won't return None because every caller of this function
+    // doesn't care about the non-existence of the entry.
     pub async fn get_entry(&self, index: Index) -> Result<Entry> {
         let entry = self.storage.get_entry(index).await?;
-        // This function won't return None because every caller of this function
-        // doesn't want to know the non-existence of the entry.
-        ensure!(entry.is_some());
+        ensure!(entry.is_some(), Error::EntryNotFound(index));
         Ok(entry.unwrap())
     }
 

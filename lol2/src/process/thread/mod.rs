@@ -21,21 +21,3 @@ impl Drop for ThreadHandle {
         self.0.abort();
     }
 }
-
-/// Wrap a future which `may` panic.
-/// Some part of the code in lol may panic due to
-/// `intentionally` accessing to non-existing log entries.
-pub async fn defensive_panic_guard<T>(future: T) -> Result<T::Output>
-where
-    T: Future + Send + 'static,
-    T::Output: Send + 'static,
-{
-    let r = tokio::spawn(future).await;
-    match r {
-        Ok(x) => Ok(x),
-        Err(e) => {
-            warn!("thread panicked: {:?}", e);
-            Err(e.into())
-        }
-    }
-}

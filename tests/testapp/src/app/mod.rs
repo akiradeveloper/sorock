@@ -2,7 +2,9 @@ use super::*;
 
 use anyhow::ensure;
 use bytes::Bytes;
+use futures::{StreamExt, TryStreamExt};
 use lol2::process::*;
+use std::any;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
@@ -21,15 +23,16 @@ pub async fn new(driver: lol2::RaftDriver) -> Result<RaftProcess> {
 
 struct AppSnapshot(AppState);
 impl AppSnapshot {
-    pub fn into_stream(self) -> snapshot::Stream {
+    pub fn into_stream(self) -> SnapshotStream {
         let bytes = self.0.serialize();
         let cursor = std::io::Cursor::new(bytes);
-        Box::pin(snapshot_io::read(cursor))
+        Box::pin(snapshot_io::read(cursor).map_err(|e| anyhow::anyhow!(e)))
     }
 
-    pub async fn from_stream(st: snapshot::Stream) -> Self {
+    pub async fn from_stream(st: SnapshotStream) -> Self {
         let mut v = vec![];
         let cursor = std::io::Cursor::new(&mut v);
+        let st = st.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
         snapshot_io::write(cursor, st).await.unwrap();
         let cur_state = AppState::deserialize(&v);
         AppSnapshot(cur_state)
@@ -107,7 +110,7 @@ impl RaftApp for AppMain {
         Ok(AppState(cur_state.counter).serialize())
     }
 
-    async fn save_snapshot(&self, st: snapshot::Stream, snapshot_index: Index) -> Result<()> {
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots
             .write()
@@ -116,7 +119,7 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn open_snapshot(&self, x: Index) -> Result<snapshot::Stream> {
+    async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream> {
         ensure!(self.snapshots.read().unwrap().contains_key(&x));
         let cur_state = *self.snapshots.read().unwrap().get(&x).unwrap();
         let snap = AppSnapshot(cur_state);

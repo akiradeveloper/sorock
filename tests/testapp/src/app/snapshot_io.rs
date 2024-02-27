@@ -17,7 +17,7 @@ mod reader {
         codec::FramedRead::new(r, codec::BytesCodec::new()).map_ok(|bytes| bytes.freeze())
     }
 
-    pub fn read<R: AsyncRead>(reader: R) -> impl Stream<Item = snapshot::Result<Bytes>> {
+    pub fn read<R: AsyncRead>(reader: R) -> impl Stream<Item = io::Result<Bytes>> {
         into_bytes_stream(reader)
     }
 }
@@ -38,7 +38,7 @@ mod writer {
 
     pub async fn write<W: AsyncWrite + Unpin>(
         writer: W,
-        st: impl Stream<Item = snapshot::Result<Bytes>> + Unpin,
+        st: impl Stream<Item = io::Result<Bytes>> + Unpin,
     ) -> io::Result<()> {
         let st = st.map(|res| res.map_err(|_| std::io::Error::from(std::io::ErrorKind::Other)));
         read_bytes_stream(writer, st).await
