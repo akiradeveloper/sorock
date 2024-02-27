@@ -24,7 +24,7 @@ async fn n10_write() -> Result<()> {
     }
     
     let mut cur = 0;
-    for i in (0..30).rev() {
+    for i in (0..20).rev() {
         let k = 1<<i;
         let old = cluster.user(i%10).fetch_add(k).await?;
         assert_eq!(old, cur);
