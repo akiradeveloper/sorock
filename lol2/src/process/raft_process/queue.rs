@@ -1,7 +1,11 @@
 use super::*;
 
 impl RaftProcess {
-    pub async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
+    pub(crate) async fn queue_new_entry(
+        &self,
+        command: Bytes,
+        completion: Completion,
+    ) -> Result<Index> {
         ensure!(self.voter.allow_queue_entry().await?);
 
         let append_index = self
@@ -18,7 +22,10 @@ impl RaftProcess {
         Ok(append_index)
     }
 
-    pub async fn queue_received_entry(&self, mut req: LogStream) -> Result<(bool, u64)> {
+    pub(crate) async fn queue_received_entries(
+        &self,
+        mut req: request::LogStream,
+    ) -> Result<(bool, u64)> {
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
         while let Some(Some(cur)) = req.entries.next().await {

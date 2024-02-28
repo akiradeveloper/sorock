@@ -23,10 +23,10 @@ impl CommandLog {
                 let last_membership_index = self
                     .find_last_membership_index(proposed_snapshot_index)
                     .await?
-                    .context(Error::LogStateError)?;
+                    .context(Error::BadLogState)?;
                 self.try_read_membership_change(last_membership_index)
                     .await?
-                    .context(Error::LogStateError)?
+                    .context(Error::BadLogState)?
             };
 
             let new_snapshot_entry = {
