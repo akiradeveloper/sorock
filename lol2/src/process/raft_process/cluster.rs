@@ -6,7 +6,11 @@ impl RaftProcess {
     /// guarantees that majority of the servers move to the configuration when the entry is committed.
     /// Without this property, servers may still be in some old configuration which may cause split-brain
     /// by electing two leaders in a single term which is not allowed in Raft.
-    pub async fn process_configuration_command(&self, command: &[u8], index: Index) -> Result<()> {
+    pub(crate) async fn process_configuration_command(
+        &self,
+        command: &[u8],
+        index: Index,
+    ) -> Result<()> {
         let config0 = match Command::deserialize(command) {
             Command::Snapshot { membership } => Some(membership),
             Command::ClusterConfiguration { membership } => Some(membership),

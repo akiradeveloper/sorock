@@ -67,20 +67,12 @@ impl Ballot {
     }
 }
 
-pub(crate) struct LogStream {
-    pub sender_id: NodeId,
-    pub prev_clock: Clock,
-    pub entries:
-        std::pin::Pin<Box<dyn futures::stream::Stream<Item = Option<LogStreamElem>> + Send>>,
-}
-pub(crate) struct LogStreamElem {
-    pub this_clock: Clock,
-    pub command: Bytes,
-}
-
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
+// This is only a marker that indicates the owner doesn't mutate the object.
+// This is only to improve the readability.
+// Compile-time or even runtime checking is more preferable.
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 struct Ref<T>(T);
 

@@ -6,14 +6,14 @@ impl PeerSvc {
         command_log: Ref<CommandLog>,
         l: Index,
         r: Index,
-    ) -> Result<LogStream> {
+    ) -> Result<request::LogStream> {
         let head = command_log.get_entry(l).await?;
 
         let st = async_stream::stream! {
             for idx in l..r {
                 let x = command_log.get_entry(idx).await;
                 let e = match x {
-                    Ok(x) => Some(LogStreamElem {
+                    Ok(x) => Some(request::LogStreamElem {
                         this_clock: x.this_clock,
                         command: x.command,
                     }),
@@ -23,7 +23,7 @@ impl PeerSvc {
             }
         };
 
-        Ok(LogStream {
+        Ok(request::LogStream {
             sender_id: selfid,
             prev_clock: head.prev_clock,
             entries: Box::pin(st),

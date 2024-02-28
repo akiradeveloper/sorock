@@ -16,7 +16,6 @@ use futures::Stream;
 use futures::StreamExt;
 pub use node::{RaftDriver, RaftNode};
 use process::RaftProcess;
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;

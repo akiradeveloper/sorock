@@ -2,7 +2,7 @@ use super::*;
 
 pub async fn into_internal_log_stream(
     mut out_stream: tonic::Streaming<raft::LogStreamChunk>,
-) -> (LaneId, LogStream) {
+) -> (LaneId, request::LogStream) {
     use raft::log_stream_chunk::Elem as ChunkElem;
 
     let (lane_id, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
@@ -33,7 +33,7 @@ pub async fn into_internal_log_stream(
             let e = chunk.elem;
             let e = match e {
                 Some(ChunkElem::Entry(raft::LogStreamEntry { clock: Some(clock), command })) => {
-                    let e = LogStreamElem {
+                    let e = request::LogStreamElem {
                         this_clock: Clock { term: clock.term, index: clock.index },
                         command: command,
                     };
@@ -46,7 +46,7 @@ pub async fn into_internal_log_stream(
         }
     };
 
-    let st = LogStream {
+    let st = request::LogStream {
         sender_id: sender_id.parse().unwrap(),
         prev_clock,
         entries: Box::pin(entries),

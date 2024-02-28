@@ -18,7 +18,7 @@ impl Voter {
             .command_log
             .try_read_membership_change(last_membership_change_index)
             .await?
-            .context(Error::LogStateError)?;
+            .context(Error::BadLogState)?;
         ensure!(!config.contains(&self.driver.self_node_id()));
 
         info!("step down");

@@ -37,6 +37,16 @@ pub mod request {
         /// We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
         pub pre_vote: bool,
     }
+    pub struct LogStream {
+        pub sender_id: NodeId,
+        pub prev_clock: Clock,
+        pub entries:
+            std::pin::Pin<Box<dyn futures::stream::Stream<Item = Option<LogStreamElem>> + Send>>,
+    }
+    pub struct LogStreamElem {
+        pub this_clock: Clock,
+        pub command: Bytes,
+    }
 }
 
 pub mod response {
