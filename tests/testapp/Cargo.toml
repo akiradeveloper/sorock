@@ -20,10 +20,10 @@ signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3"
 tokio-util = "0.7"
-tonic = "0.10"
+tonic = { workspace = true }
 uuid = "1.5"
 
 lol2 = { workspace = true }
 
 [build-dependencies]
-tonic-build = "0.10"
+tonic-build = { workspace = true }

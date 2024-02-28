@@ -10,7 +10,7 @@ anyhow = "1"
 bollard = "0.15"
 log = "0.4"
 tokio = "1"
-tonic = "0.10"
+tonic = { workspace = true }
 
 testapp = { path = "../testapp" }
 
