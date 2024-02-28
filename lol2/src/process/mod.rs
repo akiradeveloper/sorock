@@ -70,7 +70,8 @@ impl Ballot {
 pub(crate) struct LogStream {
     pub sender_id: NodeId,
     pub prev_clock: Clock,
-    pub entries: std::pin::Pin<Box<dyn futures::stream::Stream<Item = LogStreamElem> + Send>>,
+    pub entries:
+        std::pin::Pin<Box<dyn futures::stream::Stream<Item = Option<LogStreamElem>> + Send>>,
 }
 pub(crate) struct LogStreamElem {
     pub this_clock: Clock,

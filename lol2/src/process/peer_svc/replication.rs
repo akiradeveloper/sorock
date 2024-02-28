@@ -11,10 +11,13 @@ impl PeerSvc {
 
         let st = async_stream::stream! {
             for idx in l..r {
-                let x = command_log.get_entry(idx).await.unwrap();
-                let e = LogStreamElem {
-                    this_clock: x.this_clock,
-                    command: x.command,
+                let x = command_log.get_entry(idx).await;
+                let e = match x {
+                    Ok(x) => Some(LogStreamElem {
+                        this_clock: x.this_clock,
+                        command: x.command,
+                    }),
+                    Err(_) => None,
                 };
                 yield e;
             }
