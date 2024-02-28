@@ -6,7 +6,7 @@ pub async fn into_internal_log_stream(
     use raft::log_stream_chunk::Elem as ChunkElem;
 
     let (lane_id, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
-        let e = chunk.elem.unwrap();
+        let e = chunk.elem.expect("replication stream header not found");
         if let ChunkElem::Header(raft::LogStreamHeader {
             lane_id,
             sender_id,
@@ -30,17 +30,19 @@ pub async fn into_internal_log_stream(
 
     let entries = async_stream::stream! {
         while let Some(Ok(chunk)) = out_stream.next().await {
-            let e = chunk.elem.unwrap();
-            match e {
-                ChunkElem::Entry(raft::LogStreamEntry { clock: Some(clock), command }) => {
+            let e = chunk.elem;
+            let e = match e {
+                Some(ChunkElem::Entry(raft::LogStreamEntry { clock: Some(clock), command })) => {
                     let e = LogStreamElem {
                         this_clock: Clock { term: clock.term, index: clock.index },
                         command: command,
                     };
-                    yield e;
+                    Some(e)
                 },
-                _ => unreachable!(),
-            }
+                None => None,
+                _ => unreachable!("the replication stream is broken"),
+            };
+            yield e
         }
     };
 

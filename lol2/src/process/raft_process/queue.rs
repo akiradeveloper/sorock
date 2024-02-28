@@ -21,7 +21,7 @@ impl RaftProcess {
     pub async fn queue_received_entry(&self, mut req: LogStream) -> Result<(bool, u64)> {
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
-        while let Some(cur) = req.entries.next().await {
+        while let Some(Some(cur)) = req.entries.next().await {
             let entry = Entry {
                 prev_clock,
                 this_clock: cur.this_clock,
