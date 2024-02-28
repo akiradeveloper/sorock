@@ -5,9 +5,8 @@ impl RaftProcess {
         &self,
         req: request::LogStream,
     ) -> Result<response::SendLogStream> {
-        let (success, n_inserted) = self.queue_received_entries(req).await?;
+        let n_inserted = self.queue_received_entries(req).await?;
         let resp = response::SendLogStream {
-            success,
             n_inserted,
             log_last_index: self.command_log.get_log_last_index().await?,
         };

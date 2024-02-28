@@ -164,7 +164,6 @@ impl raft::raft_server::Raft for ServiceImpl {
             .await
             .unwrap();
         Ok(tonic::Response::new(raft::SendLogStreamResponse {
-            success: resp.success,
             n_inserted: resp.n_inserted,
             log_last_index: resp.log_last_index,
         }))

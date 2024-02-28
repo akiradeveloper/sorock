@@ -22,10 +22,7 @@ impl RaftProcess {
         Ok(append_index)
     }
 
-    pub(crate) async fn queue_received_entries(
-        &self,
-        mut req: request::LogStream,
-    ) -> Result<(bool, u64)> {
+    pub(crate) async fn queue_received_entries(&self, mut req: request::LogStream) -> Result<u64> {
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
         while let Some(Some(cur)) = req.entries.next().await {
@@ -48,13 +45,13 @@ impl RaftProcess {
                 command_log::TryInsertResult::SkippedInsertion => {}
                 command_log::TryInsertResult::InconsistencyDetected => {
                     warn!("rejected append entry (clock={:?})", cur.this_clock);
-                    return Ok((false, n_inserted));
+                    break;
                 }
             }
             prev_clock = cur.this_clock;
             n_inserted += 1;
         }
 
-        Ok((true, n_inserted))
+        Ok(n_inserted)
     }
 }

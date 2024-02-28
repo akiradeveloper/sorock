@@ -80,7 +80,6 @@ impl Communicator {
         let st = stream::into_external_log_stream(self.lane_id, st);
         let resp = self.cli.clone().send_log_stream(st).await?.into_inner();
         Ok(response::SendLogStream {
-            success: resp.success,
             n_inserted: resp.n_inserted,
             log_last_index: resp.log_last_index,
         })
