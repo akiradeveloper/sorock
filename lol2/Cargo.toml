@@ -18,7 +18,7 @@ log = "0.4"
 moka = { version = "0.12", features = ["sync"] }
 once_cell = "1.18"
 phi-detector = "0.3"
-prost = "0.12"
+prost = { workspace = true }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
@@ -28,12 +28,12 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt"] }
 tokio-retry = "0.3"
 tokio-util = "0.7"
-tonic = "0.10"
+tonic = { workspace = true }
 tower = "0.4.13"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-tonic-build = "0.10"
-prost-build = "0.12"
+tonic-build = { workspace = true }
+prost-build = { workspace = true }
