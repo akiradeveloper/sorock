@@ -43,6 +43,7 @@ pub mod response {
     use super::*;
     pub struct SendLogStream {
         pub success: bool,
+        pub n_inserted: u64,
         pub log_last_index: Index,
     }
 }

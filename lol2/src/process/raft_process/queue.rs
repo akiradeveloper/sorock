@@ -18,8 +18,9 @@ impl RaftProcess {
         Ok(append_index)
     }
 
-    pub async fn queue_received_entry(&self, mut req: LogStream) -> Result<bool> {
+    pub async fn queue_received_entry(&self, mut req: LogStream) -> Result<(bool, u64)> {
         let mut prev_clock = req.prev_clock;
+        let mut n_inserted = 0;
         while let Some(cur) = req.entries.next().await {
             let entry = Entry {
                 prev_clock,
@@ -37,14 +38,16 @@ impl RaftProcess {
                     self.process_configuration_command(&command, insert_index)
                         .await?
                 }
-                command_log::TryInsertResult::Skipped => {}
-                command_log::TryInsertResult::Rejected => {
+                command_log::TryInsertResult::SkippedInsertion => {}
+                command_log::TryInsertResult::InconsistencyDetected => {
                     warn!("rejected append entry (clock={:?})", cur.this_clock);
-                    return Ok(false);
+                    return Ok((false, n_inserted));
                 }
             }
             prev_clock = cur.this_clock;
+            n_inserted += 1;
         }
-        Ok(true)
+
+        Ok((true, n_inserted))
     }
 }
