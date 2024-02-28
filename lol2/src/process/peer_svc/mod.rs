@@ -4,16 +4,18 @@ mod replication;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ReplicationProgress {
+    // The log entrires [0, match_index] are replicated with this node.
+    pub match_index: Index,
+    // In the next replication, log entrires [next_index, next_index + next_max_cnt) will be sent.
     pub next_index: Index,
     pub next_max_cnt: Index,
-    pub match_index: Index,
 }
 impl ReplicationProgress {
     pub fn new(init_next_index: Index) -> Self {
         Self {
+            match_index: 0,
             next_index: init_next_index,
             next_max_cnt: 1,
-            match_index: 0,
         }
     }
 }

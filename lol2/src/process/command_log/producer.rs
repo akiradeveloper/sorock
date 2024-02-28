@@ -2,8 +2,11 @@ use super::*;
 
 pub enum TryInsertResult {
     Inserted,
-    Skipped,
-    Rejected,
+    // If the entry is already inserted then we can skip the insertion.
+    SkippedInsertion,
+    // If the entry is inconsistent with the log then we should reject the entry.
+    // In this case, the leader should rewind the replication status to the follower.
+    InconsistencyDetected,
 }
 
 impl CommandLog {
@@ -89,7 +92,7 @@ impl CommandLog {
         {
             if prev_clock != entry.prev_clock {
                 // consistency check failed.
-                Ok(TryInsertResult::Rejected)
+                Ok(TryInsertResult::InconsistencyDetected)
             } else {
                 let Clock {
                     term: _,
@@ -106,7 +109,7 @@ impl CommandLog {
                     if old_clock == entry.this_clock {
                         // If there is a entry with the same term and index
                         // then the entry should be the same so to skip insertion.
-                        return Ok(TryInsertResult::Skipped);
+                        return Ok(TryInsertResult::SkippedInsertion);
                     }
                 }
 
@@ -119,7 +122,7 @@ impl CommandLog {
                 Ok(TryInsertResult::Inserted)
             }
         } else {
-            Ok(TryInsertResult::Rejected)
+            Ok(TryInsertResult::InconsistencyDetected)
         }
     }
 }

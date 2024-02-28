@@ -78,14 +78,24 @@ impl PeerSvc {
 
         let new_progress = if let Ok(resp) = send_resp {
             match resp {
-                response::SendLogStream { success: true, .. } => ReplicationProgress {
-                    match_index: old_progress.next_index + n - 1,
-                    next_index: old_progress.next_index + n,
-                    next_max_cnt: n * 2,
+                response::SendLogStream {
+                    success: true,
+                    n_inserted,
+                    ..
+                } => ReplicationProgress {
+                    match_index: old_progress.next_index + n_inserted - 1,
+                    next_index: old_progress.next_index + n_inserted,
+                    // If all entries are successfully inserted, then it is safe to double
+                    // the replication width for quick replication.
+                    next_max_cnt: if n_inserted == n { n * 2 } else { n },
                 },
+                // For most of the situation the follow rejected the received log entry
+                // the number of successful insertions is zero.
+                // Therefor, optimizing this case by using `n_inserted` doesn't make sense.
                 response::SendLogStream {
                     success: false,
                     log_last_index: last_log_index,
+                    ..
                 } => ReplicationProgress {
                     match_index: old_progress.match_index,
                     next_index: std::cmp::min(old_progress.next_index - 1, last_log_index + 1),

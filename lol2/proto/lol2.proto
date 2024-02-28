@@ -48,7 +48,8 @@ message LogStreamChunk {
 }
 message SendLogStreamResponse {
   bool success = 1;
-  uint64 log_last_index = 2;
+  uint64 n_inserted = 2;
+  uint64 log_last_index = 3;
 }
 
 message GetSnapshotRequest {
