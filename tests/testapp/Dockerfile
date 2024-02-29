@@ -1,4 +1,4 @@
-FROM rust:1.75-bookworm AS chef
+FROM rust:1.76-bookworm AS chef
 RUN apt-get update
 RUN apt-get install -y protobuf-compiler
 RUN cargo install cargo-chef
@@ -14,7 +14,7 @@ RUN cargo chef cook --recipe-path recipe.json
 COPY . .
 RUN cargo build
 
-FROM rust:1.75-slim-bookworm AS runtime
+FROM rust:1.76-slim-bookworm AS runtime
 EXPOSE 50000
 COPY --from=builder /work/target/debug/testapp ./
 ENTRYPOINT ["./testapp"]
