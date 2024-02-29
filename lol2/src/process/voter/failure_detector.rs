@@ -40,7 +40,11 @@ impl FailureDetector {
 
         let detected = {
             let phi = normal_dist.phi(Instant::now() - fd.last_ping());
-            phi > 3.
+            // Akka suggests threshold is set to 12 in cloud environment
+            // so we take it as a sane default here.
+            // https://doc.akka.io/docs/akka/current/typed/failure-detector.html
+            let threshold = 12.;
+            phi > threshold
         };
         if !detected {
             return None;
