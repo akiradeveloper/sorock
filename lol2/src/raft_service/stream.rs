@@ -1,13 +1,13 @@
 use super::*;
 
 pub async fn into_internal_log_stream(
-    mut out_stream: tonic::Streaming<raft::LogStreamChunk>,
-) -> (LaneId, request::LogStream) {
-    use raft::log_stream_chunk::Elem as ChunkElem;
+    mut out_stream: tonic::Streaming<raft::ReplicationStreamChunk>,
+) -> (LaneId, request::ReplicationStream) {
+    use raft::replication_stream_chunk::Elem as ChunkElem;
 
     let (lane_id, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
         let e = chunk.elem.expect("replication stream header not found");
-        if let ChunkElem::Header(raft::LogStreamHeader {
+        if let ChunkElem::Header(raft::ReplicationStreamHeader {
             lane_id,
             sender_id,
             prev_clock: Some(prev_clock),
@@ -32,8 +32,8 @@ pub async fn into_internal_log_stream(
         while let Some(Ok(chunk)) = out_stream.next().await {
             let e = chunk.elem;
             let e = match e {
-                Some(ChunkElem::Entry(raft::LogStreamEntry { clock: Some(clock), command })) => {
-                    let e = request::LogStreamElem {
+                Some(ChunkElem::Entry(raft::ReplicationStreamEntry { clock: Some(clock), command })) => {
+                    let e = request::ReplicationStreamElem {
                         this_clock: Clock { term: clock.term, index: clock.index },
                         command: command,
                     };
@@ -46,7 +46,7 @@ pub async fn into_internal_log_stream(
         }
     };
 
-    let st = request::LogStream {
+    let st = request::ReplicationStream {
         sender_id: sender_id.parse().unwrap(),
         prev_clock,
         entries: Box::pin(entries),

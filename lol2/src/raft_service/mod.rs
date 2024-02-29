@@ -149,10 +149,10 @@ impl raft::raft_server::Raft for ServiceImpl {
         Ok(tonic::Response::new(()))
     }
 
-    async fn send_log_stream(
+    async fn send_replication_stream(
         &self,
-        request: tonic::Request<tonic::Streaming<raft::LogStreamChunk>>,
-    ) -> std::result::Result<tonic::Response<raft::SendLogStreamResponse>, tonic::Status> {
+        request: tonic::Request<tonic::Streaming<raft::ReplicationStreamChunk>>,
+    ) -> std::result::Result<tonic::Response<raft::ReplicationStreamResponse>, tonic::Status> {
         let st = request.into_inner();
         let (lane_id, st) = stream::into_internal_log_stream(st).await;
         let resp = self
@@ -163,7 +163,7 @@ impl raft::raft_server::Raft for ServiceImpl {
             .send_log_stream(st)
             .await
             .unwrap();
-        Ok(tonic::Response::new(raft::SendLogStreamResponse {
+        Ok(tonic::Response::new(raft::ReplicationStreamResponse {
             n_inserted: resp.n_inserted,
             log_last_index: resp.log_last_index,
         }))
