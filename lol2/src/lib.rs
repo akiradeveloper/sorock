@@ -9,8 +9,7 @@ mod node;
 pub mod raft_service;
 use error::Error;
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
 use futures::Stream;
 use futures::StreamExt;
