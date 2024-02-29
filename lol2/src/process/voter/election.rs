@@ -14,10 +14,11 @@ impl Voter {
 
         let allow_update_ballot = !pre_vote;
 
-        // If it is not a force-vote which is incurred by TimeoutNow,
-        // and it believes the leader is not failed, return non-grant immediately.
-        let leader_timeout = self.get_election_timeout().is_some();
-        if !force_vote && !leader_timeout {
+        // If it is a force-vote which is set by TimeoutNow,
+        // or it believes the leader has failed, it should vote.
+        let leader_failed = self.get_election_timeout().is_some();
+        let should_vote = force_vote || leader_failed;
+        if !should_vote {
             return Ok(false);
         }
 
@@ -83,7 +84,8 @@ impl Voter {
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
         // This is optimization to avoid unnecessary election.
-        // If the membership doesn't contain this node, it can't be receiving any heartbeat.
+        // If the node doesn't contain itself in its membership,
+        // it won't become a new leader anyway.
         if !self
             .peers
             .read_membership()

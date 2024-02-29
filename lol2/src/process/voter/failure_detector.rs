@@ -19,8 +19,8 @@ pub struct FailureDetector {
 }
 impl FailureDetector {
     pub fn new() -> Self {
-        let init_id = NodeId(Uri::from_static("https://xrp.price:589"));
-        let inner = Inner::watch(init_id);
+        let null_node_id = NodeId(Uri::from_static("http://null-node"));
+        let inner = Inner::watch(null_node_id);
         Self {
             inner: inner.into(),
         }
@@ -34,6 +34,8 @@ impl FailureDetector {
         self.inner.lock().unwrap().detector.add_ping(Instant::now())
     }
 
+    /// Get the wait time before becoming a candidate.
+    /// Returns None if the current leader is still considered alive.
     pub fn get_election_timeout(&self) -> Option<Duration> {
         let fd = &self.inner.lock().unwrap().detector;
         let normal_dist = fd.normal_dist();
@@ -58,6 +60,7 @@ impl FailureDetector {
         };
         // timeout is chosen in [mu, mu + 4 * sigma)
         let timeout = normal_dist.mu() + rand_timeout;
+
         Some(timeout)
     }
 }
