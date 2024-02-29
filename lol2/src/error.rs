@@ -9,6 +9,8 @@ pub enum Error {
     BadSnapshotChunk(#[from] tonic::Status),
     #[error("entry not found at index {0}")]
     EntryNotFound(u64),
+    #[error("leader is unknown")]
+    LeaderUnknown,
     #[error("peer (node_id={0}) not found")]
     PeerNotFound(NodeId),
     #[error("process not found (lane_id={0})")]

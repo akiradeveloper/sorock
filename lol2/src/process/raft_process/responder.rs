@@ -16,8 +16,9 @@ impl RaftProcess {
     pub(crate) async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
         let ballot = self.voter.read_ballot().await?;
 
-        ensure!(ballot.voted_for.is_some());
-        let leader_id = ballot.voted_for.unwrap();
+        let Some(leader_id) = ballot.voted_for else {
+            bail!(Error::LeaderUnknown)
+        };
 
         if std::matches!(
             self.voter.read_election_state(),
@@ -59,8 +60,9 @@ impl RaftProcess {
     ) -> Result<Bytes> {
         let ballot = self.voter.read_ballot().await?;
 
-        ensure!(ballot.voted_for.is_some());
-        let leader_id = ballot.voted_for.unwrap();
+        let Some(leader_id) = ballot.voted_for else {
+            anyhow::bail!(Error::LeaderUnknown)
+        };
 
         let resp = if std::matches!(
             self.voter.read_election_state(),
@@ -91,8 +93,9 @@ impl RaftProcess {
     ) -> Result<Bytes> {
         let ballot = self.voter.read_ballot().await?;
 
-        ensure!(ballot.voted_for.is_some());
-        let leader_id = ballot.voted_for.unwrap();
+        let Some(leader_id) = ballot.voted_for else {
+            bail!(Error::LeaderUnknown)
+        };
 
         let resp = if std::matches!(
             self.voter.read_election_state(),
