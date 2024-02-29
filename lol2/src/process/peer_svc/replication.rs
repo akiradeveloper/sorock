@@ -6,14 +6,14 @@ impl PeerSvc {
         command_log: Ref<CommandLog>,
         l: Index,
         r: Index,
-    ) -> Result<request::LogStream> {
+    ) -> Result<request::ReplicationStream> {
         let head = command_log.get_entry(l).await?;
 
         let st = async_stream::stream! {
             for idx in l..r {
                 let x = command_log.get_entry(idx).await;
                 let e = match x {
-                    Ok(x) => Some(request::LogStreamElem {
+                    Ok(x) => Some(request::ReplicationStreamElem {
                         this_clock: x.this_clock,
                         command: x.command,
                     }),
@@ -23,7 +23,7 @@ impl PeerSvc {
             }
         };
 
-        Ok(request::LogStream {
+        Ok(request::ReplicationStream {
             sender_id: selfid,
             prev_clock: head.prev_clock,
             entries: Box::pin(st),
@@ -81,7 +81,7 @@ impl PeerSvc {
 
         let new_progress = if let Ok(resp) = send_resp {
             match resp {
-                response::SendLogStream {
+                response::ReplicationStream {
                     n_inserted: 0,
                     log_last_index: last_log_index,
                 } => ReplicationProgress {
@@ -89,7 +89,7 @@ impl PeerSvc {
                     next_index: std::cmp::min(old_progress.next_index - 1, last_log_index + 1),
                     next_max_cnt: 1,
                 },
-                response::SendLogStream { n_inserted, .. } => ReplicationProgress {
+                response::ReplicationStream { n_inserted, .. } => ReplicationProgress {
                     match_index: old_progress.next_index + n_inserted - 1,
                     next_index: old_progress.next_index + n_inserted,
                     // If all entries are successfully inserted, then it is safe to double

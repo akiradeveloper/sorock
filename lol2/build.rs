@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ".lol2.ReadRequest.message",
         ".lol2.Response.message",
         ".lol2.KernRequest.message",
-        ".lol2.LogStreamEntry.command",
+        ".lol2.ReplicationStreamEntry.command",
         ".lol2.SnapshotChunk.data",
     ]);
 

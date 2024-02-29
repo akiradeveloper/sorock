@@ -22,7 +22,10 @@ impl RaftProcess {
         Ok(append_index)
     }
 
-    pub(crate) async fn queue_received_entries(&self, mut req: request::LogStream) -> Result<u64> {
+    pub(crate) async fn queue_received_entries(
+        &self,
+        mut req: request::ReplicationStream,
+    ) -> Result<u64> {
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
         while let Some(Some(cur)) = req.entries.next().await {

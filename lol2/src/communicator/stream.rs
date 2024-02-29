@@ -2,10 +2,10 @@ use super::*;
 
 pub fn into_external_log_stream(
     lane_id: LaneId,
-    st: request::LogStream,
-) -> impl futures::stream::Stream<Item = raft::LogStreamChunk> {
-    use raft::log_stream_chunk::Elem as ChunkElem;
-    let header_stream = vec![Some(ChunkElem::Header(raft::LogStreamHeader {
+    st: request::ReplicationStream,
+) -> impl futures::stream::Stream<Item = raft::ReplicationStreamChunk> {
+    use raft::replication_stream_chunk::Elem as ChunkElem;
+    let header_stream = vec![Some(ChunkElem::Header(raft::ReplicationStreamHeader {
         lane_id,
         sender_id: st.sender_id.to_string(),
         prev_clock: Some(raft::Clock {
@@ -17,7 +17,7 @@ pub fn into_external_log_stream(
 
     let chunk_stream = st.entries.map(|e0| {
         e0.map(|e| {
-            ChunkElem::Entry(raft::LogStreamEntry {
+            ChunkElem::Entry(raft::ReplicationStreamEntry {
                 clock: Some(raft::Clock {
                     term: e.this_clock.term,
                     index: e.this_clock.index,
@@ -29,7 +29,7 @@ pub fn into_external_log_stream(
 
     header_stream
         .chain(chunk_stream)
-        .map(|elem| raft::LogStreamChunk { elem })
+        .map(|elem| raft::ReplicationStreamChunk { elem })
 }
 
 pub fn into_internal_snapshot_stream(

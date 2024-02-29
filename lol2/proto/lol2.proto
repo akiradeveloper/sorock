@@ -31,22 +31,22 @@ message KernRequest {
   bytes message = 2;
 }
 
-message LogStreamHeader {
+message ReplicationStreamHeader {
   uint32 lane_id = 1;
   string sender_id = 2;
   Clock prev_clock = 3;
 }
-message LogStreamEntry {
+message ReplicationStreamEntry {
   Clock clock = 1;
   bytes command = 2;
 }
-message LogStreamChunk {
+message ReplicationStreamChunk {
   oneof elem {
-    LogStreamHeader header = 1;
-    LogStreamEntry entry = 2;
+    ReplicationStreamHeader header = 1;
+    ReplicationStreamEntry entry = 2;
   }
 }
-message SendLogStreamResponse {
+message ReplicationStreamResponse {
   uint64 n_inserted = 1;
   uint64 log_last_index = 2;
 }
@@ -99,7 +99,7 @@ service Raft {
   rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
   rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
-  rpc SendLogStream (stream LogStreamChunk) returns (SendLogStreamResponse);
+  rpc SendReplicationStream (stream ReplicationStreamChunk) returns (ReplicationStreamResponse);
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
   rpc TimeoutNow (TimeoutNowRequest) returns (google.protobuf.Empty);

@@ -3,10 +3,10 @@ use super::*;
 impl RaftProcess {
     pub(crate) async fn send_log_stream(
         &self,
-        req: request::LogStream,
-    ) -> Result<response::SendLogStream> {
+        req: request::ReplicationStream,
+    ) -> Result<response::ReplicationStream> {
         let n_inserted = self.queue_received_entries(req).await?;
-        let resp = response::SendLogStream {
+        let resp = response::ReplicationStream {
             n_inserted,
             log_last_index: self.command_log.get_log_last_index().await?,
         };
