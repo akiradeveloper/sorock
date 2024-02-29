@@ -46,8 +46,14 @@ impl FailureDetector {
             return None;
         }
 
-        let base_timeout = (normal_dist.mu() + normal_dist.sigma() * 4).as_millis();
-        let rand_timeout = rand::random::<u128>() % base_timeout;
-        Some(Duration::from_millis(rand_timeout as u64))
+        // Timeout is randomized to avoid multiple followers try to promote simultaneously.
+        let rand_timeout = {
+            let max_width = normal_dist.sigma() * 4;
+            let width = rand::random::<u128>() % max_width.as_millis();
+            Duration::from_millis(width as u64)
+        };
+        // timeout is chosen in [mu, mu + 4 * sigma)
+        let timeout = normal_dist.mu() + rand_timeout;
+        Some(timeout)
     }
 }
