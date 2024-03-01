@@ -15,14 +15,15 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let hdl = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
-                interval.tick().await;
-                let fut = {
-                    let this = self.clone();
-                    async move { this.run_once().await }
-                };
-                fut.await.ok();
+                // Every iteration involves
+                // T = 100ms sleep + RPC round trip time.
+                // So, heartbeat is observed at follower site every T time.
+                // We can't use tokio::time::interval instead because it results in
+                // follower receives heartbeat every 100ms regardless of RPC round trip time.
+                // In this case, the failure detector at follower site will not work correctly.
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                self.run_once().await.ok();
             }
         })
         .abort_handle();
