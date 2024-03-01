@@ -30,11 +30,7 @@ impl Thread {
             let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
                 interval.tick().await;
-                let fut = {
-                    let this = self.clone();
-                    async move { this.run_once().await }
-                };
-                fut.await.ok();
+                self.run_once().await.ok();
             }
         })
         .abort_handle();
