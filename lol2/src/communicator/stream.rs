@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn into_external_log_stream(
+pub fn into_external_replication_stream(
     lane_id: LaneId,
     st: request::ReplicationStream,
 ) -> impl futures::stream::Stream<Item = raft::ReplicationStreamChunk> {

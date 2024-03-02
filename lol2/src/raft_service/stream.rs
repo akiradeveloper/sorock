@@ -1,6 +1,6 @@
 use super::*;
 
-pub async fn into_internal_log_stream(
+pub async fn into_internal_replication_stream(
     mut out_stream: tonic::Streaming<raft::ReplicationStreamChunk>,
 ) -> (LaneId, request::ReplicationStream) {
     use raft::replication_stream_chunk::Elem as ChunkElem;

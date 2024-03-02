@@ -1,7 +1,7 @@
 use super::*;
 
 impl RaftProcess {
-    pub(crate) async fn send_log_stream(
+    pub(crate) async fn send_replication_stream(
         &self,
         req: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
