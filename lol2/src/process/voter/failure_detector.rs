@@ -6,12 +6,14 @@ use std::time::Instant;
 struct Inner {
     watch_id: NodeId,
     detector: phi_detector::PingWindow,
+    last_ping: Instant,
 }
 impl Inner {
     fn watch(id: NodeId) -> Self {
         Self {
             watch_id: id,
-            detector: phi_detector::PingWindow::new(&[Duration::from_secs(1)], Instant::now()),
+            detector: phi_detector::PingWindow::new(Duration::from_secs(1)),
+            last_ping: Instant::now(),
         }
     }
 }
@@ -33,7 +35,11 @@ impl FailureDetector {
         if cur_watch_id != leader_id {
             *inner = Inner::watch(leader_id);
         }
-        inner.detector.add_ping(Instant::now())
+
+        let now = Instant::now();
+        let du = now - inner.last_ping;
+        inner.detector.add_ping(du);
+        inner.last_ping = now;
     }
 
     /// Get the wait time before becoming a candidate.
@@ -45,7 +51,8 @@ impl FailureDetector {
         let normal_dist = fd.normal_dist();
 
         let detected = {
-            let phi = normal_dist.phi(Instant::now() - fd.last_ping());
+            let du = Instant::now() - inner.last_ping;
+            let phi = normal_dist.phi(du);
             // Akka suggests threshold is set to 12 in cloud environment
             // so we take it as a sane default here.
             // https://doc.akka.io/docs/akka/current/typed/failure-detector.html
