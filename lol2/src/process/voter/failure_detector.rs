@@ -1,7 +1,6 @@
 use super::*;
 
 use rand::Rng;
-use std::sync::Mutex;
 use std::time::Instant;
 
 struct Inner {
@@ -17,7 +16,7 @@ impl Inner {
     }
 }
 pub struct FailureDetector {
-    inner: Mutex<Inner>,
+    inner: spin::RwLock<Inner>,
 }
 impl FailureDetector {
     pub fn new() -> Self {
@@ -29,17 +28,20 @@ impl FailureDetector {
     }
 
     pub fn receive_heartbeat(&self, leader_id: NodeId) {
-        let cur_watch_id = self.inner.lock().unwrap().watch_id.clone();
+        let mut inner = self.inner.write();
+        let cur_watch_id = inner.watch_id.clone();
         if cur_watch_id != leader_id {
-            *self.inner.lock().unwrap() = Inner::watch(leader_id);
+            *inner = Inner::watch(leader_id);
         }
-        self.inner.lock().unwrap().detector.add_ping(Instant::now())
+        inner.detector.add_ping(Instant::now())
     }
 
     /// Get the wait time before becoming a candidate.
     /// Returns None if the current leader is still considered alive.
     pub fn get_election_timeout(&self) -> Option<Duration> {
-        let fd = &self.inner.lock().unwrap().detector;
+        let inner = self.inner.read();
+
+        let fd = &inner.detector;
         let normal_dist = fd.normal_dist();
 
         let detected = {
