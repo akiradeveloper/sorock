@@ -154,7 +154,7 @@ impl raft::raft_server::Raft for ServiceImpl {
         request: tonic::Request<tonic::Streaming<raft::ReplicationStreamChunk>>,
     ) -> std::result::Result<tonic::Response<raft::ReplicationStreamResponse>, tonic::Status> {
         let st = request.into_inner();
-        let (lane_id, st) = stream::into_internal_replication_stream(st).await;
+        let (lane_id, st) = stream::into_internal_replication_stream(st).await.unwrap();
         let resp = self
             .node
             .get_process(lane_id)
