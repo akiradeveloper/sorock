@@ -77,7 +77,7 @@ impl PeerSvc {
         .await?;
 
         let conn = self.driver.connect(follower_id.clone());
-        let send_resp = conn.send_log_stream(out_stream).await;
+        let send_resp = conn.send_replication_stream(out_stream).await;
 
         let new_progress = if let Ok(resp) = send_resp {
             match resp {

@@ -76,11 +76,11 @@ impl Communicator {
         Ok(())
     }
 
-    pub async fn send_log_stream(
+    pub async fn send_replication_stream(
         &self,
         st: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
-        let st = stream::into_external_log_stream(self.lane_id, st);
+        let st = stream::into_external_replication_stream(self.lane_id, st);
         let resp = self
             .cli
             .clone()
