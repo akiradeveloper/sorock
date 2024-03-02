@@ -2,11 +2,11 @@ use super::*;
 
 pub async fn into_internal_replication_stream(
     mut out_stream: tonic::Streaming<raft::ReplicationStreamChunk>,
-) -> (LaneId, request::ReplicationStream) {
+) -> Result<(LaneId, request::ReplicationStream)> {
     use raft::replication_stream_chunk::Elem as ChunkElem;
 
     let (lane_id, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
-        let e = chunk.elem.expect("replication stream header not found");
+        let e = chunk.elem.context(Error::BadReplicationStream)?;
         if let ChunkElem::Header(raft::ReplicationStreamHeader {
             lane_id,
             sender_id,
@@ -22,10 +22,10 @@ pub async fn into_internal_replication_stream(
                 },
             )
         } else {
-            unreachable!()
+            bail!(Error::BadReplicationStream)
         }
     } else {
-        unreachable!()
+        bail!(Error::BadReplicationStream)
     };
 
     let entries = async_stream::stream! {
@@ -40,7 +40,7 @@ pub async fn into_internal_replication_stream(
                     Some(e)
                 },
                 None => None,
-                _ => unreachable!("the replication stream is broken"),
+                _ => unreachable!("the replication stream entry is broken"),
             };
             yield e
         }
@@ -52,7 +52,7 @@ pub async fn into_internal_replication_stream(
         entries: Box::pin(entries),
     };
 
-    (lane_id, st)
+    Ok((lane_id, st))
 }
 
 pub type SnapshotStreamOut = std::pin::Pin<
