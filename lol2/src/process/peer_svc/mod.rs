@@ -25,6 +25,7 @@ pub struct PeerContexts {
     progress: ReplicationProgress,
 }
 
+#[allow(dead_code)]
 struct ThreadHandles {
     replicator_handle: thread::ThreadHandle,
     heartbeater_handle: thread::ThreadHandle,

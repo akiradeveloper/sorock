@@ -4,6 +4,7 @@ mod cluster;
 mod queue;
 mod responder;
 
+#[allow(dead_code)]
 struct ThreadHandles {
     advance_kern_handle: thread::ThreadHandle,
     advance_user_handle: thread::ThreadHandle,
