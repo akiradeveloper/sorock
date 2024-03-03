@@ -1,7 +1,7 @@
 use super::*;
 
 impl RaftProcess {
-    /// Process configuration change.
+    /// Process configuration change if the command contains configuration.
     /// Configuration should be applied as soon as it is inserted into the log because doing so
     /// guarantees that majority of the servers move to the configuration when the entry is committed.
     /// Without this property, servers may still be in some old configuration which may cause split-brain
