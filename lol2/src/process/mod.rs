@@ -31,9 +31,16 @@ mod raft_process;
 pub use raft_process::RaftProcess;
 mod thread;
 
+/// Election term.
+/// In Raft, only one leader can be elected per a term.
 pub type Term = u64;
+
+/// Log index.
 pub type Index = u64;
 
+/// Clock of log entry.
+/// If two entries have the same clock, they should be the same entry.
+/// It is like the hash of the git commit.
 #[derive(Clone, Copy, Eq, Debug)]
 pub struct Clock {
     pub term: Term,
@@ -45,6 +52,7 @@ impl PartialEq for Clock {
     }
 }
 
+/// Log entry.
 #[derive(Clone)]
 pub struct Entry {
     pub prev_clock: Clock,
@@ -52,6 +60,7 @@ pub struct Entry {
     pub command: Bytes,
 }
 
+/// Ballot in election.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ballot {
     pub cur_term: Term,
@@ -66,6 +75,8 @@ impl Ballot {
     }
 }
 
+/// Snapshot is transferred as stream of bytes.
+/// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.`
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
