@@ -43,7 +43,7 @@ impl CommandLog {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
-            Command::Snapshot { membership } => {
+            Command::Snapshot { .. } => {
                 let Clock {
                     term: _,
                     index: snapshot_index,
