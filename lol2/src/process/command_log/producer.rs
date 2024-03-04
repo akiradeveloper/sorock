@@ -10,6 +10,9 @@ pub enum TryInsertResult {
 }
 
 impl CommandLog {
+    /// Append a new entry to the log.
+    /// If `term` is None, then the term of the last entry is used.
+    /// Otherwise, the given term is used to update the term of the last entry.
     pub async fn append_new_entry(&self, command: Bytes, term: Option<Term>) -> Result<Index> {
         let _g = self.append_lock.lock().await;
 
