@@ -16,9 +16,9 @@ impl CommandLog {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
         if proposed_snapshot_index > cur_snapshot_index {
-            info!("find a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
+            info!("found a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
 
-            // calculate membership at the new snapshot index
+            // Calculate membership at the new snapshot index
             let new_config = {
                 let last_membership_index = self
                     .find_last_membership_index(proposed_snapshot_index)
@@ -38,17 +38,16 @@ impl CommandLog {
                     ..old_entry
                 }
             };
-            // TODO wait for follower catch up
+
             self.insert_snapshot(new_snapshot_entry).await?;
         }
+
         Ok(())
     }
 
-    pub(crate) async fn advance_user_process(&self, app: App) -> Result<bool> {
+    pub(crate) async fn advance_user_process(&self, app: App) -> Result<()> {
         let cur_user_index = self.user_pointer.load(Ordering::SeqCst);
-        if cur_user_index >= self.kern_pointer.load(Ordering::SeqCst) {
-            return Ok(false);
-        }
+        ensure!(cur_user_index < self.kern_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_user_index + 1;
         let e = self.get_entry(process_index).await?;
@@ -103,14 +102,12 @@ impl CommandLog {
 
         self.user_pointer.store(process_index, Ordering::SeqCst);
 
-        Ok(true)
+        Ok(())
     }
 
-    pub(crate) async fn advance_kern_process(&self, voter: Voter) -> Result<bool> {
+    pub(crate) async fn advance_kern_process(&self, voter: Voter) -> Result<()> {
         let cur_kern_index = self.kern_pointer.load(Ordering::SeqCst);
-        if cur_kern_index >= self.commit_pointer.load(Ordering::SeqCst) {
-            return Ok(false);
-        }
+        ensure!(cur_kern_index < self.commit_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_kern_index + 1;
         let e = self.get_entry(process_index).await?;
@@ -138,6 +135,6 @@ impl CommandLog {
 
         self.kern_pointer.store(process_index, Ordering::SeqCst);
 
-        Ok(true)
+        Ok(())
     }
 }
