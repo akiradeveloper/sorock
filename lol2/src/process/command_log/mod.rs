@@ -7,6 +7,7 @@ mod response_cache;
 use response_cache::ResponseCache;
 
 pub use producer::TryInsertResult;
+
 pub struct Inner {
     append_lock: tokio::sync::Mutex<()>,
     storage: Box<dyn RaftLogStore>,

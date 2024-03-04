@@ -2,10 +2,10 @@ use super::*;
 
 pub enum TryInsertResult {
     Inserted,
-    // If the entry is already inserted then we can skip the insertion.
+    /// If the entry is already inserted then we can skip the insertion.
     SkippedInsertion,
-    // If the entry is inconsistent with the log then we should reject the entry.
-    // In this case, the leader should rewind the replication status to the follower.
+    /// If the entry is inconsistent with the log then we should reject the entry.
+    /// In this case, the leader should rewind the replication status to the follower.
     InconsistencyDetected,
 }
 
