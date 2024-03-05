@@ -151,7 +151,7 @@ impl RaftProcess {
         let pre_vote = req.pre_vote;
         let vote_granted = self
             .voter
-            .receive_vote(
+            .receive_vote_request(
                 candidate_term,
                 candidate_id,
                 candidate_clock,

@@ -1,8 +1,8 @@
 use super::*;
 
 impl Voter {
-    /// returns grated or not
-    pub async fn receive_vote(
+    /// Returns grated or not on vote.
+    pub async fn receive_vote_request(
         &self,
         candidate_term: Term,
         candidate_id: NodeId,
@@ -62,7 +62,7 @@ impl Voter {
 
         let grant = match &ballot.voted_for {
             None => {
-                info!("learn candidate as the new leader");
+                info!("learn node@{candidate_id} as the new leader");
                 ballot.voted_for = Some(candidate_id.clone());
                 true
             }
@@ -70,6 +70,9 @@ impl Voter {
                 if id == &candidate_id {
                     true
                 } else {
+                    // Only one grant vote is allowed for a term.
+                    // This is why ballot needs to be persistent.
+                    warn!("reject vote for having voted at term@{candidate_term}");
                     false
                 }
             }
@@ -78,7 +81,8 @@ impl Voter {
         if allow_update_ballot {
             self.write_ballot(ballot).await?;
         }
-        info!("voted response to {candidate_id} = grant: {grant}");
+
+        info!("voted response grant@{grant} to {candidate_id}");
         Ok(grant)
     }
 
