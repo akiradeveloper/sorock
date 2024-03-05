@@ -32,7 +32,7 @@ impl QueryQueue {
         q.register(read_index, query);
     }
 
-    /// Execute awaiting queries in range `[, index]` in parallel.
+    /// Execute awaiting queries in `[, index]` in parallel.
     pub async fn execute(&self, index: Index) -> bool {
         let mut q = self.q.write().await;
         q.execute(index, &self.app).await
@@ -57,7 +57,6 @@ impl Impl {
             .push(query);
     }
 
-    /// execute all awating queries in range [, index] in parallel
     async fn execute(&mut self, index: Index, app: &App) -> bool {
         let futs = {
             let mut out = vec![];

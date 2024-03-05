@@ -20,7 +20,7 @@ pub struct Inner {
     pub user_pointer: AtomicU64,
     pub snapshot_pointer: AtomicU64,
 
-    /// Lock entries in range `[snapshot_index, user_application_index]`.
+    /// Lock entries in `[snapshot_index, user_application_index]`.
     snapshot_lock: tokio::sync::RwLock<()>,
 
     /// The index of the last membership.
@@ -78,7 +78,7 @@ impl CommandLog {
 }
 
 impl Inner {
-    /// Delete snapshots in range `[, snapshot_index)`.
+    /// Delete snapshots in `[, snapshot_index)`.
     pub async fn delete_old_snapshots(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
