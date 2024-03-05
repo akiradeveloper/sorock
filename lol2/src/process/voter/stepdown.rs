@@ -16,7 +16,7 @@ impl Voter {
 
         let config = self
             .command_log
-            .try_read_membership_change(last_membership_change_index)
+            .try_read_membership(last_membership_change_index)
             .await?
             .context(Error::BadLogState)?;
         ensure!(!config.contains(&self.driver.self_node_id()));

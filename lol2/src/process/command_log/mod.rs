@@ -9,15 +9,18 @@ use response_cache::ResponseCache;
 pub use producer::TryInsertResult;
 
 pub struct Inner {
+    /// Lock to serialize the append operation.
     append_lock: tokio::sync::Mutex<()>,
     storage: Box<dyn RaftLogStore>,
 
+    // Pointers in the log.
+    // Invariant: commit_pointer >= kern_pointer >= user_pointer >= snapshot_pointer
     pub commit_pointer: AtomicU64,
     kern_pointer: AtomicU64,
     pub user_pointer: AtomicU64,
     pub snapshot_pointer: AtomicU64,
 
-    /// Lock entries in range [snapshot_index, user_application_index]
+    /// Lock entries in range `[snapshot_index, user_application_index]`.
     snapshot_lock: tokio::sync::RwLock<()>,
 
     /// The index of the last membership.

@@ -12,6 +12,7 @@ impl CommandLog {
         }
     }
 
+    /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn advance_snapshot_index(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
@@ -24,7 +25,7 @@ impl CommandLog {
                     .find_last_membership_index(proposed_snapshot_index)
                     .await?
                     .context(Error::BadLogState)?;
-                self.try_read_membership_change(last_membership_index)
+                self.try_read_membership(last_membership_index)
                     .await?
                     .context(Error::BadLogState)?
             };
@@ -45,6 +46,7 @@ impl CommandLog {
         Ok(())
     }
 
+    /// Advance user process once.
     pub(crate) async fn advance_user_process(&self, app: App) -> Result<()> {
         let cur_user_index = self.user_pointer.load(Ordering::SeqCst);
         ensure!(cur_user_index < self.kern_pointer.load(Ordering::SeqCst));
@@ -105,6 +107,7 @@ impl CommandLog {
         Ok(())
     }
 
+    /// Advance kernel process once.
     pub(crate) async fn advance_kern_process(&self, voter: Voter) -> Result<()> {
         let cur_kern_index = self.kern_pointer.load(Ordering::SeqCst);
         ensure!(cur_kern_index < self.commit_pointer.load(Ordering::SeqCst));
