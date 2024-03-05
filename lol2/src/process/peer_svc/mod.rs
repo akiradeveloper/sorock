@@ -4,9 +4,9 @@ mod replication;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ReplicationProgress {
-    // The log entrires [0, match_index] are replicated with this node.
+    /// The log entrires `[0, match_index]` are replicated with this node.
     pub match_index: Index,
-    // In the next replication, log entrires [next_index, next_index + next_max_cnt) will be sent.
+    /// In the next replication, log entrires `[next_index, next_index + next_max_cnt)` will be sent.
     pub next_index: Index,
     pub next_max_cnt: Index,
 }
