@@ -83,19 +83,20 @@ impl CommandLog {
                         self.user_completions.lock().remove(&process_index)
                     {
                         if let Some(resp) = self.response_cache.get_response(&request_id) {
-                            // FIXME
                             // If client abort the request before retry,
                             // the completion channel is destroyed because the gRPC is context is cancelled.
                             // In this case, we should keep the response in the cache for the later request.
-                            user_completion.complete_with(resp);
-
-                            // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
-                            // This should be queued and replicated to the followers.
-                            // Otherwise followers will never know the request is completed and the context will never be terminated.
-                            let command = Command::CompleteRequest { request_id };
-                            self.append_new_entry(Command::serialize(command), None)
-                                .await
-                                .ok();
+                            if let Err(resp) = user_completion.complete_with(resp) {
+                                self.response_cache.insert_response(request_id.clone(), resp);
+                            } else {
+                                // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
+                                // This should be queued and replicated to the followers.
+                                // Otherwise followers will never know the request is completed and the context will never be terminated.
+                                let command = Command::CompleteRequest { request_id };
+                                self.append_new_entry(Command::serialize(command), None)
+                                    .await
+                                    .ok();
+                            }
                         }
                     }
                 }

@@ -9,8 +9,8 @@ pub enum Completion {
 
 pub struct UserCompletion(oneshot::Sender<Bytes>);
 impl UserCompletion {
-    pub fn complete_with(self, data: Bytes) {
-        self.0.send(data).ok();
+    pub fn complete_with(self, data: Bytes) -> Result<(), Bytes> {
+        self.0.send(data)
     }
 }
 
