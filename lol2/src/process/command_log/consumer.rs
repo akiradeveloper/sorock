@@ -72,7 +72,6 @@ impl CommandLog {
                     message,
                     request_id,
                 } => {
-                    // If the request has never been executed, we should execute it.
                     if self.response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
                         self.response_cache
@@ -84,10 +83,15 @@ impl CommandLog {
                         self.user_completions.lock().remove(&process_index)
                     {
                         if let Some(resp) = self.response_cache.get_response(&request_id) {
+                            // FIXME
+                            // If client abort the request before retry,
+                            // the completion channel is destroyed because the gRPC is context is cancelled.
+                            // In this case, we should keep the response in the cache for the later request.
                             user_completion.complete_with(resp);
+
                             // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
-                            // This should be queued and replicated to the followers otherwise followers
-                            // will never know the request is completed and the context will never be terminated.
+                            // This should be queued and replicated to the followers.
+                            // Otherwise followers will never know the request is completed and the context will never be terminated.
                             let command = Command::CompleteRequest { request_id };
                             self.append_new_entry(Command::serialize(command), None)
                                 .await

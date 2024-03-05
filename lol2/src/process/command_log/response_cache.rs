@@ -22,6 +22,9 @@ impl TTLSet {
     }
 }
 
+/// Client may retry the request.
+/// To prevent duplicate execution on writer requests,
+/// response should be cached for a short period.
 pub struct ResponseCache {
     responses: spin::Mutex<HashMap<String, Bytes>>,
     completes: TTLSet,
@@ -30,14 +33,12 @@ impl ResponseCache {
     pub fn new() -> Self {
         Self {
             responses: spin::Mutex::new(HashMap::new()),
-            // Client may retry the request even after the response
-            // but with a sane client this could happen in quite a short time.
-            // Completed request_id is kept for 5 seconds to prevent executing
-            // the same request twice.
             completes: TTLSet::new(Duration::from_secs(5)),
         }
     }
 
+    /// If the request has not been executed and it should be executed,
+    /// then returns true.
     pub fn should_execute(&self, k: &str) -> bool {
         if self.completes.exists(k) {
             return false;
