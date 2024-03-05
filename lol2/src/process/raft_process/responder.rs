@@ -27,25 +27,23 @@ impl RaftProcess {
             let (kern_completion, rx) = completion::prepare_kern_completion();
             let command = match kern_message::KernRequest::deserialize(&req.message).unwrap() {
                 kern_message::KernRequest::AddServer(id) => {
-                    ensure!(self.command_log.allow_queue_new_membership());
-
                     let mut membership = self.peers.read_membership();
                     membership.insert(id);
                     Command::ClusterConfiguration { membership }
                 }
                 kern_message::KernRequest::RemoveServer(id) => {
-                    ensure!(self.command_log.allow_queue_new_membership());
-
                     let mut membership = self.peers.read_membership();
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
                 }
             };
+            ensure!(self.command_log.allow_queue_new_membership());
             self.queue_new_entry(
                 Command::serialize(command),
                 Completion::Kern(kern_completion),
             )
             .await?;
+
             rx.await?;
         } else {
             let conn = self.driver.connect(leader_id);

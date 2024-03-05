@@ -17,8 +17,8 @@ struct ThreadHandles {
     stepdown_handle: thread::ThreadHandle,
 }
 
-/// `RaftProcess` is a implementation of Raft process in the `RaftNode`.
-/// `RaftProcess` is unaware of the gRPC and the network but solely focuses on the Raft algorithm.
+/// `RaftProcess` is a implementation of Raft process in `RaftNode`.
+/// `RaftProcess` is unaware of the gRPC and the network but just focuses on the Raft algorithm.
 pub struct RaftProcess {
     command_log: CommandLog,
     voter: Voter,

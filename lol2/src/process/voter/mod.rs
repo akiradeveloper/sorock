@@ -20,8 +20,6 @@ pub struct Inner {
     /// Serializing any events that may change ballot state simplifies the voter's logic.
     vote_lock: tokio::sync::Mutex<()>,
 
-    /// Unless `safe_term >= cur_term`,
-    /// any new entries are not allowed to be queued.
     safe_term: AtomicU64,
 
     leader_failure_detector: failure_detector::FailureDetector,
@@ -77,7 +75,9 @@ impl Voter {
         self.safe_term.store(term, Ordering::SeqCst);
     }
 
-    pub async fn allow_queue_entry(&self) -> Result<bool> {
+    /// Unless `safe_term >= cur_term`,
+    /// any new entries are not allowed to be queued.
+    pub async fn allow_queue_new_entry(&self) -> Result<bool> {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
         Ok(cur_safe_term == cur_term)

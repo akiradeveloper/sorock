@@ -52,6 +52,7 @@ impl PeerSvc {
         Self(Arc::new(inner))
     }
 
+    /// Restore the membership from the state of the log.
     pub async fn restore_state(&self, voter: Ref<Voter>) -> Result<()> {
         let log_last_index = self.command_log.get_log_last_index().await?;
         let last_membership_index = self

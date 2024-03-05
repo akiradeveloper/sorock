@@ -6,7 +6,7 @@ impl RaftProcess {
         command: Bytes,
         completion: Completion,
     ) -> Result<Index> {
-        ensure!(self.voter.allow_queue_entry().await?);
+        ensure!(self.voter.allow_queue_new_entry().await?);
 
         let append_index = self
             .command_log
