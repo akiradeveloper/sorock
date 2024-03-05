@@ -32,7 +32,6 @@ struct ThreadHandles {
 }
 
 pub struct Inner {
-    membership: spin::RwLock<HashSet<NodeId>>,
     peer_contexts: spin::RwLock<HashMap<NodeId, PeerContexts>>,
     peer_threads: spin::Mutex<HashMap<NodeId, ThreadHandles>>,
 
@@ -45,7 +44,6 @@ pub struct PeerSvc(pub Arc<Inner>);
 impl PeerSvc {
     pub fn new(command_log: Ref<CommandLog>, driver: RaftDriver) -> Self {
         let inner = Inner {
-            membership: HashSet::new().into(),
             peer_contexts: HashMap::new().into(),
             peer_threads: HashMap::new().into(),
             command_log,
@@ -152,9 +150,7 @@ impl PeerSvc {
         for id in remove_peers {
             self.remove_peer(id);
         }
-
         info!("membership changed -> {:?}", config);
-        *self.membership.write() = config;
 
         self.command_log
             .membership_pointer
@@ -164,7 +160,11 @@ impl PeerSvc {
     }
 
     pub fn read_membership(&self) -> HashSet<NodeId> {
-        self.membership.read().clone()
+        let mut out = HashSet::new();
+        for (id, _) in self.peer_contexts.read().iter() {
+            out.insert(id.clone());
+        }
+        out
     }
 
     pub async fn find_new_commit_index(&self) -> Result<Index> {

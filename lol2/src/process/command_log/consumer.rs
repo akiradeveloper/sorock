@@ -75,8 +75,7 @@ impl CommandLog {
                 } => {
                     if response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
-                        response_cache
-                            .insert_response(request_id.clone(), resp);
+                        response_cache.insert_response(request_id.clone(), resp);
                     }
 
                     // Leader may have the completion for the request.
