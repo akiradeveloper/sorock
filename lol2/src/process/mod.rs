@@ -111,7 +111,7 @@ pub trait RaftApp: Sync + Send + 'static {
     /// This function is called when a follower requests a snapshot from the leader.
     async fn open_snapshot(&self, snapshot_index: Index) -> Result<SnapshotStream>;
 
-    /// Delete all the snapshots in range [,  i) from the snapshot store.
+    /// Delete all the snapshots in range `[,  i)` from the snapshot store.
     async fn delete_snapshots_before(&self, i: Index) -> Result<()>;
 
     /// Get the index of the latest snapshot in the snapshot store.
@@ -127,7 +127,7 @@ pub trait RaftLogStore: Sync + Send + 'static {
     /// Insert the entry at index `i` into the log.
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()>;
 
-    /// Delete all the entries in range [, i) from the log.
+    /// Delete all the entries in range `[, i)` from the log.
     async fn delete_entries_before(&self, i: Index) -> Result<()>;
 
     /// Get the entry at index `i` from the log.

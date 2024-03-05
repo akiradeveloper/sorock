@@ -1,4 +1,5 @@
 use super::*;
+
 use std::collections::BTreeMap;
 
 pub struct Query {
@@ -24,11 +25,14 @@ impl QueryQueue {
 }
 
 impl QueryQueue {
+    /// Register a query to be executed when the read index reaches `read_index`.
+    /// `read_index` is the index of the commit pointer of when the query is submitted.
     pub async fn register(&self, read_index: Index, query: Query) {
         let mut q = self.q.write().await;
         q.register(read_index, query);
     }
 
+    /// Execute awaiting queries in range `[, index]` in parallel.
     pub async fn execute(&self, index: Index) -> bool {
         let mut q = self.q.write().await;
         q.execute(index, &self.app).await

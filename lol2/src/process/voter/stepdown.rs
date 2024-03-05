@@ -1,6 +1,8 @@
 use super::*;
 
 impl Voter {
+    /// If the latest config doesn't contain itself, then it steps down
+    /// by transferring the leadership to another node.
     pub async fn try_stepdown(&self) -> Result<()> {
         ensure!(std::matches!(
             self.read_election_state(),

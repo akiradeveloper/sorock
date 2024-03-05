@@ -14,7 +14,7 @@ pub mod replication;
 pub mod snapshot_deleter;
 pub mod stepdown;
 
-/// wrapper of a `AbortHandle` that aborts it is dropped.
+/// Wrapper around a `AbortHandle` that aborts it is dropped.
 pub struct ThreadHandle(AbortHandle);
 impl Drop for ThreadHandle {
     fn drop(&mut self) {

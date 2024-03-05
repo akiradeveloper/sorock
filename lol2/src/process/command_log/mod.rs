@@ -78,12 +78,14 @@ impl CommandLog {
 }
 
 impl Inner {
+    /// Delete snapshots in range `[, snapshot_index)`.
     pub async fn delete_old_snapshots(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 
+    /// Delete log entries in `[, snapshot_index)`.
     pub async fn delete_old_entries(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.storage

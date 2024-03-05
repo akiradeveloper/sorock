@@ -159,7 +159,6 @@ impl RaftProcess {
                 pre_vote,
             )
             .await?;
-
         Ok(vote_granted)
     }
 }
