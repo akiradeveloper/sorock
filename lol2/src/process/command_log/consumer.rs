@@ -63,6 +63,7 @@ impl CommandLog {
         };
 
         if do_process {
+            let mut response_cache = self.response_cache.lock();
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
@@ -72,9 +73,9 @@ impl CommandLog {
                     message,
                     request_id,
                 } => {
-                    if self.response_cache.should_execute(&request_id) {
+                    if response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
-                        self.response_cache
+                        response_cache
                             .insert_response(request_id.clone(), resp);
                     }
 
@@ -82,12 +83,12 @@ impl CommandLog {
                     if let Some(user_completion) =
                         self.user_completions.lock().remove(&process_index)
                     {
-                        if let Some(resp) = self.response_cache.get_response(&request_id) {
+                        if let Some(resp) = response_cache.get_response(&request_id) {
                             // If client abort the request before retry,
                             // the completion channel is destroyed because the gRPC is context is cancelled.
                             // In this case, we should keep the response in the cache for the later request.
                             if let Err(resp) = user_completion.complete_with(resp) {
-                                self.response_cache.insert_response(request_id.clone(), resp);
+                                response_cache.insert_response(request_id.clone(), resp);
                             } else {
                                 // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
                                 // This should be queued and replicated to the followers.
@@ -101,7 +102,7 @@ impl CommandLog {
                     }
                 }
                 Command::CompleteRequest { request_id } => {
-                    self.response_cache.complete_response(&request_id);
+                    response_cache.complete_response(&request_id);
                 }
                 _ => {}
             }

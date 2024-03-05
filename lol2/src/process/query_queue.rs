@@ -80,10 +80,10 @@ impl Impl {
                 },
                 app,
             )| async move {
-                // the `completion` of the failed queries are dropped
+                // The `completion` of the failed queries are dropped
                 // which results in failing on the client side.
                 if let Ok(resp) = app.process_read(&message).await {
-                    user_completion.complete_with(resp);
+                    user_completion.complete_with(resp).ok();
                 }
             },
         );

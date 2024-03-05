@@ -7,10 +7,10 @@ struct Thread {
 }
 
 impl Thread {
-    async fn advance_once(&self) -> Result<bool> {
+    async fn advance_once(&self) -> bool {
         let last_applied = self.command_log.user_pointer.load(Ordering::SeqCst);
         let cont = self.query_queue.execute(last_applied).await;
-        Ok(cont)
+        cont
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -18,7 +18,7 @@ impl Thread {
             let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
                 interval.tick().await;
-                while let Ok(true) = self.advance_once().await {}
+                while self.advance_once().await {}
             }
         })
         .abort_handle();
