@@ -62,7 +62,7 @@ impl Voter {
 
         let grant = match &ballot.voted_for {
             None => {
-                info!("learn node@{candidate_id} as the new leader");
+                info!("learn node({candidate_id}) as the new leader");
                 ballot.voted_for = Some(candidate_id.clone());
                 true
             }
@@ -72,7 +72,7 @@ impl Voter {
                 } else {
                     // Only one grant vote is allowed for a term.
                     // This is why ballot needs to be persistent.
-                    warn!("reject vote for having voted at term@{candidate_term}");
+                    warn!("reject vote for having voted at term({candidate_term})");
                     false
                 }
             }
@@ -82,14 +82,14 @@ impl Voter {
             self.write_ballot(ballot).await?;
         }
 
-        info!("voted response grant@{grant} to {candidate_id}");
+        info!("voted response grant({grant}) to node({candidate_id})");
         Ok(grant)
     }
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
-        // This is optimization to avoid unnecessary election.
+        // This is an optimization to avoid unnecessary election.
         // If the node doesn't contain itself in its membership,
-        // it won't become a new leader anyway.
+        // it can't become a new leader anyway.
         if !self
             .peers
             .read_membership()
@@ -100,6 +100,7 @@ impl Voter {
         self.leader_failure_detector.get_election_timeout()
     }
 
+    /// Try to become a leader.
     pub async fn try_promote(&self, force_vote: bool) -> Result<()> {
         let _lk = self.vote_lock.lock().await;
 
@@ -148,6 +149,7 @@ impl Voter {
         Ok(())
     }
 
+    /// Request votes to the peers in the cluster and returns whether it got enough votes.
     async fn request_votes(
         &self,
         vote_term: Term,
@@ -175,7 +177,7 @@ impl Voter {
             self.command_log.get_entry(last_log_index).await?.this_clock
         };
 
-        // Let's get remaining votes out of others.
+        // Get remaining votes from others.
         let mut vote_requests = vec![];
         for endpoint in others {
             let selfid = self.driver.self_node_id();
@@ -201,6 +203,7 @@ impl Voter {
                 }
             });
         }
+
         let ok = quorum::join(remaining, vote_requests).await;
         Ok(ok)
     }
@@ -217,7 +220,7 @@ impl Voter {
                     Some(vote_term),
                 )
                 .await?;
-            info!("noop barrier is queued@{index} (term={vote_term})");
+            info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress
             self.peers.reset_progress(index);

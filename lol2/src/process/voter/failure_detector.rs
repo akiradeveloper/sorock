@@ -42,7 +42,7 @@ impl FailureDetector {
         inner.last_ping = now;
     }
 
-    /// Get the wait time before becoming a candidate.
+    /// Get a random wait time before becoming a candidate.
     /// Returns None if the current leader is still considered alive.
     pub fn get_election_timeout(&self) -> Option<Duration> {
         let inner = self.inner.read();
