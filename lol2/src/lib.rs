@@ -45,5 +45,4 @@ impl NodeId {
 }
 
 /// Identifier of a Raft group.
-/// In this library, we call Raft group lane.
 pub type LaneId = u32;

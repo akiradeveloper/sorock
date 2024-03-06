@@ -4,19 +4,25 @@ import "google/protobuf/empty.proto";
 
 package lol2;
 
+// Update request to the `RaftApp`.
+// This type of request is serialized in the log and processed sequentially.
+// `request_id` is unique identifier of the request to avoid executing duplicating requests.
+// Client may send a write requests twice but they are executed only once as long as
+// they have the same `request_id`.
 message WriteRequest {
   uint32 lane_id = 1;
   bytes message = 2;
-  // unique identifier of this request
-  // duplicated requests with the same unique identifier are only executed once.
   string request_id = 3;
 }
 
+// Read-only request to the `RaftApp`.
+// This type of request is processed in optimized path.
 message ReadRequest {
   uint32 lane_id = 1;
   bytes message = 2;
 }
 
+// Response from the `RaftApp`.
 message Response {
   bytes message = 1;
 }
@@ -81,16 +87,21 @@ message Heartbeat {
   uint64 leader_commit_index = 4;
 }
 
+// Request to add a server with `server_id`.
 message AddServerRequest {
   uint32 lane_id = 1;
   string server_id = 2;
 }
 
+// Request to remove a server with `server_id`.
 message RemoveServerRequest {
   uint32 lane_id = 1;
   string server_id = 2;
 }
 
+// On receiving this request, a server starts a new election
+// to become a leader disregarding the election timeout.
+// You can use this request to rebalance the leaders in the cluster.
 message TimeoutNow {
   uint32 lane_id = 1;
 }
