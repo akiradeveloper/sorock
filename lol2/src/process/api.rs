@@ -11,7 +11,7 @@ pub mod request {
     pub struct UserReadRequest {
         pub message: Bytes,
     }
-    
+
     pub struct KernRequest {
         pub message: Bytes,
     }

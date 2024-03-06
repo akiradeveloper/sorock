@@ -9,7 +9,7 @@ pub struct Query {
 
 pub struct Inner {
     app: Ref<App>,
-    q: tokio::sync::RwLock<Impl>,
+    q: spin::Mutex<Impl>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -27,15 +27,15 @@ impl QueryQueue {
 impl QueryQueue {
     /// Register a query to be executed when the read index reaches `read_index`.
     /// `read_index` is the index of the commit pointer of when the query is submitted.
-    pub async fn register(&self, read_index: Index, query: Query) {
-        let mut q = self.q.write().await;
+    pub fn register(&self, read_index: Index, query: Query) {
+        let mut q = self.q.lock();
         q.register(read_index, query);
     }
 
     /// Execute awaiting queries in `[, index]` in parallel.
-    pub async fn execute(&self, index: Index) -> bool {
-        let mut q = self.q.write().await;
-        q.execute(index, &self.app).await
+    pub fn execute(&self, index: Index) -> bool {
+        let mut q = self.q.lock();
+        q.execute(index, &self.app)
     }
 }
 
@@ -57,7 +57,7 @@ impl Impl {
             .push(query);
     }
 
-    async fn execute(&mut self, index: Index, app: &App) -> bool {
+    fn execute(&mut self, index: Index, app: &App) -> bool {
         let futs = {
             let mut out = vec![];
             let ls: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
@@ -84,7 +84,7 @@ impl Impl {
                 app,
             )| async move {
                 // The `completion` of the failed queries are dropped
-                // which results in failing on the client side.
+                // which just results in failing on the client side.
                 if let Ok(resp) = app.process_read(&message).await {
                     user_completion.complete_with(resp).ok();
                 }

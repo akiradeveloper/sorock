@@ -73,7 +73,7 @@ impl RaftProcess {
                 message: req.message,
                 user_completion,
             };
-            self.query_queue.register(read_index, query).await;
+            self.query_queue.register(read_index, query);
 
             rx.await?
         } else {
