@@ -5,7 +5,6 @@ pub enum KernRequest {
     AddServer(NodeId),
     RemoveServer(NodeId),
 }
-
 impl KernRequest {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
