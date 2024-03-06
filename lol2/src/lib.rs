@@ -44,5 +44,5 @@ impl NodeId {
     }
 }
 
-/// Identifier of a Raft group.
+/// Identifier of a Lane.
 pub type LaneId = u32;
