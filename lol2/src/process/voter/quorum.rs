@@ -4,10 +4,11 @@ use std::future::Future;
 
 pub async fn join(quorum: usize, futs: Vec<impl Future<Output = bool> + Send + 'static>) -> bool {
     let n = futs.len();
+
     if n < quorum {
         return false;
     }
-    assert!(n >= quorum);
+
     if n == 0 && quorum == 0 {
         return true;
     }
@@ -28,16 +29,19 @@ pub async fn join(quorum: usize, futs: Vec<impl Future<Output = bool> + Send + '
         if ok >= quorum {
             return true;
         }
+        // FIXME Do we need this check?
         if ack == n {
             return false;
         }
     }
+
     false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     async fn f(b: bool) -> bool {
         b
     }
@@ -47,6 +51,7 @@ mod tests {
         let ok = join(2, futs).await;
         assert!(ok);
     }
+
     #[tokio::test]
     async fn test_quorum_join_ng() {
         let futs = vec![f(true), f(false), f(false)];
