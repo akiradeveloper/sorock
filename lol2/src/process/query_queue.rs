@@ -58,10 +58,10 @@ impl Impl {
     }
 
     fn execute(&mut self, index: Index, app: &App) -> bool {
-        let futs = {
+        let queries = {
             let mut out = vec![];
-            let ls: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
-            for idx in ls {
+            let tgt_indexes: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
+            for idx in tgt_indexes {
                 if let Some(queries) = self.reserved.remove(&idx) {
                     for query in queries {
                         out.push((query, app.clone()));
@@ -71,11 +71,11 @@ impl Impl {
             out
         };
 
-        if futs.is_empty() {
+        if queries.is_empty() {
             return false;
         }
 
-        let futs = futs.into_iter().map(
+        let futs = queries.into_iter().map(
             |(
                 Query {
                     message,
