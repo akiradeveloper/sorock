@@ -32,7 +32,7 @@ impl QueryQueue {
         q.register(read_index, query);
     }
 
-    /// Execute awaiting queries in `[, index]` in parallel.
+    /// Execute awaiting queries whose `read_index` ∈ `[, index]` in parallel.
     pub fn execute(&self, index: Index) -> bool {
         let mut q = self.q.lock();
         q.execute(index, &self.app)

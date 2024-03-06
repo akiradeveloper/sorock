@@ -5,18 +5,18 @@ use process::*;
 mod stream;
 
 /// Create a Raft service backed by a `RaftNode`.
-pub fn new(node: RaftNode) -> raft::raft_server::RaftServer<ServiceImpl> {
-    let inner = ServiceImpl { node };
+pub fn new(node: RaftNode) -> raft::raft_server::RaftServer<RaftService> {
+    let inner = RaftService { node };
     raft::raft_server::RaftServer::new(inner)
 }
 
 #[doc(hidden)]
-pub struct ServiceImpl {
+pub struct RaftService {
     node: RaftNode,
 }
 
 #[tonic::async_trait]
-impl raft::raft_server::Raft for ServiceImpl {
+impl raft::raft_server::Raft for RaftService {
     type GetSnapshotStream = stream::SnapshotStreamOut;
 
     async fn write(
@@ -208,9 +208,9 @@ impl raft::raft_server::Raft for ServiceImpl {
         Ok(tonic::Response::new(()))
     }
 
-    async fn timeout_now(
+    async fn send_timeout_now(
         &self,
-        req: tonic::Request<raft::TimeoutNowRequest>,
+        req: tonic::Request<raft::TimeoutNow>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = req.into_inner();
         let lane_id = req.lane_id;
