@@ -7,8 +7,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-tokio-retry = "0.3"
-tonic = { workspace = true }
 
 env = { path = "../env" } 
 lol2 = { workspace = true }

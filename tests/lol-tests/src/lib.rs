@@ -34,7 +34,7 @@ impl Cluster {
         self.admin(to)
             .add_server(lol2::client::AddServerRequest {
                 lane_id: testapp::APP_LANE_ID,
-                server_id: Env::address_from_id(id),
+                server_id: env::address_from_id(id),
             })
             .await?;
         // make sure the new server is aquiainted with the current leader.
@@ -46,7 +46,7 @@ impl Cluster {
         self.admin(to)
             .remove_server(lol2::client::RemoveServerRequest {
                 lane_id: testapp::APP_LANE_ID,
-                server_id: Env::address_from_id(id),
+                server_id: env::address_from_id(id),
             })
             .await?;
         eprintln!("removed");
