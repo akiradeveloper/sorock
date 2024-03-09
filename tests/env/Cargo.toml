@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-bollard = "0.15"
+bollard = "0.16"
 log = "0.4"
 tokio = "1"
 tonic = { workspace = true }
