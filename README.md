@@ -21,7 +21,7 @@ A Multi-Raft implementation in Rust language.
 To implement Multi-Raft, the architecture is split into two spaces. One in the lower side is called "Pure Raft" layer which is totally unaware of 
 gRPC and Multi-Raft. Therefore, it is called pure. The other side translates gRPC requests into pure requests and vice versa.
 
-![スクリーンショット 2024-02-03 13 30 09](https://github.com/akiradeveloper/lol/assets/785824/fd064ba6-be20-4934-839a-db8cd07a8f13)
+![スクリーンショット 2024-03-11 8 00 03](https://github.com/akiradeveloper/lol/assets/785824/28fd68c4-6aa9-4bc8-a1ac-c44eb8563751)
 
 ## Development
 
