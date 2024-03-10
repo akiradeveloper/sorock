@@ -86,7 +86,7 @@ async fn n1_exec_once() -> Result<()> {
         let fut = async move { cli.write(req).await };
         futs.push(fut);
     }
-    
+
     // Submit the same requests concurrently.
     // But only one of them should be executed.
     futures::future::join_all(futs).await;
