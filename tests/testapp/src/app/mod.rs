@@ -38,7 +38,7 @@ impl AppSnapshot {
 }
 
 struct InnerState {
-    index: u64,
+    state_index: u64,
     counter: u64,
 }
 struct AppMain {
@@ -48,10 +48,12 @@ struct AppMain {
 impl AppMain {
     pub fn new() -> Self {
         let init_state = InnerState {
-            index: 0,
+            state_index: 0,
             counter: 0,
         };
-        let snapshots = BTreeMap::new();
+        let mut snapshots = BTreeMap::new();
+        // The initial state
+        snapshots.insert(1, AppState(0));
         Self {
             state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
@@ -72,21 +74,17 @@ impl RaftApp for AppMain {
                 n
             }
         };
-        cur_state.index = entry_index;
+        cur_state.state_index = entry_index;
 
         Ok(AppState(old_state).serialize())
     }
 
     async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
-        let snapshot = if snapshot_index == 1 {
-            AppState(0)
-        } else {
-            ensure!(self.snapshots.read().unwrap().contains_key(&snapshot_index));
-            *self.snapshots.read().unwrap().get(&snapshot_index).unwrap()
-        };
+        ensure!(self.snapshots.read().unwrap().contains_key(&snapshot_index));
+        let snapshot = *self.snapshots.read().unwrap().get(&snapshot_index).unwrap();
 
         let mut cur_state = self.state.write().unwrap();
-        cur_state.index = snapshot_index;
+        cur_state.state_index = snapshot_index;
         cur_state.counter = snapshot.0;
 
         Ok(())
@@ -98,7 +96,7 @@ impl RaftApp for AppMain {
         let req = testapp::AppReadRequest::deserialize(bytes);
         match req {
             AppReadRequest::MakeSnapshot => {
-                let idx = cur_state.index;
+                let idx = cur_state.state_index;
                 let mut snapshots = self.snapshots.write().unwrap();
                 snapshots.insert(idx, AppState(cur_state.counter));
             }
