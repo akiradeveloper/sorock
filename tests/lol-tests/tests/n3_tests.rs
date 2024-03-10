@@ -62,7 +62,7 @@ async fn n3_leader_stop() -> Result<()> {
     cluster.add_server(0, 1).await?;
     cluster.add_server(0, 2).await?;
 
-    cluster.raw_env().stop(0).await?;
+    cluster.env().stop(0).await?;
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     for i in 0..10 {
@@ -106,10 +106,10 @@ async fn n3_down2() -> Result<()> {
 
     cluster.user(0).fetch_add(1).await?;
 
-    cluster.raw_env().stop(1).await?;
+    cluster.env().stop(1).await?;
     cluster.user(0).fetch_add(2).await?;
 
-    cluster.raw_env().stop(2).await?;
+    cluster.env().stop(2).await?;
     assert!(cluster.user(0).fetch_add(4).await.is_err());
 
     Ok(())

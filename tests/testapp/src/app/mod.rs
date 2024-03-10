@@ -4,8 +4,8 @@ use anyhow::ensure;
 use bytes::Bytes;
 use futures::TryStreamExt;
 use lol2::process::*;
-use std::collections::BTreeMap;
 use spin::RwLock;
+use std::collections::BTreeMap;
 use testapp::{AppReadRequest, AppState, AppWriteRequest};
 
 mod snapshot_io;
@@ -108,9 +108,7 @@ impl RaftApp for AppMain {
 
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
-        self.snapshots
-            .write()
-            .insert(snapshot_index, snap.0);
+        self.snapshots.write().insert(snapshot_index, snap.0);
         Ok(())
     }
 

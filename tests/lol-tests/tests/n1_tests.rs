@@ -67,7 +67,7 @@ async fn n1_many_retry_exec_once() -> Result<()> {
     let mut cluster = Cluster::new(1).await?;
     cluster.add_server(0, 0).await?;
 
-    let chan = cluster.raw_env().connect(0);
+    let chan = cluster.env().connect(0);
     let cli = lol2::client::RaftClient::new(chan);
 
     let req = lol2::client::WriteRequest {
