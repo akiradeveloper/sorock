@@ -197,19 +197,19 @@ impl RaftLogStore for AppLog {
 
     async fn get_head_index(&self) -> Result<Index> {
         let reader = self.inner.read();
-        let n = match reader.first_key_value() {
+        let idx = match reader.first_key_value() {
             Some((k, _)) => *k,
             None => 0,
         };
-        Ok(n)
+        Ok(idx)
     }
 
     async fn get_last_index(&self) -> Result<Index> {
         let reader = self.inner.read();
-        let n = match reader.last_key_value() {
+        let idx = match reader.last_key_value() {
             Some((k, _)) => *k,
             None => 0,
         };
-        Ok(n)
+        Ok(idx)
     }
 }
