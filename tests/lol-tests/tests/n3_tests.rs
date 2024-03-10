@@ -98,7 +98,7 @@ async fn n3_leader_stepdown() -> Result<()> {
 
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
-async fn n3_down2() -> Result<()> {
+async fn n3_down2_err() -> Result<()> {
     let mut cluster = Cluster::new(3).await?;
     cluster.add_server(0, 0).await?;
     cluster.add_server(0, 1).await?;
