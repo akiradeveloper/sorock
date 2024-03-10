@@ -3,14 +3,14 @@ use super::*;
 use anyhow::ensure;
 use bytes::Bytes;
 use futures::TryStreamExt;
-use lol2::process::*;
+use lolraft::process::*;
 use spin::RwLock;
 use std::collections::BTreeMap;
 use testapp::{AppReadRequest, AppState, AppWriteRequest};
 
 mod snapshot_io;
 
-pub async fn new(driver: lol2::RaftDriver) -> Result<RaftProcess> {
+pub async fn new(driver: lolraft::RaftDriver) -> Result<RaftProcess> {
     let app_main = AppMain::new();
     let app_log = AppLog::new();
     let app_ballot = AppBallot::new();

@@ -1,3 +1,9 @@
+# 0.10.0 (2024-3-11)
+
+- Fully re-architected.
+- Implement Multi-Raft.
+- Rename lol-core -> lolraft
+
 # 0.9.5 (2022-12-8)
 
 - Fix.

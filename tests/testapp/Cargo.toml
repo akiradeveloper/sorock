@@ -24,7 +24,7 @@ tokio-util = "0.7"
 tonic = { workspace = true }
 uuid = "1.5"
 
-lol2 = { workspace = true }
+lolraft = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
