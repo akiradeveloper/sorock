@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "lol2",
+    "lolraft",
     "tests/*"
 ]
 
@@ -10,4 +10,4 @@ tonic = "0.11"
 tonic-build = "0.11"
 prost = "0.12"
 prost-build = "0.12"
-lol2 = { path = "lol2" }
+lolraft = { path = "lolraft" }

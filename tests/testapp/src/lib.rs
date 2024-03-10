@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
-use lol2::client::*;
+use lolraft::client::*;
 use tonic::transport::Channel;
 
 mod proto {
@@ -8,7 +8,7 @@ mod proto {
 }
 pub use proto::ping_client::PingClient;
 
-pub const APP_LANE_ID: lol2::LaneId = 777;
+pub const APP_LANE_ID: lolraft::LaneId = 777;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum AppWriteRequest {

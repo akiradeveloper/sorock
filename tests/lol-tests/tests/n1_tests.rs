@@ -68,9 +68,9 @@ async fn n1_exec_once() -> Result<()> {
     cluster.add_server(0, 0).await?;
 
     let chan = cluster.env().connect(0);
-    let cli = lol2::client::RaftClient::new(chan);
+    let cli = lolraft::client::RaftClient::new(chan);
 
-    let req = lol2::client::WriteRequest {
+    let req = lolraft::client::WriteRequest {
         lane_id: testapp::APP_LANE_ID,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
