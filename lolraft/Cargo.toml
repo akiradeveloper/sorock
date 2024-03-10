@@ -1,7 +1,14 @@
 [package]
 name = "lolraft"
 version = "0.10.0"
+authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2021"
+license = "MIT"
+description = "A Multi-Raft implementation in Rust language."
+repository = "https://github.com/akiradeveloper/lolraft"
+readme = "../README.md"
+categories = ["algorithms"]
+keywords = ["raft"]
 
 [dependencies]
 anyhow = "1"
