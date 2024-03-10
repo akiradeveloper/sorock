@@ -79,17 +79,6 @@ impl RaftApp for AppMain {
         Ok(AppState(old_state).serialize())
     }
 
-    async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
-        ensure!(self.snapshots.read().contains_key(&snapshot_index));
-        let snapshot = *self.snapshots.read().get(&snapshot_index).unwrap();
-
-        let mut cur_state = self.state.write();
-        cur_state.state_index = snapshot_index;
-        cur_state.counter = snapshot.0;
-
-        Ok(())
-    }
-
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
         let cur_state = self.state.read();
 
@@ -104,6 +93,17 @@ impl RaftApp for AppMain {
         };
 
         Ok(AppState(cur_state.counter).serialize())
+    }
+
+    async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
+        ensure!(self.snapshots.read().contains_key(&snapshot_index));
+        let snapshot = *self.snapshots.read().get(&snapshot_index).unwrap();
+
+        let mut cur_state = self.state.write();
+        cur_state.state_index = snapshot_index;
+        cur_state.counter = snapshot.0;
+
+        Ok(())
     }
 
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
