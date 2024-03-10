@@ -24,7 +24,7 @@ mod raft {
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
-/// Identifier of a `RaftNode`.
+/// Identifier of `RaftNode`.
 #[derive(
     serde::Serialize,
     serde::Deserialize,
@@ -44,5 +44,5 @@ impl NodeId {
     }
 }
 
-/// Identifier of a Lane.
+/// Identifier of Lane.
 pub type LaneId = u32;
