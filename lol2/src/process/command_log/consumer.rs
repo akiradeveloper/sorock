@@ -12,19 +12,20 @@ impl CommandLog {
         }
     }
 
+    /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn advance_snapshot_index(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
         if proposed_snapshot_index > cur_snapshot_index {
-            info!("find a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
+            info!("found a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
 
-            // calculate membership at the new snapshot index
+            // Calculate membership at the new snapshot index
             let new_config = {
                 let last_membership_index = self
                     .find_last_membership_index(proposed_snapshot_index)
                     .await?
                     .context(Error::BadLogState)?;
-                self.try_read_membership_change(last_membership_index)
+                self.try_read_membership(last_membership_index)
                     .await?
                     .context(Error::BadLogState)?
             };
@@ -38,17 +39,17 @@ impl CommandLog {
                     ..old_entry
                 }
             };
-            // TODO wait for follower catch up
+
             self.insert_snapshot(new_snapshot_entry).await?;
         }
+
         Ok(())
     }
 
-    pub(crate) async fn advance_user_process(&self, app: App) -> Result<bool> {
+    /// Advance user process once.
+    pub(crate) async fn advance_user_process(&self, app: App) -> Result<()> {
         let cur_user_index = self.user_pointer.load(Ordering::SeqCst);
-        if cur_user_index >= self.kern_pointer.load(Ordering::SeqCst) {
-            return Ok(false);
-        }
+        ensure!(cur_user_index < self.kern_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_user_index + 1;
         let e = self.get_entry(process_index).await?;
@@ -62,6 +63,7 @@ impl CommandLog {
         };
 
         if do_process {
+            let mut response_cache = self.response_cache.lock();
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
@@ -71,31 +73,35 @@ impl CommandLog {
                     message,
                     request_id,
                 } => {
-                    // If the request has never been executed, we should execute it.
-                    if self.response_cache.should_execute(&request_id) {
+                    if response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
-                        self.response_cache
-                            .insert_response(request_id.clone(), resp);
+                        response_cache.insert_response(request_id.clone(), resp);
                     }
 
                     // Leader may have the completion for the request.
                     if let Some(user_completion) =
                         self.user_completions.lock().remove(&process_index)
                     {
-                        if let Some(resp) = self.response_cache.get_response(&request_id) {
-                            user_completion.complete_with(resp);
-                            // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
-                            // This should be queued and replicated to the followers otherwise followers
-                            // will never know the request is completed and the context will never be terminated.
-                            let command = Command::CompleteRequest { request_id };
-                            self.append_new_entry(Command::serialize(command), None)
-                                .await
-                                .ok();
+                        if let Some(resp) = response_cache.get_response(&request_id) {
+                            // If client abort the request before retry,
+                            // the completion channel is destroyed because the gRPC is context is cancelled.
+                            // In this case, we should keep the response in the cache for the later request.
+                            if let Err(resp) = user_completion.complete_with(resp) {
+                                response_cache.insert_response(request_id.clone(), resp);
+                            } else {
+                                // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
+                                // This should be queued and replicated to the followers.
+                                // Otherwise followers will never know the request is completed and the context will never be terminated.
+                                let command = Command::CompleteRequest { request_id };
+                                self.append_new_entry(Command::serialize(command), None)
+                                    .await
+                                    .ok();
+                            }
                         }
                     }
                 }
                 Command::CompleteRequest { request_id } => {
-                    self.response_cache.complete_response(&request_id);
+                    response_cache.complete_response(&request_id);
                 }
                 _ => {}
             }
@@ -103,14 +109,13 @@ impl CommandLog {
 
         self.user_pointer.store(process_index, Ordering::SeqCst);
 
-        Ok(true)
+        Ok(())
     }
 
-    pub(crate) async fn advance_kern_process(&self, voter: Voter) -> Result<bool> {
+    /// Advance kernel process once.
+    pub(crate) async fn advance_kern_process(&self, voter: Voter) -> Result<()> {
         let cur_kern_index = self.kern_pointer.load(Ordering::SeqCst);
-        if cur_kern_index >= self.commit_pointer.load(Ordering::SeqCst) {
-            return Ok(false);
-        }
+        ensure!(cur_kern_index < self.commit_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_kern_index + 1;
         let e = self.get_entry(process_index).await?;
@@ -138,6 +143,6 @@ impl CommandLog {
 
         self.kern_pointer.store(process_index, Ordering::SeqCst);
 
-        Ok(true)
+        Ok(())
     }
 }

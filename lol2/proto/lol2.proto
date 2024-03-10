@@ -4,19 +4,25 @@ import "google/protobuf/empty.proto";
 
 package lol2;
 
+// Update request to the `RaftApp`.
+// This type of request is serialized in the log and processed sequentially.
+// `request_id` is unique identifier of the request to avoid executing duplicating requests.
+// Client may send a write requests twice but they are executed only once as long as
+// they have the same `request_id`.
 message WriteRequest {
   uint32 lane_id = 1;
   bytes message = 2;
-  // unique identifier of this request
-  // duplicated requests with the same unique identifier are only executed once.
   string request_id = 3;
 }
 
+// Read-only request to the `RaftApp`.
+// This type of request is processed in optimized path.
 message ReadRequest {
   uint32 lane_id = 1;
   bytes message = 2;
 }
 
+// Response from the `RaftApp`.
 message Response {
   bytes message = 1;
 }
@@ -46,6 +52,7 @@ message ReplicationStreamChunk {
     ReplicationStreamEntry entry = 2;
   }
 }
+
 message ReplicationStreamResponse {
   uint64 n_inserted = 1;
   uint64 log_last_index = 2;
@@ -55,6 +62,7 @@ message GetSnapshotRequest {
   uint32 lane_id = 1;
   uint64 index = 2;
 }
+
 message SnapshotChunk {
   bytes data = 1;
 }
@@ -67,6 +75,7 @@ message VoteRequest {
   bool force_vote = 5;
   bool pre_vote = 6;
 }
+
 message VoteResponse {
   bool vote_granted = 1;
 }
@@ -78,17 +87,22 @@ message Heartbeat {
   uint64 leader_commit_index = 4;
 }
 
+// Request to add a Raft process with `server_id` to a lane.
 message AddServerRequest {
   uint32 lane_id = 1;
   string server_id = 2;
 }
 
+// Request to remove a Raft process with `server_id` from a lane.
 message RemoveServerRequest {
   uint32 lane_id = 1;
   string server_id = 2;
 }
 
-message TimeoutNowRequest {
+// On receiving this request, a server starts a new election
+// to become a leader disregarding the election timeout.
+// You can use this request to rebalance the leaders in the cluster.
+message TimeoutNow {
   uint32 lane_id = 1;
 }
 
@@ -102,5 +116,5 @@ service Raft {
   rpc SendReplicationStream (stream ReplicationStreamChunk) returns (ReplicationStreamResponse);
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
-  rpc TimeoutNow (TimeoutNowRequest) returns (google.protobuf.Empty);
+  rpc SendTimeoutNow (TimeoutNow) returns (google.protobuf.Empty);
 }

@@ -6,6 +6,7 @@ pub struct Cluster {
     env: Env,
 }
 impl Cluster {
+    /// Create `n` nodes and connect them to a network.
     pub async fn new(n: u8) -> Result<Self> {
         let mut env = Env::new()?;
         for id in 0..n {
@@ -16,10 +17,11 @@ impl Cluster {
         Ok(Self { env })
     }
 
-    pub fn raw_env(&mut self) -> &mut Env {
+    pub fn env(&mut self) -> &mut Env {
         &mut self.env
     }
 
+    /// Get an application client to connect to node `id`.
     pub fn user(&self, id: u8) -> testapp::Client {
         let conn = self.env.connect(id);
         testapp::Client::new(conn)
@@ -30,26 +32,29 @@ impl Cluster {
         lol2::client::RaftClient::new(conn)
     }
 
+    /// Request node `to` to add a node `id`.
     pub async fn add_server(&mut self, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(lol2::client::AddServerRequest {
                 lane_id: testapp::APP_LANE_ID,
-                server_id: Env::address_from_id(id),
+                server_id: env::address_from_id(id),
             })
             .await?;
-        // make sure the new server is aquiainted with the current leader.
+        // Make sure the newly added server knows the current leader.
         self.user(id).fetch_add(0).await?;
         Ok(())
     }
 
+    /// Request node `to` to remove a node `id`.
     pub async fn remove_server(&mut self, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(lol2::client::RemoveServerRequest {
                 lane_id: testapp::APP_LANE_ID,
-                server_id: Env::address_from_id(id),
+                server_id: env::address_from_id(id),
             })
             .await?;
-        eprintln!("removed");
+        eprintln!("removed node(id={id})");
+        // Make sure consensus can be made after removing the server.
         self.user(to).fetch_add(0).await?;
         Ok(())
     }

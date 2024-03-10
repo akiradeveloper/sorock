@@ -42,7 +42,7 @@ impl FailureDetector {
         inner.last_ping = now;
     }
 
-    /// Get the wait time before becoming a candidate.
+    /// Get a random wait time before becoming a candidate.
     /// Returns None if the current leader is still considered alive.
     pub fn get_election_timeout(&self) -> Option<Duration> {
         let inner = self.inner.read();
@@ -64,14 +64,14 @@ impl FailureDetector {
         }
 
         // Timeout is randomized to avoid multiple followers try to promote simultaneously.
-        // Here, the number is chosen in range [0, 3*mu]. The reason is as follows:
-        // In this case, the average difference of two random numbers is mu,
+        // Here, the number is chosen in [0, 3mu]. The reason is as follows:
+        // In this case, the average difference of two random numbers is 1mu,
         // which is the average interval of the heartbeat.
         // This means two random timeouts are sufficiently distant and it mitigates the risk
         // that two promotions conflict.
         let mut rng = rand::thread_rng();
         let mu = normal_dist.mu().as_millis() as u64;
-        let random_timeout = Duration::from_millis(rng.gen_range(0..=3 * mu));
+        let random_timeout = Duration::from_millis(rng.gen_range(0..=(3 * mu)));
 
         Some(random_timeout)
     }

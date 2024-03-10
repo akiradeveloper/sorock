@@ -1,6 +1,5 @@
 use super::*;
 
-use anyhow::Result;
 use process::*;
 
 mod stream;
@@ -69,10 +68,10 @@ impl Communicator {
     }
 
     pub async fn send_timeout_now(&self) -> Result<()> {
-        let req = raft::TimeoutNowRequest {
+        let req = raft::TimeoutNow {
             lane_id: self.lane_id,
         };
-        self.cli.clone().timeout_now(req).await?;
+        self.cli.clone().send_timeout_now(req).await?;
         Ok(())
     }
 

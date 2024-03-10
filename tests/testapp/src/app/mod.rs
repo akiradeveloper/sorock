@@ -2,12 +2,10 @@ use super::*;
 
 use anyhow::ensure;
 use bytes::Bytes;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use lol2::process::*;
-use std::any;
+use spin::RwLock;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::RwLock;
 use testapp::{AppReadRequest, AppState, AppWriteRequest};
 
 mod snapshot_io;
@@ -40,7 +38,7 @@ impl AppSnapshot {
 }
 
 struct InnerState {
-    index: u64,
+    state_index: u64,
     counter: u64,
 }
 struct AppMain {
@@ -50,10 +48,12 @@ struct AppMain {
 impl AppMain {
     pub fn new() -> Self {
         let init_state = InnerState {
-            index: 0,
+            state_index: 0,
             counter: 0,
         };
-        let snapshots = BTreeMap::new();
+        let mut snapshots = BTreeMap::new();
+        // The initial state
+        snapshots.insert(1, AppState(0));
         Self {
             state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
@@ -63,7 +63,7 @@ impl AppMain {
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
     async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
-        let mut cur_state = self.state.write().unwrap();
+        let mut cur_state = self.state.write();
 
         let req = testapp::AppWriteRequest::deserialize(bytes);
         let old_state = match req {
@@ -74,34 +74,30 @@ impl RaftApp for AppMain {
                 n
             }
         };
-        cur_state.index = entry_index;
+        cur_state.state_index = entry_index;
 
         Ok(AppState(old_state).serialize())
     }
 
     async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
-        let snapshot = if snapshot_index == 1 {
-            AppState(0)
-        } else {
-            ensure!(self.snapshots.read().unwrap().contains_key(&snapshot_index));
-            *self.snapshots.read().unwrap().get(&snapshot_index).unwrap()
-        };
+        ensure!(self.snapshots.read().contains_key(&snapshot_index));
+        let snapshot = *self.snapshots.read().get(&snapshot_index).unwrap();
 
-        let mut cur_state = self.state.write().unwrap();
-        cur_state.index = snapshot_index;
+        let mut cur_state = self.state.write();
+        cur_state.state_index = snapshot_index;
         cur_state.counter = snapshot.0;
 
         Ok(())
     }
 
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
-        let cur_state = self.state.read().unwrap();
+        let cur_state = self.state.read();
 
         let req = testapp::AppReadRequest::deserialize(bytes);
         match req {
             AppReadRequest::MakeSnapshot => {
-                let idx = cur_state.index;
-                let mut snapshots = self.snapshots.write().unwrap();
+                let idx = cur_state.state_index;
+                let mut snapshots = self.snapshots.write();
                 snapshots.insert(idx, AppState(cur_state.counter));
             }
             AppReadRequest::Read => {}
@@ -112,23 +108,20 @@ impl RaftApp for AppMain {
 
     async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
-        self.snapshots
-            .write()
-            .unwrap()
-            .insert(snapshot_index, snap.0);
+        self.snapshots.write().insert(snapshot_index, snap.0);
         Ok(())
     }
 
     async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream> {
-        ensure!(self.snapshots.read().unwrap().contains_key(&x));
-        let cur_state = *self.snapshots.read().unwrap().get(&x).unwrap();
+        ensure!(self.snapshots.read().contains_key(&x));
+        let cur_state = *self.snapshots.read().get(&x).unwrap();
         let snap = AppSnapshot(cur_state);
         let st = snap.into_stream();
         Ok(st)
     }
 
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
-        let mut snapshots = self.snapshots.write().unwrap();
+        let mut snapshots = self.snapshots.write();
         let latter = snapshots.split_off(&x);
         *snapshots = latter;
         Ok(())
@@ -137,7 +130,7 @@ impl RaftApp for AppMain {
     async fn get_latest_snapshot(&self) -> Result<Index> {
         let k = {
             let mut out = vec![];
-            let snapshots = self.snapshots.read().unwrap();
+            let snapshots = self.snapshots.read();
             for (&i, _) in snapshots.iter() {
                 out.push(i);
             }
@@ -161,12 +154,12 @@ impl AppBallot {
 #[async_trait::async_trait]
 impl RaftBallotStore for AppBallot {
     async fn save_ballot(&self, v: Ballot) -> Result<()> {
-        *self.inner.write().unwrap() = v;
+        *self.inner.write() = v;
         Ok(())
     }
 
     async fn load_ballot(&self) -> Result<Ballot> {
-        let v = self.inner.read().unwrap().clone();
+        let v = self.inner.read().clone();
         Ok(v)
     }
 }
@@ -184,37 +177,37 @@ impl AppLog {
 #[async_trait::async_trait]
 impl RaftLogStore for AppLog {
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
-        self.inner.write().unwrap().insert(i, e);
+        self.inner.write().insert(i, e);
         Ok(())
     }
 
     async fn delete_entries_before(&self, i: Index) -> Result<()> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         let latter = inner.split_off(&i);
         *inner = latter;
         Ok(())
     }
 
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
-        let e: Option<Entry> = self.inner.read().unwrap().get(&i).cloned();
+        let e: Option<Entry> = self.inner.read().get(&i).cloned();
         Ok(e)
     }
 
     async fn get_head_index(&self) -> Result<Index> {
-        let reader = self.inner.read().unwrap();
-        let n = match reader.first_key_value() {
+        let reader = self.inner.read();
+        let idx = match reader.first_key_value() {
             Some((k, _)) => *k,
             None => 0,
         };
-        Ok(n)
+        Ok(idx)
     }
 
     async fn get_last_index(&self) -> Result<Index> {
-        let reader = self.inner.read().unwrap();
-        let n = match reader.last_key_value() {
+        let reader = self.inner.read();
+        let idx = match reader.last_key_value() {
             Some((k, _)) => *k,
             None => 0,
         };
-        Ok(n)
+        Ok(idx)
     }
 }

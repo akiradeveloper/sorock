@@ -1,15 +1,12 @@
 # lol
 
-**This project in under complete reworking. Please wait for a while.**
-
 ![CI](https://github.com/akiradeveloper/lol/workflows/CI/badge.svg)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lol/blob/master/LICENSE)
 [![Tokei](https://tokei.rs/b1/github/akiradeveloper/lol)](https://github.com/akiradeveloper/lol)
 
-A Raft implementation in Rust language. To support this project please give it a ⭐
+A Multi-Raft implementation in Rust language.
 
 ![146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2](https://github.com/akiradeveloper/lol/assets/785824/12a016fe-35a0-4d12-8ffa-955ef61b25b9)
-
 
 ## Features
 
@@ -27,8 +24,6 @@ To implement Multi-Raft, the architecture is split into two spaces. One in the l
 gRPC and Multi-Raft. Therefore, called pure. The other side translates gRPC requests into pure requests and vice versa.
 
 ![スクリーンショット 2024-02-03 13 30 09](https://github.com/akiradeveloper/lol/assets/785824/fd064ba6-be20-4934-839a-db8cd07a8f13)
-
-
 
 ## Development
 

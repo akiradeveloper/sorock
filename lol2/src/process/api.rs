@@ -2,27 +2,34 @@ use super::*;
 
 pub mod request {
     use super::*;
+
     pub struct UserWriteRequest {
         pub message: Bytes,
         pub request_id: String,
     }
+
     pub struct UserReadRequest {
         pub message: Bytes,
     }
+
     pub struct KernRequest {
         pub message: Bytes,
     }
+
     pub struct Heartbeat {
         pub leader_id: NodeId,
         pub leader_term: Term,
         pub leader_commit_index: Index,
     }
+
     pub struct AddServer {
         pub server_id: NodeId,
     }
+
     pub struct RemoveServer {
         pub server_id: NodeId,
     }
+
     pub struct RequestVote {
         pub candidate_id: NodeId,
         pub candidate_clock: Clock,
@@ -37,6 +44,7 @@ pub mod request {
         /// We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
         pub pre_vote: bool,
     }
+
     pub struct ReplicationStream {
         pub sender_id: NodeId,
         pub prev_clock: Clock,

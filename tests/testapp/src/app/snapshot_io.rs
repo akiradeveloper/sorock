@@ -2,7 +2,6 @@ use super::*;
 
 use futures::stream::TryStreamExt;
 use futures::Stream;
-use futures::StreamExt;
 use tokio::io;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec;
@@ -17,6 +16,7 @@ mod reader {
         codec::FramedRead::new(r, codec::BytesCodec::new()).map_ok(|bytes| bytes.freeze())
     }
 
+    /// Read a stream from `reader`.
     pub fn read<R: AsyncRead>(reader: R) -> impl Stream<Item = io::Result<Bytes>> {
         into_bytes_stream(reader)
     }
@@ -36,12 +36,12 @@ mod writer {
         Ok(())
     }
 
+    /// Write `stream` to `writer`.
     pub async fn write<W: AsyncWrite + Unpin>(
         writer: W,
-        st: impl Stream<Item = io::Result<Bytes>> + Unpin,
+        stream: impl Stream<Item = io::Result<Bytes>> + Unpin,
     ) -> io::Result<()> {
-        let st = st.map(|res| res.map_err(|_| std::io::Error::from(std::io::ErrorKind::Other)));
-        read_bytes_stream(writer, st).await
+        read_bytes_stream(writer, stream).await
     }
 }
 pub use writer::write;

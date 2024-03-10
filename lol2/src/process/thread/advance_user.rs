@@ -7,7 +7,7 @@ pub struct Thread {
 }
 
 impl Thread {
-    async fn advance_once(&self) -> Result<bool> {
+    async fn advance_once(&self) -> Result<()> {
         self.command_log
             .advance_user_process(self.app.clone())
             .await
@@ -18,7 +18,7 @@ impl Thread {
             let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
                 interval.tick().await;
-                while let Ok(true) = self.advance_once().await {}
+                while self.advance_once().await.is_ok() {}
             }
         })
         .abort_handle();

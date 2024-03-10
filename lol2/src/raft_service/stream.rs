@@ -5,6 +5,7 @@ pub async fn into_internal_replication_stream(
 ) -> Result<(LaneId, request::ReplicationStream)> {
     use raft::replication_stream_chunk::Elem as ChunkElem;
 
+    // Get the header of the stream
     let (lane_id, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
         let e = chunk.elem.context(Error::BadReplicationStream)?;
         if let ChunkElem::Header(raft::ReplicationStreamHeader {
@@ -28,10 +29,10 @@ pub async fn into_internal_replication_stream(
         bail!(Error::BadReplicationStream)
     };
 
+    // Get the entries of the stream
     let entries = async_stream::stream! {
         while let Some(Ok(chunk)) = out_stream.next().await {
-            let e = chunk.elem;
-            let e = match e {
+            let e = match chunk.elem {
                 Some(ChunkElem::Entry(raft::ReplicationStreamEntry { clock: Some(clock), command })) => {
                     let e = request::ReplicationStreamElem {
                         this_clock: Clock { term: clock.term, index: clock.index },
@@ -42,7 +43,7 @@ pub async fn into_internal_replication_stream(
                 None => None,
                 _ => unreachable!("the replication stream entry is broken"),
             };
-            yield e
+            yield e;
         }
     };
 

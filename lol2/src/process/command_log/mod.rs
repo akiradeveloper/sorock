@@ -7,16 +7,20 @@ mod response_cache;
 use response_cache::ResponseCache;
 
 pub use producer::TryInsertResult;
+
 pub struct Inner {
+    /// Lock to serialize the append operation.
     append_lock: tokio::sync::Mutex<()>,
     storage: Box<dyn RaftLogStore>,
 
+    // Pointers in the log.
+    // Invariant: commit_pointer >= kern_pointer >= user_pointer >= snapshot_pointer
     pub commit_pointer: AtomicU64,
     kern_pointer: AtomicU64,
     pub user_pointer: AtomicU64,
     pub snapshot_pointer: AtomicU64,
 
-    /// Lock entries in range [snapshot_index, user_application_index]
+    /// Lock entries in `[snapshot_index, user_application_index]`.
     snapshot_lock: tokio::sync::RwLock<()>,
 
     /// The index of the last membership.
@@ -25,7 +29,7 @@ pub struct Inner {
     pub membership_pointer: AtomicU64,
 
     app: App,
-    response_cache: ResponseCache,
+    response_cache: spin::Mutex<ResponseCache>,
     user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
     kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
 }
@@ -46,7 +50,7 @@ impl CommandLog {
             snapshot_lock: tokio::sync::RwLock::new(()),
             user_completions: spin::Mutex::new(BTreeMap::new()),
             kern_completions: spin::Mutex::new(BTreeMap::new()),
-            response_cache: ResponseCache::new(),
+            response_cache: spin::Mutex::new(ResponseCache::new()),
         };
         Self(inner.into())
     }
@@ -74,12 +78,14 @@ impl CommandLog {
 }
 
 impl Inner {
+    /// Delete snapshots in `[, snapshot_index)`.
     pub async fn delete_old_snapshots(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 
+    /// Delete log entries in `[, snapshot_index)`.
     pub async fn delete_old_entries(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
         self.storage

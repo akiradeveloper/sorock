@@ -17,6 +17,7 @@ impl Thread {
             .peers
             .advance_replication(self.follower_id.clone())
             .await?;
+
         Ok(cont)
     }
 

@@ -1,6 +1,5 @@
 use super::*;
 
-use anyhow::ensure;
 use anyhow::Result;
 use log::*;
 use std::collections::BTreeMap;
@@ -32,9 +31,16 @@ mod raft_process;
 pub use raft_process::RaftProcess;
 mod thread;
 
+/// Election term.
+/// In Raft, only one leader can be elected per a term.
 pub type Term = u64;
+
+/// Log index.
 pub type Index = u64;
 
+/// Clock of log entry.
+/// If two entries have the same clock, they should be the same entry.
+/// It is like the hash of the git commit.
 #[derive(Clone, Copy, Eq, Debug)]
 pub struct Clock {
     pub term: Term,
@@ -46,6 +52,7 @@ impl PartialEq for Clock {
     }
 }
 
+/// Log entry.
 #[derive(Clone)]
 pub struct Entry {
     pub prev_clock: Clock,
@@ -53,6 +60,7 @@ pub struct Entry {
     pub command: Bytes,
 }
 
+/// Ballot in election.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ballot {
     pub cur_term: Term,
@@ -67,6 +75,8 @@ impl Ballot {
     }
 }
 
+/// Snapshot is transferred as stream of bytes.
+/// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.`
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
@@ -101,7 +111,7 @@ pub trait RaftApp: Sync + Send + 'static {
     /// This function is called when a follower requests a snapshot from the leader.
     async fn open_snapshot(&self, snapshot_index: Index) -> Result<SnapshotStream>;
 
-    /// Delete all the snapshots in range [,  i) from the snapshot store.
+    /// Delete all the snapshots in `[,  i)` from the snapshot store.
     async fn delete_snapshots_before(&self, i: Index) -> Result<()>;
 
     /// Get the index of the latest snapshot in the snapshot store.
@@ -117,7 +127,7 @@ pub trait RaftLogStore: Sync + Send + 'static {
     /// Insert the entry at index `i` into the log.
     async fn insert_entry(&self, i: Index, e: Entry) -> Result<()>;
 
-    /// Delete all the entries in range [, i) from the log.
+    /// Delete all the entries in `[, i)` from the log.
     async fn delete_entries_before(&self, i: Index) -> Result<()>;
 
     /// Get the entry at index `i` from the log.

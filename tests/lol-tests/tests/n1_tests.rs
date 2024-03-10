@@ -63,11 +63,11 @@ async fn n1_snapshot() -> Result<()> {
 
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
-async fn n1_many_retry_exec_once() -> Result<()> {
+async fn n1_exec_once() -> Result<()> {
     let mut cluster = Cluster::new(1).await?;
     cluster.add_server(0, 0).await?;
 
-    let chan = cluster.raw_env().connect(0);
+    let chan = cluster.env().connect(0);
     let cli = lol2::client::RaftClient::new(chan);
 
     let req = lol2::client::WriteRequest {
@@ -86,10 +86,11 @@ async fn n1_many_retry_exec_once() -> Result<()> {
         let fut = async move { cli.write(req).await };
         futs.push(fut);
     }
-    futures::future::join_all(futs).await;
 
+    // Submit the same requests concurrently.
+    // But only one of them should be executed.
+    futures::future::join_all(futs).await;
     let cur_state = cluster.user(0).read().await?;
-    // executed only once.
     assert_eq!(cur_state, 1);
 
     Ok(())

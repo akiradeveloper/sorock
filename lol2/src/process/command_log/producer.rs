@@ -2,14 +2,17 @@ use super::*;
 
 pub enum TryInsertResult {
     Inserted,
-    // If the entry is already inserted then we can skip the insertion.
+    /// If the entry is already inserted then we can skip the insertion.
     SkippedInsertion,
-    // If the entry is inconsistent with the log then we should reject the entry.
-    // In this case, the leader should rewind the replication status to the follower.
+    /// If the entry is inconsistent with the log then we should reject the entry.
+    /// In this case, the leader should rewind the replication status to the follower.
     InconsistencyDetected,
 }
 
 impl CommandLog {
+    /// Append a new entry to the log.
+    /// If `term` is None, then the term of the last entry is used.
+    /// Otherwise, the given term is used to update the term of the last entry.
     pub async fn append_new_entry(&self, command: Bytes, term: Option<Term>) -> Result<Index> {
         let _g = self.append_lock.lock().await;
 
@@ -43,7 +46,7 @@ impl CommandLog {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
-            Command::Snapshot { membership } => {
+            Command::Snapshot { .. } => {
                 let Clock {
                     term: _,
                     index: snapshot_index,

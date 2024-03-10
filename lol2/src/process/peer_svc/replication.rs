@@ -1,6 +1,7 @@
 use super::*;
 
 impl PeerSvc {
+    /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeId,
         command_log: Ref<CommandLog>,
@@ -31,18 +32,18 @@ impl PeerSvc {
     }
 
     pub async fn advance_replication(&self, follower_id: NodeId) -> Result<bool> {
-        let peer = self
+        let peer_context = self
             .peer_contexts
             .read()
             .get(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?
             .clone();
 
-        let old_progress = peer.progress;
+        let old_progress = peer_context.progress;
         let cur_last_log_index = self.command_log.get_log_last_index().await?;
 
         // More entries to send?
-        let should_send = cur_last_log_index >= old_progress.next_index;
+        let should_send = old_progress.next_index <= cur_last_log_index;
         if !should_send {
             return Ok(false);
         }

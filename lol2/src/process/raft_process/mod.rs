@@ -4,6 +4,7 @@ mod cluster;
 mod queue;
 mod responder;
 
+#[allow(dead_code)]
 struct ThreadHandles {
     advance_kern_handle: thread::ThreadHandle,
     advance_user_handle: thread::ThreadHandle,
@@ -16,6 +17,8 @@ struct ThreadHandles {
     stepdown_handle: thread::ThreadHandle,
 }
 
+/// `RaftProcess` is a implementation of Raft process in `RaftNode`.
+/// `RaftProcess` is unaware of the gRPC and the network but just focuses on the Raft algorithm.
 pub struct RaftProcess {
     command_log: CommandLog,
     voter: Voter,

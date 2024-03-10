@@ -44,4 +44,5 @@ impl NodeId {
     }
 }
 
+/// Identifier of a Lane.
 pub type LaneId = u32;

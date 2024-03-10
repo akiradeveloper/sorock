@@ -1,5 +1,4 @@
-use anyhow::ensure;
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use bollard::*;
 use log::*;
 use std::collections::HashMap;
@@ -7,6 +6,19 @@ use std::sync::Arc;
 use tonic::transport::{Channel, Endpoint, Uri};
 
 const NETWORK_NAME: &str = "lol_raft-network";
+
+pub fn id_from_address(address: &str) -> u8 {
+    let id = address
+        .strip_prefix("http://lol-testapp-")
+        .unwrap()
+        .strip_suffix(":50000")
+        .unwrap();
+    id.parse().unwrap()
+}
+
+pub fn address_from_id(id: u8) -> String {
+    format!("http://lol-testapp-{id}:50000")
+}
 
 #[derive(Clone)]
 struct Container(String);
@@ -24,29 +36,17 @@ impl Env {
         })
     }
 
-    pub fn id_from_address(address: &str) -> u8 {
-        let id = address
-            .strip_prefix("http://lol-testapp-")
-            .unwrap()
-            .strip_suffix(":50000")
-            .unwrap();
-        id.parse().unwrap()
-    }
-
-    pub fn address_from_id(id: u8) -> String {
-        format!("http://lol-testapp-{id}:50000")
-    }
-
     pub async fn create(&mut self, id: u8) -> Result<()> {
         ensure!(!self.containers.contains_key(&id));
         let options = container::CreateContainerOptions {
             name: format!("lol-testapp-{}", id),
             ..Default::default()
         };
+        let address = address_from_id(id);
         let config = container::Config {
             image: Some("lol-testapp:latest".to_string()),
             env: Some(vec![
-                format!("address=http://lol-testapp-{id}:50000"),
+                format!("address={address}"),
                 "RUST_LOG=info".to_string(),
             ]),
             ..Default::default()
@@ -96,14 +96,14 @@ impl Env {
     }
 
     pub async fn ping(&self, id: u8) -> Result<()> {
-        let chan = self.connect(0);
+        let chan = self.connect(id);
         let mut cli = testapp::PingClient::new(chan);
         cli.ping(()).await?;
         Ok(())
     }
 
     pub fn connect(&self, id: u8) -> Channel {
-        let uri: Uri = Self::address_from_id(id).parse().unwrap();
+        let uri: Uri = address_from_id(id).parse().unwrap();
         let endpoint = Endpoint::from(uri)
             .timeout(std::time::Duration::from_secs(1))
             .connect_timeout(std::time::Duration::from_secs(1));
@@ -128,8 +128,8 @@ impl Drop for Env {
                     )
                     .await;
                 match resp {
-                    Ok(_) => info!("removed container {id}"),
-                    Err(e) => error!("failed to remove container {id} (err={e})"),
+                    Ok(_) => info!("removed container id={id}"),
+                    Err(e) => error!("failed to remove container id={id} (err={e})"),
                 }
             };
             tokio::task::block_in_place(|| {
@@ -145,8 +145,8 @@ mod tests {
     #[test]
     fn id_address() {
         for id in 0..=255 {
-            let address = Env::address_from_id(id);
-            assert_eq!(id, Env::id_from_address(&address));
+            let address = address_from_id(id);
+            assert_eq!(id, id_from_address(&address));
         }
     }
 }

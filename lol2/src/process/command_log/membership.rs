@@ -1,7 +1,7 @@
 use super::*;
 
 impl CommandLog {
-    /// Find the last last snapshot in [, to]
+    /// Find the last last snapshot in `[, to]`.
     pub async fn find_last_snapshot_index(&self, to: Index) -> Result<Option<Index>> {
         for i in (1..=to).rev() {
             let e = self.get_entry(i).await?;
@@ -13,7 +13,7 @@ impl CommandLog {
         Ok(None)
     }
 
-    /// Find the last membership change in [, to]
+    /// Find the last configuration in `[, to]`.
     pub async fn find_last_membership_index(&self, to: Index) -> Result<Option<Index>> {
         for i in (1..=to).rev() {
             let e = self.get_entry(i).await?;
@@ -26,10 +26,8 @@ impl CommandLog {
         Ok(None)
     }
 
-    pub async fn try_read_membership_change(
-        &self,
-        index: Index,
-    ) -> Result<Option<HashSet<NodeId>>> {
+    /// Read the configuration at the given index.
+    pub async fn try_read_membership(&self, index: Index) -> Result<Option<HashSet<NodeId>>> {
         let e = self.get_entry(index).await?;
         match Command::deserialize(&e.command) {
             Command::Snapshot { membership } => Ok(Some(membership)),

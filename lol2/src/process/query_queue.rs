@@ -1,4 +1,5 @@
 use super::*;
+
 use std::collections::BTreeMap;
 
 pub struct Query {
@@ -8,7 +9,7 @@ pub struct Query {
 
 pub struct Inner {
     app: Ref<App>,
-    q: tokio::sync::RwLock<Impl>,
+    q: spin::Mutex<Impl>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
@@ -24,14 +25,17 @@ impl QueryQueue {
 }
 
 impl QueryQueue {
-    pub async fn register(&self, read_index: Index, query: Query) {
-        let mut q = self.q.write().await;
+    /// Register a query to be executed when the read index reaches `read_index`.
+    /// `read_index` is the index of the commit pointer of when the query is submitted.
+    pub fn register(&self, read_index: Index, query: Query) {
+        let mut q = self.q.lock();
         q.register(read_index, query);
     }
 
-    pub async fn execute(&self, index: Index) -> bool {
-        let mut q = self.q.write().await;
-        q.execute(index, &self.app).await
+    /// Execute awaiting queries whose `read_index` ∈ `[, index]` in parallel.
+    pub fn execute(&self, index: Index) -> bool {
+        let mut q = self.q.lock();
+        q.execute(index, &self.app)
     }
 }
 
@@ -53,12 +57,11 @@ impl Impl {
             .push(query);
     }
 
-    /// execute all awating queries in range [, index] in parallel
-    async fn execute(&mut self, index: Index, app: &App) -> bool {
-        let futs = {
+    fn execute(&mut self, index: Index, app: &App) -> bool {
+        let queries = {
             let mut out = vec![];
-            let ls: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
-            for idx in ls {
+            let tgt_indexes: Vec<Index> = self.reserved.range(..=index).map(|(k, _)| *k).collect();
+            for idx in tgt_indexes {
                 if let Some(queries) = self.reserved.remove(&idx) {
                     for query in queries {
                         out.push((query, app.clone()));
@@ -68,11 +71,11 @@ impl Impl {
             out
         };
 
-        if futs.is_empty() {
+        if queries.is_empty() {
             return false;
         }
 
-        let futs = futs.into_iter().map(
+        let futs = queries.into_iter().map(
             |(
                 Query {
                     message,
@@ -80,10 +83,10 @@ impl Impl {
                 },
                 app,
             )| async move {
-                // the `completion` of the failed queries are dropped
-                // which results in failing on the client side.
+                // The `completion` of the failed queries are dropped
+                // which just results in failing on the client side.
                 if let Ok(resp) = app.process_read(&message).await {
-                    user_completion.complete_with(resp);
+                    user_completion.complete_with(resp).ok();
                 }
             },
         );
