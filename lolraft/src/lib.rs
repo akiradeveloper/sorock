@@ -6,7 +6,6 @@ pub mod client;
 mod communicator;
 mod error;
 mod node;
-mod proto;
 pub mod raft_service;
 use error::Error;
 
@@ -20,8 +19,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
 
+mod generated {
+    pub mod lolraft;
+}
+
 mod raft {
-    pub use super::proto::lolraft::*;
+    pub use super::generated::lolraft::*;
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 

@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ]);
 
     tonic_build::configure()
-        .out_dir("src/proto")
+        .out_dir("src/generated")
         .compile_with_config(config, &["lolraft.proto"], &["proto"])?;
 
     Ok(())
