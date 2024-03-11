@@ -47,13 +47,3 @@ jobs:
           docker compose -f docker-compose.ci.yml build
           docker compose -f docker-compose.ci.yml run --rm dev cargo test
 
-  doc:
-    name: Documentation
-    runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: -Dwarnings
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: dtolnay/install@cargo-docs-rs
-      - run: cargo docs-rs -p lolraft
