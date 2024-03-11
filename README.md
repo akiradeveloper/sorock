@@ -1,6 +1,7 @@
 # lolraft
 
 [![Crates.io](https://img.shields.io/crates/v/lolraft.svg)](https://crates.io/crates/lolraft)
+[![Documentation](https://docs.rs/lolraft/badge.svg)](https://docs.rs/lolraft)
 ![CI](https://github.com/akiradeveloper/lolraft/workflows/CI/badge.svg)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lolraft/blob/master/LICENSE)
 
