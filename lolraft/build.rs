@@ -13,7 +13,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ".lolraft.SnapshotChunk.data",
     ]);
 
-    tonic_build::configure().compile_with_config(config, &["lolraft.proto"], &["proto"])?;
+    tonic_build::configure()
+        .out_dir("src/generated")
+        .compile_with_config(config, &["lolraft.proto"], &["proto"])?;
 
     Ok(())
 }

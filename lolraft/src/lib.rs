@@ -19,8 +19,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
 
+mod generated {
+    pub mod lolraft;
+}
+
 mod raft {
-    tonic::include_proto!("lolraft");
+    pub use super::generated::lolraft::*;
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
