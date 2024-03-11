@@ -1,3 +1,7 @@
+# 0.10.1 (2024-3-11)
+
+- Commit auto-generated code to work around docs.rs issue.
+
 # 0.10.0 (2024-3-11)
 
 - Fully re-architected.
