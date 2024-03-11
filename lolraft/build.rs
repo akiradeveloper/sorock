@@ -1,8 +1,4 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::var("DOCS_RS").is_ok() {
-        return Ok(());
-    }
-
     let mut config = prost_build::Config::new();
     config.bytes(&[
         ".lolraft.WriteRequest.message",
@@ -13,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ".lolraft.SnapshotChunk.data",
     ]);
 
-    tonic_build::configure().compile_with_config(config, &["lolraft.proto"], &["proto"])?;
+    tonic_build::configure().out_dir("proto").compile_with_config(config, &["lolraft.proto"], &["proto"])?;
 
     Ok(())
 }
