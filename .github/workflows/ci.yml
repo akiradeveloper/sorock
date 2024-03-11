@@ -51,9 +51,9 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: -Dwarnings -p lolraft
+      RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
-      - run: cargo docs-rs
+      - run: cargo docs-rs -p lolraft
