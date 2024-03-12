@@ -18,4 +18,5 @@ futures = "0.3"
 serial_test = "2"
 test-log = "0.2.12"
 tokio = { version = "1", features = ["full"] }
+tonic = { workspace = true }
 uuid = "1.5"
