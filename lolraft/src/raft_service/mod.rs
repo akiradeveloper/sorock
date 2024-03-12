@@ -1,11 +1,12 @@
 use super::*;
 
 use process::*;
+use raft::raft_server::{Raft, RaftServer};
 
 mod stream;
 
 /// Create a Raft service backed by a `RaftNode`.
-pub fn new(node: RaftNode) -> raft::raft_server::RaftServer<RaftService> {
+pub fn new(node: RaftNode) -> RaftServer<impl Raft> {
     let inner = RaftService { node };
     raft::raft_server::RaftServer::new(inner)
 }

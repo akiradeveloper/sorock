@@ -18,7 +18,7 @@ use process::RaftProcess;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
-pub mod reflection;
+pub mod reflection_service;
 
 mod generated {
     pub mod lolraft;

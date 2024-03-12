@@ -6,7 +6,8 @@ on:
       - master
 
 jobs:
-  docker:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -47,8 +48,8 @@ jobs:
           docker compose -f docker-compose.ci.yml build
           docker compose -f docker-compose.ci.yml run --rm dev cargo test
 
-  doc:
-    name: Documentation
+  test_docsrs:
+    name: Test (docs.rs)
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: -Dwarnings

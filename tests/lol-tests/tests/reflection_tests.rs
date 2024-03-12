@@ -5,7 +5,7 @@ use test_log::test;
 
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
-async fn grpcurl() -> Result<()> {
+async fn reflection_grpcurl_access() -> Result<()> {
     let cluster = Cluster::new(1).await?;
 
     let address = {
