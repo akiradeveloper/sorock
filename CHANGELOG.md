@@ -1,3 +1,8 @@
+# 0.10.2 (2024-3-13)
+
+- Implement reflection.
+- Use separate codegen instead of build.rs
+
 # 0.10.1 (2024-3-11)
 
 - Commit auto-generated code to work around docs.rs issue.
