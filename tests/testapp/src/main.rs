@@ -58,12 +58,14 @@ async fn main() -> Result<()> {
     node.attach_process(testapp::APP_LANE_ID, process);
 
     let raft_svc = lolraft::raft_service::new(node);
+    let reflection_svc = lolraft::reflection::new();
     let ping_svc = proto::ping_server::PingServer::new(PingApp);
     let socket = format!("0.0.0.0:50000").parse()?;
 
     let mut builder = tonic::transport::Server::builder();
     builder
         .add_service(raft_svc)
+        .add_service(reflection_svc)
         .add_service(ping_svc)
         .serve_with_shutdown(socket, async {
             rx.await.ok();
