@@ -1,0 +1,24 @@
+name: Documentation
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - master
+    paths:
+    - "doc/src/**"
+    - "doc/book.toml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      uses: ./.github/actions/build
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        PUBLISH_BRANCH: gh-pages
+        PUBLISH_DIR: ./doc/book
+

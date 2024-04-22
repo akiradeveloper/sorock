@@ -1,11 +1,13 @@
 # lolraft
 
 [![Crates.io](https://img.shields.io/crates/v/lolraft.svg)](https://crates.io/crates/lolraft)
-[![Documentation](https://docs.rs/lolraft/badge.svg)](https://docs.rs/lolraft)
+[![API doc](https://docs.rs/lolraft/badge.svg)](https://docs.rs/lolraft)
 ![CI](https://github.com/akiradeveloper/lolraft/workflows/CI/badge.svg)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lolraft/blob/master/LICENSE)
 
 A Multi-Raft implementation in Rust language.
+
+[Documentation](https://akiradeveloper.github.io/lolraft/)
 
 ![146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2](https://github.com/akiradeveloper/lolraft/assets/785824/12a016fe-35a0-4d12-8ffa-955ef61b25b9)
 
@@ -17,13 +19,6 @@ A Multi-Raft implementation in Rust language.
 - Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
 - [Phi Accrual Failure Detector](https://github.com/akiradeveloper/phi-detector) is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number in prior to deployment and makes it possible to deploy Raft node in even geo-distributed environment.
-
-## Architecture
-
-To implement Multi-Raft, the architecture is split into two spaces. One in the lower side is called "Pure Raft" layer which is totally unaware of 
-gRPC and Multi-Raft. Therefore, it is called pure. The other side translates gRPC requests into pure requests and vice versa.
-
-![スクリーンショット 2024-03-11 8 00 03](https://github.com/akiradeveloper/lolraft/assets/785824/28fd68c4-6aa9-4bc8-a1ac-c44eb8563751)
 
 ## Development
 
