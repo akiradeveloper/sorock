@@ -1,18 +1,19 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js light">
+<html lang="en" class="light" dir="ltr">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>lol</title>
-        
-        <meta name="robots" content="noindex" />
-        
+        <title>lolraft documentation</title>
+        <meta name="robots" content="noindex">
 
-        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+
+        <!-- Custom HTML head -->
+        
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#ffffff">
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -21,8 +22,7 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -30,19 +30,18 @@
         <link rel="stylesheet" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
-        
 
-        
     </head>
-    <body>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
         <!-- Provide site root to javascript -->
-        <script type="text/javascript">
+        <script>
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
-        <script type="text/javascript">
+        <script>
             try {
                 var theme = localStorage.getItem('mdbook-theme');
                 var sidebar = localStorage.getItem('mdbook-sidebar');
@@ -58,73 +57,114 @@
         </script>
 
         <!-- Set the theme before any content is loaded, prevents flash -->
-        <script type="text/javascript">
+        <script>
             var theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
             var html = document.querySelector('html');
-            html.classList.remove('no-js')
             html.classList.remove('light')
             html.classList.add(theme);
-            html.classList.add('js');
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
         </script>
 
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
         <!-- Hide / unhide sidebar before it is displayed -->
-        <script type="text/javascript">
-            var html = document.querySelector('html');
-            var sidebar = 'hidden';
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
             }
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">1.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="raft-core.html"><strong aria-hidden="true">1.1.</strong> RaftCore</a></li><li class="chapter-item expanded "><a href="log-snapshot.html"><strong aria-hidden="true">1.2.</strong> Log and Snapshot</a></li><li class="chapter-item expanded "><a href="snapshot-repository.html"><strong aria-hidden="true">1.3.</strong> Snapshot Repository</a></li><li class="chapter-item expanded "><a href="snapshot-types.html"><strong aria-hidden="true">1.4.</strong> Snapshot Types (Copy and Fold)</a></li><li class="chapter-item expanded "><a href="log-abstraction.html"><strong aria-hidden="true">1.5.</strong> Log Abstraction</a></li></ol></li><li class="chapter-item expanded "><a href="client-interactions.html"><strong aria-hidden="true">2.</strong> Client Interactions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="query-processing.html"><strong aria-hidden="true">2.1.</strong> Optimized Query Processing</a></li><li class="chapter-item expanded "><a href="gateway.html"><strong aria-hidden="true">2.2.</strong> Gateway</a></li></ol></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">3.</strong> Cluster Management</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="membership-change.html"><strong aria-hidden="true">3.1.</strong> Single-server changes</a></li></ol></li><li class="chapter-item expanded "><a href="election.html"><strong aria-hidden="true">4.</strong> Leader Election</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="failure-detection.html"><strong aria-hidden="true">4.1.</strong> Leader Failure Detection</a></li><li class="chapter-item expanded "><a href="timeout-now.html"><strong aria-hidden="true">4.2.</strong> Leadership Transfer Extension</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">5.</strong> Tools</a></li><li class="chapter-item expanded "><a href="references.html"><strong aria-hidden="true">6.</strong> References</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html"><strong aria-hidden="true">2.1.</strong> Orbit pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
 
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
                             <i class="fa fa-bars"></i>
-                        </button>
+                        </label>
                         <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
                         </ul>
-                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
                     </div>
 
-                    <h1 class="menu-title">lol</h1>
+                    <h1 class="menu-title">lolraft documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        
+
                     </div>
                 </div>
 
-                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
-                <script type="text/javascript">
+                <script>
                     document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
                     document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
                     Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
@@ -134,180 +174,184 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
-<p>lol fully depends on <a href="https://github.com/hyperium/tonic">Tonic</a> and
-Tonic is a library to build a gRPC server on top of <a href="https://github.com/hyperium/hyper">Hyper</a>.</p>
-<p>To build a gRPC application on top of Tonic,
-user has to implement a <code>tower::Service</code> which is generated from a Proto file
-describing the service.</p>
-<p>lol offers <code>RaftService</code> which is a Raft implementation of the <code>tower::Service</code>.
-With the user application which implements <code>RaftApp</code>,
-<code>RaftService</code> is made.</p>
-<p><img src="images/raft-service.png" alt="" /></p>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
+                        <h1 id="multi-raft"><a class="header" href="#multi-raft">Multi-Raft</a></h1>
+<p><a href="https://raft.github.io/">Raft</a> consensus algorithm is nowadays a widely used building block of distributed applications.
+The algorithm is about consensus on the sequence of log entries, which are applied to a state machine.
+When the two log entries are identical, then the resulting state is identical too.
+In this sense, it is also called <strong>replicated state machine</strong>.</p>
+<p>The typical usage of the Raft algorithm is to implement a distributed key-value store.
+However, naive implementation will suffer from scalability issues due to the seriality of the algorithm.
+Let's consider putting (k1,v1) and (k2,v2) in the data store, naive implementation can't handle these two concurrently
+because the operations are serialized.</p>
+<p>Sharding is a common solution to this kind of problem.
+If the k1 and k2 are enough distant in the key space, then the operations can be handled concurrently
+by sharded Raft clusters.
+Since we can split the single Raft cluster into multiple small Raft clusters,
+it naturally addresses the capacity scalability problem at the same time.
+TiKV uses this technique (<a href="https://tikv.org/deep-dive/scalability/multi-raft/">ref</a>).</p>
+<p><img src="images/multi-raft-tikv.png" alt="" /></p>
+<p>There are two ways of implementing a multi-raft.
+One is deploying multiple Raft clusters independently.
+One of the problems of this approach is that resources like IP addresses or ports must be
+allocated per node to identify them.
+This introduces unnecessary complexity in deployment.
+Another problem is that shards can't share the resources efficiently.
+In the implementation of a key-value store, the embedded datastore should be shared among the shards
+for efficient I/O like write batching.
+For these problems, I will take the second approach.</p>
+<p>lolraft implements <strong>in-process multi-raft</strong>.
+As the name implies, lolraft allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
+These Raft processes can form a Raft cluster on independent <strong>lanes</strong>.</p>
+<p><img src="images/multi-raft.png" alt="" /></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="raft-process"><a class="header" href="#raft-process">Raft Process</a></h1>
+<p>The core of multi-raft is Raft process.
+Each multi-raft server has one or more Raft processes.</p>
+<p>To implement multi-raft,
+lolraft implements Raft process as it is agnostic to
+detailed node communications through gRPC.
+Since the Raft process doesn't know about the IO,
+we call it <strong>Pure Raft</strong>.</p>
+<p><img src="images/raft-process.png" alt="" /></p>
+<p>To make Raft process to communicate with other Raft processes
+through network, <code>RaftDriver</code> must be provided.
+Everything about actual network communication is encapsulated under <code>RaftDriver</code>.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let raft_service = lol_core::make_raft_service(app, ...).await;
-let mut builder = tonic::transport::Server::builder();
-builder
-	.add_service(raft_service)
-	.serve(socket)
-	.await
-<span class="boring">}
-</span></code></pre></pre>
-<p>In Raft, log entries are replicated across the nodes and snapshot is
-copied when it is needed.
-To implement these peer-to-peer communications, lol uses gRPC's streaming API for the best efficiency.</p>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>service Raft {
-    rpc SendAppendEntry (stream AppendEntryReq) returns (AppendEntryRep);
-    rpc GetSnapshot (GetSnapshotReq) returns (stream GetSnapshotRep);
-<span class="boring">}
-</span></code></pre></pre>
-<p>Another cool optimization is that it reduces copies of the message payloads (a.k.a. Zero-copy) with the help of <a href="https://github.com/serde-rs/bytes">serde-bytes</a>
-and prost's <a href="https://docs.rs/prost-build/latest/prost_build/struct.Config.html#method.bytes">bytes</a> configuration.</p>
-<h1><a class="header" href="#raftcore" id="raftcore">RaftCore</a></h1>
-<p>The rest of this chapter explains the internal of the <code>RaftService</code>.</p>
-<p><img src="images/raft-core.png" alt="" /></p>
-<p><code>RaftCore</code> is the heart of the Raft system. It includes internal states and functions that typically produces side effects.</p>
-<p>Around the <code>RaftCore</code>, there are many companion threads that indefinitely loops and sends messages to <code>RaftCore</code>.</p>
-<p>How much threads are there? As of 0.7, there are 7 threads around the core. This architecure is much like typical operating system that daemon threads are orbiting around the kernel.</p>
-<p>The last element of the system is <code>RaftApp</code>. 
-As its name suggests, it is a user application which runs on the <code>RaftCore</code>. The responsibility of the <code>RaftApp</code> is said to be only two things:</p>
+</span>impl RaftProcess {
+    pub async fn new(
+        app: impl RaftApp,
+        log_store: impl RaftLogStore,
+        ballot_store: impl RaftBallotStore,
+        driver: RaftDriver,
+    ) -&gt; Result&lt;Self&gt; {
+<span class="boring">}</span></code></pre></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="orbit-pattern"><a class="header" href="#orbit-pattern">Orbit Pattern</a></h1>
+<p>Inside RaftProcess, there is a state called <code>RaftCore</code> and
+many threads to process it concurrently on an event-driven basis,
+most of them are driven by timers.
+Since this is like threads are orbiting around the core,
+I call this <strong>Orbit Pattern</strong>.</p>
+<p><img src="images/orbit-pattern.png" alt="" /></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="application-state"><a class="header" href="#application-state">Application State</a></h1>
+<p>In RaftCore, <code>RaftApp</code> and <code>RaftLogStore</code> are especially important because
+these two compose the application state.
+This section explains the conceptual aspect of it.</p>
+<p><img src="images/application-state.png" alt="" /></p>
+<h2 id="raftapp"><a class="header" href="#raftapp">RaftApp</a></h2>
+<p><code>RaftApp</code> is an abstraction that represents the FSM (Finite State Machine) of the application
+and the snapshot repository.
+The snapshot repository isn't separated because the contents of the snapshot is
+strongly coupled with the application state.</p>
+<p>The application state can be updated by applying the log entries.
+In this figure, the last applied entry is of index 55.</p>
+<p><code>RaftApp</code> can generate a snapshot arbitrarily to compact the log.
+When <code>RaftApp</code> makes a snapshot and stores it in the snapshot repository.
+The latest snapshot is immediately picked up by the Raft process and it
+manipulates the log (right in the figure) by replacing the snapshot entry.
+In this figure, the snapshot index is 51.</p>
+<p>Old snapshots will be garbage collected.</p>
+<p>Snapshots may be fetched from other nodes.
+This happens when the Raft process is far behind the leader and
+the leader doesn't have the log entries as they are garbage collected.</p>
+<h2 id="raftlogstore"><a class="header" href="#raftlogstore">RaftLogStore</a></h2>
+<p><code>RaftLogStore</code> is an abstraction that represents the log entries.
+In the figure, log entries from 45 to 50 are scheduled for garbage collection.
+snapshot entry is of index 51 and it is guaranteed that the corresponding snapshot
+exists in the snapshot repository. 52 to 55 are applied.
+56 or later are not applied yet. They are either uncommitted or committed.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="client-interaction"><a class="header" href="#client-interaction">Client Interaction</a></h1>
+<p>You can send application-defined commands to the Raft cluster.</p>
+<p>lolraft distinguishes the command into two types: read-write and read-only.
+The read-only command is called <strong>query</strong> and queries can be processed through the optimized path.</p>
+<h2 id="rw-commnand"><a class="header" href="#rw-commnand">R/W commnand</a></h2>
+<p>R/W command is a normal application command that is inserted into the log to be applied later.</p>
+<p>You can send a R/W command to the cluster with this API.</p>
+<pre><code class="language-proto">message WriteRequest {
+  uint32 lane_id = 1;
+  bytes message = 2;
+  string request_id = 3;
+}
+</code></pre>
+<p><strong>request_id</strong> is to avoid doubly application.
+Let's think about this scenario:</p>
 <ol>
-<li>Apply the messages to the state machine.</li>
-<li>Make a new snapshot.</li>
+<li>The client sends a R/W command to add 1 to the value.</li>
+<li>The leader server replicates the command to the followers but crashes before application (+response).</li>
+<li>The client resends the command to a new leader after a timeout.</li>
+<li>The result is adding 2 to the value whereas the expectation is 1.</li>
 </ol>
-<p>By connecting your <code>RaftApp</code> with <code>RaftCore</code>, you can build your own Raft process that interacts with other Raft processes to form a Raft cluster of your own.</p>
-<p>If you are ready to implement your own <code>RaftApp</code>, API doc and the KVS implementation under <code>example/kvs/</code> would help.</p>
-<h1><a class="header" href="#log-and-snapshot" id="log-and-snapshot">Log and Snapshot</a></h1>
-<p>To explain how I've designed the log and the snapshot in this library,
-tracking the evolution of the design would be the quickest.</p>
-<h2><a class="header" href="#v1-snapshot-as-a-log-entry" id="v1-snapshot-as-a-log-entry">v1: Snapshot as a log entry</a></h2>
-<p>lol has started as a company project and it's aim is to 
-replicate data in the same order in the cluster then we considered Raft would fit.
-That was when my journey began.
-The name &quot;lol&quot; comes from our project. (one of the two l means log but the another is secret)
-Hornestly, it is not a joke.</p>
-<p>Since our aim is to replicate the log, the log centric design is natural for me to start with.
-Also, I don't like to implement InstallSnapshot RPC as described in Raft dissertation
-because it would certainly introduce extra complexity to the software.</p>
-<p>This way, the design v1 is drawn.</p>
-<p><img src="images/log-v1.png" alt="" /></p>
-<p>In this design, everything is a log entry. Everything includes not only the 
-user command but snapshot and special entries to change the membership.
-Log entry has a pair of term and index to the previous entry so to ensure the log consistency,
-and the command payload in bytes for versatility.
-Since everything is a log entry, everything in done under Raft's log replication mechanism.
-This is so simple and easy to implement. But in terms of versatility, this design choice is not the optimimal.</p>
-<p>Why is it not optimal? The main reason is the snapshot's size is limited by the
-system memory since in replication
-we must put in buffer to read or write the data
-(Consider Put method in RocksDB).
-We could avoid this by some implementation hacks like cutting snapshot payload into streaming chunks
-but this would destroy the interfaces and not beatiful. Then we have to find a new design.</p>
-<h2><a class="header" href="#v2-snapshot-inventory" id="v2-snapshot-inventory">v2: Snapshot Inventory</a></h2>
-<p>The problem must root in the fact that we try to deal with completely different things, snapshot and normal entries, in the same way. That made me come up with the idea of <strong>snapshot inventory</strong>.</p>
-<p>In Raft dissertation, InstallSnapshot RPC is PUSH operation because it is initiated in leader node and the snapshot chunks are sent in streaming to followers.</p>
-<p>My idea is <em>completely the opposite</em>: <code>GetSnapshot</code> RPC is initiated by follower and leader sends back the snapshot in streaming after finding it in the snapshot inventory. This is a PULL operation.</p>
-<p><img src="images/log-v2.png" alt="" /></p>
-<p>In design v2, application snapshot is moved out of the snapshot entry and then put in snapshot inventory. The snapshot entry still exists and replicated to slow followers in the same way as in v1. The difference is: when follower received snapshot entry, it calls <code>GetSnapshot</code> RPC to the sender (in this case it must be a leader) to request the application snapshot in stream. When the <code>GetSnapshot</code> RPC is completed and the snapshot is stored in the snapshot inventory of its own, the follower node commits the snapshot entry just like the way filesystem firstly stores the file data and then metadata to complete the operation.</p>
-<p>The greatest point of this algorithm is that leader node doesn't have to find slow nodes but slow node is noticed in the way of log replication. This makes the implemetation pretty simple and thus bug-free.</p>
-<h1><a class="header" href="#snapshot-repository" id="snapshot-repository">Snapshot Repository</a></h1>
-<p>In the previous section, we have learned that the snapshot is placed in somewhere outside the log entry and copied to other nodes in streaming.</p>
-<p>The snapshot entity that is made from the stream and sent in stream is called <strong>snapshot resource</strong>.</p>
-<p>The library does't care what it actually is and where it is actually placed but let's call it <strong>snapshot repository</strong>.</p>
-<p><img src="images/snapshot-repository.png" alt="" /></p>
-<p>In <code>RaftApp</code>'s <code>process_write</code>, you can create a new snapshot resource and save it in the snapshot repository.
-The function then return <code>MakeSnapshot::CopySnapshot</code> to tell the <code>RaftCore</code> that a new snapshot is made.
-If <code>RaftCore</code> is told that a new snapshot is made it tries to commit a snapshot entry corresponding to it.</p>
-<p>Again, the library doesn't care what the snapshot resource actually is.
-It can be a file in an object storage or a snapshot of some storage backend like RocksDB.
-It is fully up to the implementor.</p>
-<h1><a class="header" href="#snapshot-types-copy-and-fold" id="snapshot-types-copy-and-fold">Snapshot Types (Copy and Fold)</a></h1>
-<p>The most difficult part of Raft implementation is how to deal with the snapshot. If you are a Raft library implementator like me, you will agree with this.</p>
-<p>From the word &quot;snapshot&quot; you may imagine it is a copy (or light-weight snapshot) of the state machine which is provided by <code>RaftApp</code>. Yes, lol calls this type of snapshotting <strong>Copy snapshot</strong>. When <code>RaftApp</code> returns a Copy snapshot from <code>process_write</code> this snapshot is granted as a snapshot up to the current apply index.</p>
-<p>From a different point of view, snapshot can be seen as recomputing the log entries up to some point in time. lol call this type of snapshot <strong>Fold snapshot</strong>.</p>
-<p>lol supports both types of snapshot: Copy snapshot and Fold snapshot.</p>
-<p>The comparison between these two is copy cost + overhead VS recomputation cost: Copy snapshot needs to copy the current snapshot in <code>process_write</code> so copy cost is charged (RocksDB or <a href="https://www.kernel.org/doc/Documentation/device-mapper/thin-provisioning.txt">dm-thin</a>'s snapshot is not even zero-cost) and the operation spends extra time. Fold snapshot on the other hands, can be executed in parallel with <code>process_write</code> but costs from recomputation.</p>
-<h1><a class="header" href="#log-abstraction" id="log-abstraction">Log Abstraction</a></h1>
-<p><code>RaftStorage</code> is the abstraction of the log storage.
-Conceptually, it includes the recent vote and the log entries. Every snapshot entry is guaranteed to be have the corresponding snapshot resource because they are always committed after saving the corresponding resource.</p>
-<p>By default, lol provides some implementations (memory, file and rocksdb). Normally, you can choose the best implementation from these three.</p>
-<p>Some other Raft libraries like async-raft defines one huge abstraction that kind of mixes RaftApp and RaftStorage but I went the different way because these two can be cleanly separated in my architecture and it is more user-friendly because only thing user needs to implement is <code>RaftApp</code>.</p>
-<h1><a class="header" href="#client-interactions" id="client-interactions">Client Interactions</a></h1>
-<p>In Raft, any command is sent to the leader and later the command is processed by the state machine. That is a textbook explanation of Raft protocol.</p>
-<p>However, this needs to send the request to the leader (lol implements forwarding so user request sent to any of the servers are forwarded to the leader), the command is replicated to the majority of servers, wait for application to state machine and finally acks. This takes much time.</p>
-<p>Some command may need all these processings before ack but other may not. For example, some command may be allowed to ack before entry application as it is guaranteed to be applied in some time later.</p>
-<p>lol allows clients to interact with the cluster in a variety of ways. Here is the list:</p>
-<ul>
-<li><strong>RequestApply</strong>: The command is sent to the leader, appended to log, replicated to majority, applied and then ack.</li>
-<li><strong>RequestCommit</strong>: The command is sent to the leader, appended to log, replicated to majority and then ack.</li>
-</ul>
-<h1><a class="header" href="#optimized-query-processing" id="optimized-query-processing">Optimized Query Processing</a></h1>
-<p>In normal Raft, any application commands are appended to log and brought to the state machine to be applied. However, if the command is query type which doesn't have any side effects, there is a possible optimization.</p>
-<p>In <code>RequestApply</code>, if the request's <code>mutation</code> is false then the request is recognized as query. As described in $6.4 of Raft dissertation, the query waits for the <code>read_index</code> (the <code>commit_index</code> at the moment the query hits the server) to be applied.</p>
-<p>In the implementation, queries are firstly put into <code>QueryQueue</code> and processed later.
-The processings are done in parallel if there are more than one queries waiting for the same <code>read_index</code> to complete.</p>
-<h1><a class="header" href="#gateway" id="gateway">Gateway</a></h1>
-<p>In Raft, client request is sent to the leader and processed by the leader. So how did the client know who is the leader?</p>
-<p>In Raft dissertation, some algorithm are described. One of which is sending back known leader as a hint when client sent the request to some non-leader node. Forwarding the request to the leader is also explained.</p>
-<p>But how do you access the follower? More precisely, how do you know some valid node in the current membership?</p>
-<p>lol's <code>Gateway</code> tracks the current membership by polling the membership so client is always accessible to at least one node in the cluster. After giving some valid members to the <code>Gateway</code> manually, <code>Gateway</code> automatically tracks the cluster until it is destructed.</p>
-<p><img src="images/gateway.png" alt="" /></p>
-<h1><a class="header" href="#cluster-management" id="cluster-management">Cluster Management</a></h1>
-<p>In lol, adding and removing a server to and from the cluster is just an extension of normal log replication. This means the cluster must have a leader to accept spacial requests: <code>AddServer</code> and <code>RemoveServer</code> which leads to append a special command called <code>ClusterConfiguration</code>.</p>
-<p>When you start a single Raft server, you may think the node automatically forms a small cluster with one node and becomes a leader but this is a wrong assumption because starting a second server will cause <strong>split brain</strong> because there are two leaders at the same time. This is what Raft's election algorithm tries to avoid by choosing only one leader in a single term.</p>
-<p>You now learned that starting a server does not automatically form a cluster nor give it a leadership. However, this leads to an other problem: How to add servers? Since there is no leader to accept <code>AddServer</code> request.</p>
-<p>In lol, When a server received <code>AddServer</code> request and it doesn't belong to any cluster, it forms a cluster with only itself, regardless of the leadership. This is called <strong>cluster bootstrapping</strong>.</p>
-<p><img src="images/cluster-management.png" alt="" /></p>
-<h1><a class="header" href="#single-server-changes" id="single-server-changes">Single-server changes</a></h1>
-<p>There are two methods to change the cluster membership in Raft: one is by joint concensus algorithm and the another is single-server changes.</p>
-<p>In the initial Raft research paper, joint consensus algorithm was used to change the membership but later the author found a flaw in joint consensus algorithm, and the lastest dissertation uses single-server changes. lol uses this.</p>
-<p>So what is single-server changes? This algorithm adds or removes only one server at a time.</p>
-<p>These operations are represented as special requests (<code>AddServer</code> and <code>RemoveServer</code>) and it turns into <code>ClusterConfiguration</code> command in the log which is then replicated to the cluster as well as normal commands.</p>
-<p>The rational behind this is a single-server change always share the majority nodes between before and after the change.
-The following figure from Raft dissertation describes a case of adding one node.</p>
-<p><img src="images/single-server-changes.png" alt="" /></p>
-<p>So the next leader always know the latest membership and the consensus on membership change will never be lost.</p>
-<h1><a class="header" href="#leader-election" id="leader-election">Leader Election</a></h1>
-<p>In Raft, leader has a special authority in the cluster.</p>
-<p>The algorithm proves only one leader exists in one term and the leader is at least
-&quot;stronger&quot; (I have no idea about better expression) than the majority of the cluster servers.
-The principle is very simple however, there are non-trivial corner cases and some useful extensions.</p>
-<h1><a class="header" href="#leader-failure-detection" id="leader-failure-detection">Leader failure detection</a></h1>
-<p>Typical Raft implementation uses static election timeout to detect leader failure however, this strongly assumes that latency between nodes is uniform and measurable in prior of deployment. The assumption is broken when you go out to cloud.</p>
-<p>To solve this, lol uses <strong>adaptive failure detection</strong> algorithm called Phi-Accurual detection algorithm. The concept is very simple: the history of heartbeats is given and assume the intervals are distributed normally then we are able to calculate the possiblity of getting another heartbeat in the future.</p>
-<p>With this feature, applications based on lol can be deployed in cloud where the latency between nodes may be difference and unstable.</p>
-<h1><a class="header" href="#leadership-transfer-extension" id="leadership-transfer-extension">Leadership Transfer Extension</a></h1>
-<p>In Raft, leader is chosen by election.
-Election happens when follower considers leader is dead.</p>
-<p>If leader is removed from the cluster, every client requests
-fails until a new leader is elected.</p>
-<p>To avoid this, lol implements <code>TimeoutNow</code> RPC which requests a node to
-immediately start election (by becoming candidate in new term) regardless of election timeout.</p>
-<p>In lol, when leader is removed from the cluster, this <code>TimeoutNow</code> RPC is sent to 
-one of the living nodes so a new leader is immediately chosen.</p>
-<p>This RPC is also used to pin the leader node.
-In some senario, some node is more suitable for being a leader than other nodes.</p>
-<h1><a class="header" href="#tools" id="tools">Tools</a></h1>
-<ul>
-<li><a href="https://github.com/akiradeveloper/lol/tree/master/lol-admin">lol-admin</a>: Command line tool for admin.</li>
-</ul>
-<h1><a class="header" href="#references" id="references">References</a></h1>
-<ul>
-<li><a href="https://github.com/ongardie/dissertation">Raft Dissertation</a>: Diego Ongaro's Dissertation in Stanford Univ.</li>
-</ul>
+<p>To avoid this issue, request_id is added to identify the commands.</p>
+<h2 id="ro-command"><a class="header" href="#ro-command">R/O command</a></h2>
+<p>The R/O command can bypass the log because it is safe to execute the query after the
+commit index at query time is applied. This is called <strong>read_index</strong> optimization.</p>
+<p>You can send a R/O command to the cluster with the following API.</p>
+<pre><code class="language-proto">message ReadRequest {
+  uint32 lane_id = 1;
+  bytes message = 2;
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="cluster-management"><a class="header" href="#cluster-management">Cluster Management</a></h1>
+<h2 id="single-server-change-approach"><a class="header" href="#single-server-change-approach">Single server change approach</a></h2>
+<p>There are two approaches to membership change.
+One is by joint consensus and the other is what is called <strong>single server change approach</strong>.
+lolraft implements the second one.</p>
+<p>This approach exploits the log replication mechanism in membership change
+and therefore can be implemented as an extension of the normal log replication
+by defining AddServer and RemoveServer commands.
+From the admin client, the following API can add or remove a Raft process in the cluster.</p>
+<pre><code class="language-proto">message AddServerRequest {
+  uint32 lane_id = 1;
+  string server_id = 2;
+}
+
+message RemoveServerRequest {
+  uint32 lane_id = 1;
+  string server_id = 2;
+}
+</code></pre>
+<h2 id="cluster-bootstrapping"><a class="header" href="#cluster-bootstrapping">Cluster bootstrapping</a></h2>
+<p>In Raft, any command is directed to the leader.
+So the question is how to add a Raft process to the empty cluster.</p>
+<p>The answer is so-called <strong>cluster bootstrapping</strong>.
+On receiving the AddServer command and the receiving node recognizes the cluster is empty,
+the node tries to form a new cluster with itself and immediately becomes a leader as a result of a self election.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="leadership"><a class="header" href="#leadership">Leadership</a></h1>
+<h2 id="command-redirection"><a class="header" href="#command-redirection">Command redirection</a></h2>
+<p>Raft is a leader-based consensus algorithm.
+Only a single leader can exist in the cluster at a time and
+all commands are directed to the leader.</p>
+<p>In lolraft, if the receiving Raft process isn't the leader,
+the command is redirected to the leader.</p>
+<h2 id="adaptive-leader-failure-detection"><a class="header" href="#adaptive-leader-failure-detection">Adaptive leader failure detection</a></h2>
+<p>Detecting the leader's failure is a very important issue in Raft algorithm.
+The naive implementation can send heartbeats to the followers periodically and
+followers can detect the leader's failure by timeout.
+However, this approach requires the heartbeat interval and the timeout duration
+to be set properly before deployment. This brings another complexity.
+Not only that, these times can't be fixed to a single value when
+the distance between nodes is heterogeneous such as geo-distributed environment.</p>
+<p>To solve this problem, lolraft uses an adaptive failure detection algorithm called
+<strong>Phi accrual failure detector</strong>.
+With this approach, users are free from setting the timing parameters.</p>
+<h2 id="leadership-transfer-extension"><a class="header" href="#leadership-transfer-extension">Leadership transfer extension</a></h2>
+<p>In multi-raft, changing the cluster members is not a rare case.
+An example of this case is rebalancing:
+To balance the CPU/disk usage between nodes, Raft process may be
+moved to other nodes.</p>
+<p>If the Raft process to be removed is the leader, the cluster will not have a
+leader until a new leader is elected which causes downtime.</p>
+<p>To mitigate this problem, the admin client can send a TimeoutNow command to
+any remaining Raft process to forcibly start a new election (by promoting to a candidate in Raft term).</p>
+<pre><code class="language-proto">message TimeoutNow {
+  uint32 lane_id = 1;
+}
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                        
 
-                        
 
                         <div style="clear: both"></div>
                     </nav>
@@ -315,45 +359,35 @@ In some senario, some node is more suitable for being a leader than other nodes.
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                
 
-                
             </nav>
 
         </div>
 
-        
 
-        
 
-        
-        
-        
-        <script type="text/javascript">
-            window.playpen_copyable = true;
+
+        <script>
+            window.playground_copyable = true;
         </script>
-        
 
-        
 
-        
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
 
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
-        
 
-        
-        
-        <script type="text/javascript">
+        <script>
         window.addEventListener('load', function() {
             window.setTimeout(window.print, 100);
         });
         </script>
-        
-        
 
+    </div>
     </body>
 </html>

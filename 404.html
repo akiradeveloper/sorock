@@ -3,7 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Cluster Management - lolraft documentation</title>
+        <title>Page not found - lolraft documentation</title>
+        <base href="/">
 
 
         <!-- Custom HTML head -->
@@ -88,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html"><strong aria-hidden="true">2.1.</strong> Orbit pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html" class="active"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html"><strong aria-hidden="true">2.1.</strong> Orbit pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -173,43 +174,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="cluster-management"><a class="header" href="#cluster-management">Cluster Management</a></h1>
-<h2 id="single-server-change-approach"><a class="header" href="#single-server-change-approach">Single server change approach</a></h2>
-<p>There are two approaches to membership change.
-One is by joint consensus and the other is what is called <strong>single server change approach</strong>.
-lolraft implements the second one.</p>
-<p>This approach exploits the log replication mechanism in membership change
-and therefore can be implemented as an extension of the normal log replication
-by defining AddServer and RemoveServer commands.
-From the admin client, the following API can add or remove a Raft process in the cluster.</p>
-<pre><code class="language-proto">message AddServerRequest {
-  uint32 lane_id = 1;
-  string server_id = 2;
-}
-
-message RemoveServerRequest {
-  uint32 lane_id = 1;
-  string server_id = 2;
-}
-</code></pre>
-<h2 id="cluster-bootstrapping"><a class="header" href="#cluster-bootstrapping">Cluster bootstrapping</a></h2>
-<p>In Raft, any command is directed to the leader.
-So the question is how to add a Raft process to the empty cluster.</p>
-<p>The answer is so-called <strong>cluster bootstrapping</strong>.
-On receiving the AddServer command and the receiving node recognizes the cluster is empty,
-the node tries to form a new cluster with itself and immediately becomes a leader as a result of a self election.</p>
+                        <h1 id="document-not-found-404"><a class="header" href="#document-not-found-404">Document not found (404)</a></h1>
+<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="client-interaction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
-                            </a>
 
-                            <a rel="next prefetch" href="leadership.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -217,13 +189,7 @@ the node tries to form a new cluster with itself and immediately becomes a leade
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="client-interaction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
-                    </a>
 
-                    <a rel="next prefetch" href="leadership.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
