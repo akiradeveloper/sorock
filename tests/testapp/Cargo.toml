@@ -21,7 +21,7 @@ spin = "0.9"
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3"
 tokio-util = "0.7"
-tonic = { workspace = true }
+tonic = { workspace = true, features = ["zstd"] }
 uuid = "1.5"
 
 lolraft = { workspace = true }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use tonic::codegen::CompressionEncoding;
 
 mod app;
 
@@ -57,7 +58,9 @@ async fn main() -> Result<()> {
     let process = app::new(driver).await?;
     node.attach_process(testapp::APP_LANE_ID, process);
 
-    let raft_svc = lolraft::raft_service::new(node);
+    let raft_svc = lolraft::raft_service::new(node)
+        .send_compressed(CompressionEncoding::Zstd)
+        .accept_compressed(CompressionEncoding::Zstd);
     let reflection_svc = lolraft::reflection_service::new();
     let ping_svc = proto::ping_server::PingServer::new(PingApp);
     let socket = format!("0.0.0.0:50000").parse()?;
