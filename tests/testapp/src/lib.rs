@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bytes::Bytes;
 use lolraft::client::*;
+use tonic::codegen::CompressionEncoding;
 use tonic::transport::Channel;
 
 mod proto {
@@ -56,7 +57,9 @@ pub struct Client {
 }
 impl Client {
     pub fn new(conn: Channel) -> Self {
-        let cli = RaftClient::new(conn);
+        let cli = RaftClient::new(conn)
+            .send_compressed(CompressionEncoding::Zstd)
+            .accept_compressed(CompressionEncoding::Zstd);
         Self { cli }
     }
 
