@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html"><strong aria-hidden="true">2.1.</strong> Orbit pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html"><strong aria-hidden="true">2.1.</strong> Orbit Pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -346,6 +346,46 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
   uint32 lane_id = 1;
 }
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
+<h2 id="build"><a class="header" href="#build">Build</a></h2>
+<p>(lolraft crate only) The proto file should be compiled manually if you changed the proto file.
+In this case, please run <code>cargo run -p codegen</code>.</p>
+<h2 id="test"><a class="header" href="#test">Test</a></h2>
+<p>For testing, lolraft makes use of docker-compose.</p>
+<p>A docker image called testapp is built and the tests create some instances of it for testing: test code is running on dev container and it accesses the docker deamon in the host. In GHA, the tests are run in the same way.</p>
+<p>The log output in the stdout/stderr is collected into the log container. This is quite useful for debugging. So here is how you can run the tests for development.</p>
+<ul>
+<li><code>docker compose build</code> to build test application.</li>
+<li>TERM1: <code>./log</code> to start log watcher.</li>
+<li>TERM2: <code>./dev</code> to start the dev container.</li>
+<li>TERM2: <code>cargo test</code>.</li>
+</ul>
+<pre><code class="language-mermaid">graph
+  subgraph raft_network
+
+  subgraph cluster
+  APP1(testapp-1)
+  APP2(testapp-2)
+  APP3(testapp-3)
+  end
+  
+  DEV(dev)
+  LOG(log)
+  
+  end
+  
+  APP1 --&gt;|log| LOG
+  APP2 --&gt;|log| LOG
+  APP3 --&gt;|log| LOG
+  
+  DEV --&gt;|command| APP1
+  DEV --&gt;|command| APP2
+  DEV --&gt;|command| APP3
+</code></pre>
+<h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
+<p>You can modify the documentations.</p>
+<p>For editing the mdbook under doc/ directory,
+you can run <code>mdbook serve doc</code> to start the local mdbook server.</p>
 
                     </main>
 
@@ -381,6 +421,8 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
 
         <script>
         window.addEventListener('load', function() {
