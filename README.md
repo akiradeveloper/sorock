@@ -20,13 +20,6 @@ A Multi-Raft implementation in Rust language.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
 - [Phi Accrual Failure Detector](https://github.com/akiradeveloper/phi-detector) is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number in prior to deployment and makes it possible to deploy Raft node in even geo-distributed environment.
 
-## Development
-
-- `docker compose build` to build test application.
-- TERM1: `./log` to start log watcher.
-- TERM2: `./dev` to start the dev container.
-- TERM2: `cargo test`.
-
 ## Author
 
 Akira Hayakawa  
