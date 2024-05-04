@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/lolraft.svg)](https://crates.io/crates/lolraft)
 [![API doc](https://docs.rs/lolraft/badge.svg)](https://docs.rs/lolraft)
-![CI](https://github.com/akiradeveloper/lolraft/workflows/CI/badge.svg)
+![CI](https://github.com/akiradeveloper/lolraft/actions/workflows/ci.yml/badge.svg)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lolraft/blob/master/LICENSE)
 
 A Multi-Raft implementation in Rust language.
