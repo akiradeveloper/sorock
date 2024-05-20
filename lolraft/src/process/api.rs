@@ -17,7 +17,6 @@ pub mod request {
     }
 
     pub struct Heartbeat {
-        pub leader_id: NodeId,
         pub leader_term: Term,
         pub leader_commit_index: Index,
     }

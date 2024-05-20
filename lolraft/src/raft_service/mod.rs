@@ -193,19 +193,17 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::Heartbeat>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
-        let req = request::Heartbeat {
-            leader_id: req.leader_id.parse().unwrap(),
-            leader_term: req.leader_term,
-            leader_commit_index: req.leader_commit_index,
-        };
-        self.node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
-            .unwrap()
-            .send_heartbeat(req)
-            .await
-            .unwrap();
+        let leader_id: NodeId = req.leader_id.parse().unwrap();
+        for (lane_id, leader_state) in req.leader_commit_states {
+            let req = request::Heartbeat {
+                leader_term: leader_state.leader_term,
+                leader_commit_index: leader_state.leader_commit_index,
+            };
+            if let Some(process) = self.node.get_process(lane_id) {
+                let leader_id = leader_id.clone();
+                tokio::spawn(async move { process.receive_heartbeat(leader_id, req).await.ok() });
+            }
+        }
         Ok(tonic::Response::new(()))
     }
 

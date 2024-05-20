@@ -1,4 +1,4 @@
-FROM 'rust:1.76-bookworm'
+FROM 'rust:1.78-bookworm'
 
 WORKDIR '/work'
 

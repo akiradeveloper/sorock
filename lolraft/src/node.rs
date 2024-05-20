@@ -1,10 +1,11 @@
 use super::*;
 
+use communicator::{Communicator, RaftConnection};
 use std::collections::HashMap;
 
 pub struct Inner {
     self_node_id: NodeId,
-    cache: moka::sync::Cache<NodeId, raft::RaftClient>,
+    cache: moka::sync::Cache<NodeId, RaftConnection>,
     process: spin::RwLock<HashMap<LaneId, Arc<RaftProcess>>>,
 }
 
@@ -15,8 +16,8 @@ impl RaftNode {
     /// Create a new Raft node with a given node ID.
     pub fn new(id: NodeId) -> Self {
         let builder = moka::sync::Cache::builder()
-            .initial_capacity(1000)
-            .time_to_live(Duration::from_secs(60));
+            .initial_capacity(3)
+            .time_to_idle(Duration::from_secs(60));
         let inner = Inner {
             self_node_id: id,
             cache: builder.build(),
@@ -30,7 +31,7 @@ impl RaftNode {
         RaftDriver {
             lane_id,
             self_node_id: self.self_node_id.clone(),
-            cache: self.cache.clone(),
+            connection_cache: self.cache.clone(),
         }
     }
 
@@ -54,19 +55,17 @@ impl RaftNode {
 pub struct RaftDriver {
     lane_id: LaneId,
     self_node_id: NodeId,
-    cache: moka::sync::Cache<NodeId, raft::RaftClient>,
+    connection_cache: moka::sync::Cache<NodeId, RaftConnection>,
 }
 impl RaftDriver {
     pub(crate) fn self_node_id(&self) -> NodeId {
         self.self_node_id.clone()
     }
 
-    pub(crate) fn connect(&self, id: NodeId) -> communicator::Communicator {
-        let conn = self.cache.get_with(id.clone(), || {
-            let endpoint = tonic::transport::Endpoint::from(id.0);
-            let chan = endpoint.connect_lazy();
-            raft::RaftClient::new(chan)
+    pub(crate) fn connect(&self, dest_node_id: NodeId) -> Communicator {
+        let conn: RaftConnection = self.connection_cache.get_with(dest_node_id.clone(), || {
+            RaftConnection::new(self.self_node_id.clone(), dest_node_id.clone())
         });
-        communicator::Communicator::new(conn, self.lane_id)
+        Communicator::new(conn, self.lane_id)
     }
 }

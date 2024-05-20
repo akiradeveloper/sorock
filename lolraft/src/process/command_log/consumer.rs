@@ -17,7 +17,7 @@ impl CommandLog {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
         if proposed_snapshot_index > cur_snapshot_index {
-            info!("found a newer proposed snapshot@{proposed_snapshot_index}. will move the snapshot index.");
+            info!("found a newer proposed snapshot@{proposed_snapshot_index} > {cur_snapshot_index}. will move the snapshot index.");
 
             // Calculate membership at the new snapshot index
             let new_config = {
