@@ -106,7 +106,7 @@ impl Inner {
         self.snapshot_pointer
             .store(new_snapshot_index, Ordering::SeqCst);
 
-        info!("inserted a new snapshot@{new_snapshot_index}");
+        info!("inserted a new snapshot@{new_snapshot_index} (prev={cur_snapshot_index})");
         Ok(())
     }
 

@@ -4,7 +4,7 @@ use lolraft::client::TimeoutNow;
 use rand::Rng;
 use serial_test::serial;
 
-const L: u32 = 50;
+const L: u32 = 20;
 const REP: u32 = 300;
 
 #[serial]

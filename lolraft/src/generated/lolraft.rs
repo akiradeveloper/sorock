@@ -127,15 +127,19 @@ pub struct VoteResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Heartbeat {
-    #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
-    #[prost(uint64, tag = "2")]
+pub struct LeaderCommitState {
+    #[prost(uint64, tag = "1")]
     pub leader_term: u64,
-    #[prost(string, tag = "3")]
-    pub leader_id: ::prost::alloc::string::String,
-    #[prost(uint64, tag = "4")]
+    #[prost(uint64, tag = "2")]
     pub leader_commit_index: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Heartbeat {
+    #[prost(string, tag = "1")]
+    pub leader_id: ::prost::alloc::string::String,
+    #[prost(map = "uint32, message", tag = "2")]
+    pub leader_commit_states: ::std::collections::HashMap<u32, LeaderCommitState>,
 }
 /// Request to add a Raft process with `server_id` to a lane.
 #[allow(clippy::derive_partial_eq_without_eq)]

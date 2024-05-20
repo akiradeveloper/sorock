@@ -1,16 +1,59 @@
 use super::*;
 
-use process::*;
-
+mod heartbeat_multiplex;
 mod stream;
 
+use heartbeat_multiplex::*;
+use process::*;
+use spin::Mutex;
+use std::sync::Arc;
+use tokio::task::AbortHandle;
+
+pub struct HandleDrop(AbortHandle);
+impl Drop for HandleDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+#[derive(Clone)]
+pub struct RaftConnection {
+    client: raft::RaftClient,
+    heartbeat_buffer: Arc<Mutex<HeartbeatBuffer>>,
+    _abort_hdl: Arc<HandleDrop>,
+}
+impl RaftConnection {
+    pub fn new(self_node_id: NodeId, dest_node_id: NodeId) -> Self {
+        let client = {
+            let endpoint = tonic::transport::Endpoint::from(dest_node_id.0.clone());
+            let chan = endpoint.connect_lazy();
+            raft::RaftClient::new(chan)
+        };
+
+        let heartbeat_buffer = Arc::new(Mutex::new(HeartbeatBuffer::new()));
+
+        let abort_hdl = tokio::spawn(heartbeat_multiplex::run(
+            heartbeat_buffer.clone(),
+            client.clone(),
+            self_node_id,
+        ))
+        .abort_handle();
+
+        Self {
+            client,
+            heartbeat_buffer,
+            _abort_hdl: Arc::new(HandleDrop(abort_hdl)),
+        }
+    }
+}
+
 pub struct Communicator {
-    cli: raft::RaftClient,
+    conn: RaftConnection,
     lane_id: LaneId,
 }
 impl Communicator {
-    pub fn new(cli: raft::RaftClient, lane_id: LaneId) -> Self {
-        Self { cli, lane_id }
+    pub fn new(conn: RaftConnection, lane_id: LaneId) -> Self {
+        Self { conn, lane_id }
     }
 }
 
@@ -20,20 +63,19 @@ impl Communicator {
             lane_id: self.lane_id,
             index,
         };
-        let st = self.cli.clone().get_snapshot(req).await?.into_inner();
+        let st = self
+            .conn
+            .client
+            .clone()
+            .get_snapshot(req)
+            .await?
+            .into_inner();
         let st = Box::pin(stream::into_internal_snapshot_stream(st));
         Ok(st)
     }
 
-    pub async fn send_heartbeat(&self, req: request::Heartbeat) -> Result<()> {
-        let req = raft::Heartbeat {
-            lane_id: self.lane_id,
-            leader_id: req.leader_id.to_string(),
-            leader_term: req.leader_term,
-            leader_commit_index: req.leader_commit_index,
-        };
-        self.cli.clone().send_heartbeat(req).await?;
-        Ok(())
+    pub fn queue_heartbeat(&self, req: request::Heartbeat) {
+        self.conn.heartbeat_buffer.lock().push(self.lane_id, req);
     }
 
     pub async fn process_user_write_request(
@@ -45,7 +87,7 @@ impl Communicator {
             message: req.message,
             request_id: req.request_id,
         };
-        let resp = self.cli.clone().write(req).await?.into_inner();
+        let resp = self.conn.client.clone().write(req).await?.into_inner();
         Ok(resp.message)
     }
 
@@ -54,7 +96,7 @@ impl Communicator {
             lane_id: self.lane_id,
             message: req.message,
         };
-        let resp = self.cli.clone().read(req).await?.into_inner();
+        let resp = self.conn.client.clone().read(req).await?.into_inner();
         Ok(resp.message)
     }
 
@@ -63,7 +105,7 @@ impl Communicator {
             lane_id: self.lane_id,
             message: req.message,
         };
-        self.cli.clone().process_kern_request(req).await?;
+        self.conn.client.clone().process_kern_request(req).await?;
         Ok(())
     }
 
@@ -71,7 +113,7 @@ impl Communicator {
         let req = raft::TimeoutNow {
             lane_id: self.lane_id,
         };
-        self.cli.clone().send_timeout_now(req).await?;
+        self.conn.client.clone().send_timeout_now(req).await?;
         Ok(())
     }
 
@@ -81,7 +123,8 @@ impl Communicator {
     ) -> Result<response::ReplicationStream> {
         let st = stream::into_external_replication_stream(self.lane_id, st);
         let resp = self
-            .cli
+            .conn
+            .client
             .clone()
             .send_replication_stream(st)
             .await?
@@ -107,7 +150,13 @@ impl Communicator {
             force_vote: req.force_vote,
             pre_vote: req.pre_vote,
         };
-        let resp = self.cli.clone().request_vote(req).await?.into_inner();
+        let resp = self
+            .conn
+            .client
+            .clone()
+            .request_vote(req)
+            .await?
+            .into_inner();
         Ok(resp.vote_granted)
     }
 }

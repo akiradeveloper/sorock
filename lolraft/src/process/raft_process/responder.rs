@@ -122,8 +122,11 @@ impl RaftProcess {
         Ok(resp)
     }
 
-    pub(crate) async fn send_heartbeat(&self, req: request::Heartbeat) -> Result<()> {
-        let leader_id = req.leader_id;
+    pub(crate) async fn receive_heartbeat(
+        &self,
+        leader_id: NodeId,
+        req: request::Heartbeat,
+    ) -> Result<()> {
         let term = req.leader_term;
         let leader_commit = req.leader_commit_index;
         self.voter

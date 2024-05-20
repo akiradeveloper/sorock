@@ -45,12 +45,11 @@ impl Voter {
         let ballot = self.read_ballot().await?;
         let leader_commit_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
         let req = request::Heartbeat {
-            leader_id: self.driver.self_node_id(),
             leader_term: ballot.cur_term,
             leader_commit_index,
         };
         let conn = self.driver.connect(follower_id);
-        conn.send_heartbeat(req).await?;
+        conn.queue_heartbeat(req);
         Ok(())
     }
 }
