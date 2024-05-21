@@ -13,7 +13,7 @@ async fn connect_docker_daemon() -> Result<()> {
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn create() -> Result<()> {
     let mut env = env::Env::new()?;
-    env.create(0).await?;
+    env.create(0, 1).await?;
     Ok(())
 }
 
@@ -21,7 +21,7 @@ async fn create() -> Result<()> {
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn start_stop() -> Result<()> {
     let mut env = env::Env::new()?;
-    env.create(0).await?;
+    env.create(0, 1).await?;
     env.start(0).await?;
     env.connect_network(0).await?;
 

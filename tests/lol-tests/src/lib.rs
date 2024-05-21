@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use env::Env;
 use lolraft::client::RaftClient;
 
@@ -7,10 +7,12 @@ pub struct Cluster {
 }
 impl Cluster {
     /// Create `n` nodes and connect them to a network.
-    pub async fn new(n: u8) -> Result<Self> {
+    pub async fn new(n: u8, n_lanes: u32) -> Result<Self> {
+        ensure!(n > 0);
+        ensure!(n_lanes > 0);
         let mut env = Env::new()?;
         for id in 0..n {
-            env.create(id).await?;
+            env.create(id, n_lanes).await?;
             env.start(id).await?;
             env.connect_network(id).await?;
         }
@@ -33,29 +35,29 @@ impl Cluster {
     }
 
     /// Request node `to` to add a node `id`.
-    pub async fn add_server(&mut self, to: u8, id: u8) -> Result<()> {
+    pub async fn add_server(&mut self, lane_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(lolraft::client::AddServerRequest {
-                lane_id: testapp::APP_LANE_ID,
+                lane_id,
                 server_id: env::address_from_id(id),
             })
             .await?;
         // Make sure the newly added server knows the current leader.
-        self.user(id).fetch_add(0).await?;
+        self.user(id).fetch_add(lane_id, 0).await?;
         Ok(())
     }
 
     /// Request node `to` to remove a node `id`.
-    pub async fn remove_server(&mut self, to: u8, id: u8) -> Result<()> {
+    pub async fn remove_server(&mut self, lane_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(lolraft::client::RemoveServerRequest {
-                lane_id: testapp::APP_LANE_ID,
+                lane_id,
                 server_id: env::address_from_id(id),
             })
             .await?;
         eprintln!("removed node(id={id})");
         // Make sure consensus can be made after removing the server.
-        self.user(to).fetch_add(0).await?;
+        self.user(to).fetch_add(lane_id, 0).await?;
         Ok(())
     }
 }
