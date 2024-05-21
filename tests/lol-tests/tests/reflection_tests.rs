@@ -6,7 +6,7 @@ use test_log::test;
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn reflection_grpcurl_access() -> Result<()> {
-    let cluster = Cluster::new(1).await?;
+    let _cluster = Cluster::new(1, 1).await?;
 
     let address = {
         let raw: tonic::transport::Uri = env::address_from_id(0).parse()?;

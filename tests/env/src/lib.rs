@@ -36,7 +36,8 @@ impl Env {
         })
     }
 
-    pub async fn create(&mut self, id: u8) -> Result<()> {
+    pub async fn create(&mut self, id: u8, n_lanes: u32) -> Result<()> {
+        ensure!(n_lanes > 0);
         ensure!(!self.containers.contains_key(&id));
         let options = container::CreateContainerOptions {
             name: format!("lol-testapp-{}", id),
@@ -47,6 +48,7 @@ impl Env {
             image: Some("lol-testapp:latest".to_string()),
             env: Some(vec![
                 format!("address={address}"),
+                format!("n_lanes={n_lanes}"),
                 "RUST_LOG=info".to_string(),
             ]),
             ..Default::default()

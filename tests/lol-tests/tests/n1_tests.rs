@@ -6,8 +6,8 @@ use test_log::test;
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n1_cluster() -> Result<()> {
-    let mut cluster = Cluster::new(1).await?;
-    cluster.add_server(0, 0).await?;
+    let mut cluster = Cluster::new(1, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
 
     Ok(())
 }
@@ -15,13 +15,13 @@ async fn n1_cluster() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n1_write() -> Result<()> {
-    let mut cluster = Cluster::new(1).await?;
-    cluster.add_server(0, 0).await?;
+    let mut cluster = Cluster::new(1, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
 
     let mut cli = cluster.user(0);
-    assert_eq!(cli.fetch_add(1).await?, 0);
-    assert_eq!(cli.fetch_add(2).await?, 1);
-    assert_eq!(cli.fetch_add(3).await?, 3);
+    assert_eq!(cli.fetch_add(0, 1).await?, 0);
+    assert_eq!(cli.fetch_add(0, 2).await?, 1);
+    assert_eq!(cli.fetch_add(0, 3).await?, 3);
 
     Ok(())
 }
@@ -29,15 +29,15 @@ async fn n1_write() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n1_read() -> Result<()> {
-    let mut cluster = Cluster::new(1).await?;
-    cluster.add_server(0, 0).await?;
+    let mut cluster = Cluster::new(1, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
 
     let mut cli = cluster.user(0);
-    assert_eq!(cli.read().await?, 0);
-    assert_eq!(cli.fetch_add(1).await?, 0);
-    assert_eq!(cli.read().await?, 1);
-    assert_eq!(cli.fetch_add(2).await?, 1);
-    assert_eq!(cli.read().await?, 3);
+    assert_eq!(cli.read(0).await?, 0);
+    assert_eq!(cli.fetch_add(0, 1).await?, 0);
+    assert_eq!(cli.read(0).await?, 1);
+    assert_eq!(cli.fetch_add(0, 2).await?, 1);
+    assert_eq!(cli.read(0).await?, 3);
 
     Ok(())
 }
@@ -45,17 +45,17 @@ async fn n1_read() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n1_snapshot() -> Result<()> {
-    let mut cluster = Cluster::new(1).await?;
-    cluster.add_server(0, 0).await?;
+    let mut cluster = Cluster::new(1, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
 
     for n in 1..10 {
-        cluster.user(0).fetch_add(n).await?;
+        cluster.user(0).fetch_add(0, n).await?;
     }
 
-    cluster.user(0).make_snapshot().await?;
+    cluster.user(0).make_snapshot(0).await?;
 
     for n in 1..10 {
-        cluster.user(0).fetch_add(n).await?;
+        cluster.user(0).fetch_add(0, n).await?;
     }
 
     Ok(())
@@ -64,14 +64,14 @@ async fn n1_snapshot() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n1_exec_once() -> Result<()> {
-    let mut cluster = Cluster::new(1).await?;
-    cluster.add_server(0, 0).await?;
+    let mut cluster = Cluster::new(1, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
 
     let chan = cluster.env().connect(0);
     let cli = lolraft::client::RaftClient::new(chan);
 
     let req = lolraft::client::WriteRequest {
-        lane_id: testapp::APP_LANE_ID,
+        lane_id: 0,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
         }
@@ -90,7 +90,7 @@ async fn n1_exec_once() -> Result<()> {
     // Submit the same requests concurrently.
     // But only one of them should be executed.
     futures::future::join_all(futs).await;
-    let cur_state = cluster.user(0).read().await?;
+    let cur_state = cluster.user(0).read(0).await?;
     assert_eq!(cur_state, 1);
 
     Ok(())

@@ -22,6 +22,7 @@ impl proto::ping_server::Ping for PingApp {
 #[derive(serde::Deserialize, Debug)]
 struct EnvConfig {
     address: String,
+    n_lanes: u32,
 }
 
 #[tokio::main]
@@ -54,9 +55,11 @@ async fn main() -> Result<()> {
     let node_id = env_config.address.parse()?;
     let node = lolraft::RaftNode::new(node_id);
 
-    let driver = node.get_driver(testapp::APP_LANE_ID);
-    let process = app::new(driver).await?;
-    node.attach_process(testapp::APP_LANE_ID, process);
+    for lane_id in 0..env_config.n_lanes {
+        let driver = node.get_driver(lane_id);
+        let process = app::new(driver).await?;
+        node.attach_process(lane_id, process);
+    }
 
     let raft_svc = lolraft::raft_service::new(node)
         .send_compressed(CompressionEncoding::Zstd)
