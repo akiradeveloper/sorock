@@ -29,7 +29,7 @@ impl Cluster {
         testapp::Client::new(conn)
     }
 
-    fn admin(&self, id: u8) -> RaftClient {
+    pub fn admin(&self, id: u8) -> RaftClient {
         let conn = self.env.connect(id);
         lolraft::client::RaftClient::new(conn)
     }
