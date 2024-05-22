@@ -3,23 +3,36 @@ use lol_tests::*;
 use lolraft::client::TimeoutNow;
 use rand::Rng;
 use serial_test::serial;
+use std::sync::Arc;
 
 const L: u32 = 20;
 const REP: u32 = 300;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
-async fn N3_L1000_K3_multi_raft() -> Result<()> {
-    let mut cluster = Cluster::new(3, L).await?;
-    for lane_id in 0..L {
-        cluster.add_server(lane_id, 0, 0).await?;
-        cluster.add_server(lane_id, 0, 1).await?;
-        cluster.add_server(lane_id, 0, 2).await?;
+async fn N3_L20_K3_multi_raft() -> Result<()> {
+    let cluster = Arc::new(Cluster::new(3, L).await?);
 
-        // Evenly distribute the leaders.
-        let leader = (lane_id % 3) as u8;
-        cluster.admin(leader).send_timeout_now(TimeoutNow { lane_id }).await?;
+    let mut futs = vec![];
+    for lane_id in 0..L {
+        let cluster = cluster.clone();
+        let fut = async move {
+            cluster.add_server(lane_id, 0, 0).await?;
+            cluster.add_server(lane_id, 0, 1).await?;
+            cluster.add_server(lane_id, 0, 2).await?;
+
+            // Evenly distribute the leaders.
+            let leader = (lane_id % 3) as u8;
+            cluster
+                .admin(leader)
+                .send_timeout_now(TimeoutNow { lane_id })
+                .await?;
+
+            Ok::<(), anyhow::Error>(())
+        };
+        futs.push(fut);
     }
+    futures::future::try_join_all(futs).await?;
 
     let mut cur_state = [0; 1000];
     for _ in 0..REP {

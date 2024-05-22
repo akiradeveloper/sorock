@@ -35,7 +35,7 @@ impl Cluster {
     }
 
     /// Request node `to` to add a node `id`.
-    pub async fn add_server(&mut self, lane_id: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn add_server(&self, lane_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(lolraft::client::AddServerRequest {
                 lane_id,
@@ -48,7 +48,7 @@ impl Cluster {
     }
 
     /// Request node `to` to remove a node `id`.
-    pub async fn remove_server(&mut self, lane_id: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn remove_server(&self, lane_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(lolraft::client::RemoveServerRequest {
                 lane_id,
