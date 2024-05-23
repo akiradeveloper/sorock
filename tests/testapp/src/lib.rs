@@ -55,9 +55,7 @@ pub struct Client {
 }
 impl Client {
     pub fn new(conn: Channel) -> Self {
-        let cli = RaftClient::new(conn)
-            .send_compressed(CompressionEncoding::Zstd)
-            .accept_compressed(CompressionEncoding::Zstd);
+        let cli = RaftClient::new(conn);
         Self { cli }
     }
 

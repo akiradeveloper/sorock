@@ -61,9 +61,7 @@ async fn main() -> Result<()> {
         node.attach_process(lane_id, process);
     }
 
-    let raft_svc = lolraft::raft_service::new(node)
-        .send_compressed(CompressionEncoding::Zstd)
-        .accept_compressed(CompressionEncoding::Zstd);
+    let raft_svc = lolraft::raft_service::new(node);
     let reflection_svc = lolraft::reflection_service::new();
     let ping_svc = proto::ping_server::PingServer::new(PingApp);
     let socket = format!("0.0.0.0:50000").parse()?;

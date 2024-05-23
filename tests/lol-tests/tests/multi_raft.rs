@@ -65,9 +65,10 @@ async fn N3_L20_K3_multi_raft_io() -> Result<()> {
     futures::future::try_join_all(futs).await?;
 
     let mut cur_state = [0; 1000];
-    for _ in 0..REP {
+    for i in 0..REP {
         let lane_id = rand::thread_rng().gen_range(0..L);
         let add_v = rand::thread_rng().gen_range(1..=9);
+        dbg!(i, lane_id, add_v);
         let leader = (lane_id % 3) as u8;
         let old_v = cluster.user(leader).fetch_add(lane_id, add_v).await?;
         assert_eq!(old_v, cur_state[lane_id as usize]);

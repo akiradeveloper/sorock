@@ -107,7 +107,6 @@ impl Env {
     pub fn connect(&self, id: u8) -> Channel {
         let uri: Uri = address_from_id(id).parse().unwrap();
         let endpoint = Endpoint::from(uri)
-            .timeout(std::time::Duration::from_secs(1))
             .connect_timeout(std::time::Duration::from_secs(1));
         let chan = endpoint.connect_lazy();
         chan
