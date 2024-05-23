@@ -97,14 +97,17 @@ impl Env {
         Ok(())
     }
 
-    pub async fn ping(&self, id: u8) -> Result<()> {
-        let chan = self.connect(id);
-        let mut cli = testapp::PingClient::new(chan);
-        cli.ping(()).await?;
-        Ok(())
+    pub async fn connect_ping_client(&self, id: u8) -> Result<testapp::PingClient<Channel>> {
+        let uri: Uri = address_from_id(id).parse().unwrap();
+        let endpoint = Endpoint::from(uri)
+            .timeout(std::time::Duration::from_secs(1))
+            .connect_timeout(std::time::Duration::from_secs(1));
+        let chan = endpoint.connect().await?;
+        let cli = testapp::PingClient::new(chan);
+        Ok(cli)
     }
 
-    pub fn connect(&self, id: u8) -> Channel {
+    pub fn connect_lazy(&self, id: u8) -> Channel {
         let uri: Uri = address_from_id(id).parse().unwrap();
         let endpoint = Endpoint::from(uri)
             .timeout(std::time::Duration::from_secs(1))

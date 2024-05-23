@@ -17,6 +17,13 @@ impl proto::ping_server::Ping for PingApp {
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         Ok(tonic::Response::new(()))
     }
+
+    async fn panic(
+        &self,
+        _: tonic::Request<()>,
+    ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
+        panic!()
+    }
 }
 
 #[derive(serde::Deserialize, Debug)]
