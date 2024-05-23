@@ -4,6 +4,7 @@ use log::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tonic::transport::{Channel, Endpoint, Uri};
+use std::sync::RwLock;
 
 const NETWORK_NAME: &str = "lolraft_default";
 
@@ -26,6 +27,7 @@ struct Container(String);
 pub struct Env {
     docker: Arc<Docker>,
     containers: HashMap<u8, Container>,
+    conns: RwLock<HashMap<u8, Channel>>,
 }
 impl Env {
     pub fn new() -> Result<Self> {
@@ -33,6 +35,7 @@ impl Env {
         Ok(Self {
             docker: docker.into(),
             containers: HashMap::new(),
+            conns: HashMap::new().into(),
         })
     }
 
@@ -105,11 +108,15 @@ impl Env {
     }
 
     pub fn connect(&self, id: u8) -> Channel {
-        let uri: Uri = address_from_id(id).parse().unwrap();
-        let endpoint = Endpoint::from(uri)
-            .connect_timeout(std::time::Duration::from_secs(1));
-        let chan = endpoint.connect_lazy();
-        chan
+        let mut conns = self.conns.write().unwrap();
+        let chan = conns.entry(id).or_insert_with(|| {
+            let uri: Uri = address_from_id(id).parse().unwrap();
+            let endpoint = Endpoint::from(uri)
+                .connect_timeout(std::time::Duration::from_secs(1));
+            let chan = endpoint.connect_lazy();
+            chan
+        });
+        chan.clone()
     }
 }
 

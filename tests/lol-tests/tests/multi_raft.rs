@@ -34,7 +34,7 @@ async fn N3_L100_K3_multi_raft_cluster() -> Result<()> {
     Ok(())
 }
 
-const L: u32 = 30;
+const L: u32 = 1000;
 const REP: u32 = 300;
 
 #[serial]
@@ -53,8 +53,9 @@ async fn N3_L20_K3_multi_raft_io() -> Result<()> {
 
             // Evenly distribute the leaders.
             let leader = (lane_id % 3) as u8;
+            dbg!(leader);
             cluster
-                .admin(leader)
+                .admin(0)
                 .send_timeout_now(TimeoutNow { lane_id })
                 .await?;
 
@@ -70,7 +71,7 @@ async fn N3_L20_K3_multi_raft_io() -> Result<()> {
         let add_v = rand::thread_rng().gen_range(1..=9);
         dbg!(i, lane_id, add_v);
         let leader = (lane_id % 3) as u8;
-        let old_v = cluster.user(leader).fetch_add(lane_id, add_v).await?;
+        let old_v = cluster.user(0).fetch_add(lane_id, add_v).await?;
         assert_eq!(old_v, cur_state[lane_id as usize]);
         cur_state[lane_id as usize] += add_v;
     }

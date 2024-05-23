@@ -99,7 +99,10 @@ impl Inner {
 
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let new_snapshot_index = e.this_clock.index;
-        ensure!(new_snapshot_index > cur_snapshot_index);
+        ensure!(new_snapshot_index >= cur_snapshot_index);
+        if new_snapshot_index == cur_snapshot_index {
+            return Ok(())
+        }
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
 
