@@ -99,7 +99,15 @@ impl Inner {
 
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let new_snapshot_index = e.this_clock.index;
-        ensure!(new_snapshot_index > cur_snapshot_index);
+
+        // If owned snapshot is newer than the coming snapshot,
+        // the leader should be able to send the subsequent non-snapshot entries.
+        ensure!(new_snapshot_index >= cur_snapshot_index);
+
+        // If the same snapshot already exists, we can skip the insertion.
+        if new_snapshot_index == cur_snapshot_index {
+            return Ok(())
+        }
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
 
