@@ -16,8 +16,7 @@ impl RaftNode {
     /// Create a new Raft node with a given node ID.
     pub fn new(id: NodeId) -> Self {
         let builder = moka::sync::Cache::builder()
-            .initial_capacity(3)
-            .time_to_idle(Duration::from_secs(60));
+            .time_to_idle(Duration::from_secs(3600));
         let inner = Inner {
             self_node_id: id,
             cache: builder.build(),
