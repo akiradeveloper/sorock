@@ -26,4 +26,12 @@ impl App {
         self.save_snapshot(st, snapshot_index).await?;
         Ok(())
     }
+
+    pub async fn apply_snapshot(&self, snapshot_index: Index) -> Result<()> {
+        if snapshot_index == 1 {
+            return Ok(());
+        }
+        self.install_snapshot(snapshot_index).await?;
+        Ok(())
+    }
 }

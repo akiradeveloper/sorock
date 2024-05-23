@@ -67,7 +67,7 @@ impl CommandLog {
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
-                    app.install_snapshot(process_index).await?;
+                    app.apply_snapshot(process_index).await?;
                 }
                 Command::ExecuteRequest {
                     message,
