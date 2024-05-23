@@ -10,8 +10,6 @@ services:
       - ./:/work
       - rust_target:/rust_target
       - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - raft-network
     environment:
       CARGO_BUILD_TARGET_DIR: /rust_target
 
@@ -41,9 +39,3 @@ services:
 
 volumes:
   rust_target:
-
-networks:
-  raft-network:
-    driver: bridge
-    driver_opts:
-      com.docker.network.driver.mtu: "1500"

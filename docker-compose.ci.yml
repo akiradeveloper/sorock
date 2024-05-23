@@ -7,16 +7,8 @@ services:
     volumes:
       - ./:/work
       - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - raft-network
 
   testapp:
     image: lol-testapp:latest
     entrypoint:
       - /bin/sh
-
-networks:
-  raft-network:
-    driver: bridge
-    driver_opts:
-      com.docker.network.driver.mtu: "1500"
