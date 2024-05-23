@@ -17,6 +17,7 @@ async fn n10_cluster() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n10_write() -> Result<()> {
+    dbg!("start");
     let mut cluster = Cluster::new(10, 1).await?;
     cluster.add_server(0, 0, 0).await?;
     for i in 0..9 {
@@ -30,5 +31,7 @@ async fn n10_write() -> Result<()> {
         assert_eq!(old, cur);
         cur += k;
     }
+
+    dbg!("done.");
     Ok(())
 }

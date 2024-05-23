@@ -34,12 +34,13 @@ async fn N3_L100_K3_multi_raft_cluster() -> Result<()> {
     Ok(())
 }
 
-const L: u32 = 20;
+const L: u32 = 30;
 const REP: u32 = 300;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N3_L20_K3_multi_raft_io() -> Result<()> {
+    dbg!("start");
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
     let mut futs = vec![];
@@ -73,5 +74,6 @@ async fn N3_L20_K3_multi_raft_io() -> Result<()> {
         cur_state[lane_id as usize] += add_v;
     }
 
+    dbg!("done.");
     Ok(())
 }

@@ -16,6 +16,7 @@ async fn n3_cluster() -> Result<()> {
 #[serial]
 #[test(tokio::test(flavor = "multi_thread"))]
 async fn n3_write() -> Result<()> {
+    dbg!("start");
     let mut cluster = Cluster::new(3, 1).await?;
     cluster.add_server(0, 0, 0).await?;
     cluster.add_server(0, 0, 1).await?;
@@ -26,6 +27,7 @@ async fn n3_write() -> Result<()> {
     assert_eq!(cluster.user(0).fetch_add(0, 100).await?, 11);
     assert_eq!(cluster.user(0).read(0).await?, 111);
 
+    dbg!("done.");
     Ok(())
 }
 
