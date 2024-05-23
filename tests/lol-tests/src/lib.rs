@@ -25,12 +25,12 @@ impl Cluster {
 
     /// Get an application client to connect to node `id`.
     pub fn user(&self, id: u8) -> testapp::Client {
-        let conn = self.env.connect(id);
+        let conn = self.env.connect_lazy(id);
         testapp::Client::new(conn)
     }
 
     pub fn admin(&self, id: u8) -> RaftClient {
-        let conn = self.env.connect(id);
+        let conn = self.env.connect_lazy(id);
         lolraft::client::RaftClient::new(conn)
     }
 

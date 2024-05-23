@@ -6,4 +6,5 @@ package testapp;
 
 service Ping {
   rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Panic (google.protobuf.Empty) returns (google.protobuf.Empty);
 }
