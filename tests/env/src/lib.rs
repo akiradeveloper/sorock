@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tonic::transport::{Channel, Endpoint, Uri};
 
-const NETWORK_NAME: &str = "lolraft_raft-network";
+const NETWORK_NAME: &str = "lolraft_default";
 
 pub fn id_from_address(address: &str) -> u8 {
     let id = address
