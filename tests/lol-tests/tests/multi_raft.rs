@@ -5,12 +5,41 @@ use rand::Rng;
 use serial_test::serial;
 use std::sync::Arc;
 
+#[serial]
+#[tokio::test(flavor = "multi_thread")]
+async fn N3_L100_K3_multi_raft_cluster() -> Result<()> {
+    let cluster = Arc::new(Cluster::new(3, 100).await?);
+
+    let mut futs = vec![];
+    for lane_id in 0..100 {
+        let cluster = cluster.clone();
+        let fut = async move {
+            cluster.add_server(lane_id, 0, 0).await?;
+            cluster.add_server(lane_id, 0, 1).await?;
+            cluster.add_server(lane_id, 0, 2).await?;
+
+            // Evenly distribute the leaders.
+            let leader = (lane_id % 3) as u8;
+            cluster
+                .admin(leader)
+                .send_timeout_now(TimeoutNow { lane_id })
+                .await?;
+
+            Ok::<(), anyhow::Error>(())
+        };
+        futs.push(fut);
+    }
+    futures::future::try_join_all(futs).await?;
+    
+    Ok(())
+}
+
 const L: u32 = 20;
 const REP: u32 = 300;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
-async fn N3_L20_K3_multi_raft() -> Result<()> {
+async fn N3_L20_K3_multi_raft_io() -> Result<()> {
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
     let mut futs = vec![];
