@@ -51,9 +51,7 @@ impl AppMain {
             state_index: 0,
             counter: 0,
         };
-        let mut snapshots = BTreeMap::new();
-        // The initial state
-        snapshots.insert(1, AppState(0));
+        let snapshots = BTreeMap::new();
         Self {
             state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
