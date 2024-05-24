@@ -1,5 +1,7 @@
 use super::*;
 
+use std::time::Instant;
+
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeId,
@@ -15,11 +17,18 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let hdl = tokio::spawn(async move {
+            let mut last = Instant::now();
             let mut interval = tokio::time::interval(Duration::from_millis(300));
             loop {
                 interval.tick().await;
                 // Periodically sending a new commit state to the buffer.
                 self.run_once().await.ok();
+
+                let now = Instant::now();
+                if (now - last) > Duration::from_secs(1) {
+                    warn!("Heartbeat thread is too slow");
+                }
+                last = now;
             }
         })
         .abort_handle();
