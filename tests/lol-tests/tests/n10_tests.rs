@@ -1,10 +1,9 @@
 use anyhow::Result;
 use lol_tests::*;
 use serial_test::serial;
-use test_log::test;
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n10_cluster() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;
     cluster.add_server(0, 0, 0).await?;
@@ -15,7 +14,7 @@ async fn n10_cluster() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n10_write() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;
     cluster.add_server(0, 0, 0).await?;

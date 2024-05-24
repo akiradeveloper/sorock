@@ -1,16 +1,15 @@
 use anyhow::Result;
 use serial_test::serial;
-use test_log::test;
 
 #[serial]
-#[test(tokio::test)]
+#[tokio::test]
 async fn connect_docker_daemon() -> Result<()> {
     let _e = env::Env::new()?;
     Ok(())
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn create() -> Result<()> {
     let mut env = env::Env::new()?;
     env.create(0, 1).await?;
@@ -18,7 +17,7 @@ async fn create() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn start_stop() -> Result<()> {
     let mut env = env::Env::new()?;
     env.create(0, 1).await?;

@@ -1,10 +1,9 @@
 use anyhow::Result;
 use lol_tests::*;
 use serial_test::serial;
-use test_log::test;
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn reflection_grpcurl_access() -> Result<()> {
     let _cluster = Cluster::new(1, 1).await?;
 
