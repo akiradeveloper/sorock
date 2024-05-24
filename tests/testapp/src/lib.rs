@@ -76,9 +76,7 @@ impl Client {
         use tokio_retry::Retry;
 
         // 200ms, 400, 800, 1600, 3200
-        let strategy = ExponentialBackoff::from_millis(2)
-            .factor(100)
-            .take(8);
+        let strategy = ExponentialBackoff::from_millis(2).factor(100).take(8);
 
         let fut = Retry::spawn(strategy, || {
             let mut cli = self.cli.clone();

@@ -106,7 +106,7 @@ impl Inner {
 
         // If the same snapshot already exists, we can skip the insertion.
         if new_snapshot_index == cur_snapshot_index {
-            return Ok(())
+            return Ok(());
         }
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
