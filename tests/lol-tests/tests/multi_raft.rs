@@ -76,7 +76,6 @@ async fn N3_L20_K3_multi_raft_io_roundrobin() -> Result<()> {
     Ok(())
 }
 
-
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N1_L300_K3_multi_raft_io() -> Result<()> {
@@ -137,4 +136,3 @@ async fn N3_L300_K3_multi_raft_io() -> Result<()> {
 
     Ok(())
 }
-
