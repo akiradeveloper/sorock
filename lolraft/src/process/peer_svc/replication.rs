@@ -78,28 +78,27 @@ impl PeerSvc {
         .await?;
 
         let conn = self.driver.connect(follower_id.clone());
-        let send_resp = conn.send_replication_stream(out_stream).await;
 
-        let new_progress = if let Ok(resp) = send_resp {
-            match resp {
-                response::ReplicationStream {
-                    n_inserted: 0,
-                    log_last_index: last_log_index,
-                } => ReplicationProgress {
-                    match_index: old_progress.match_index,
-                    next_index: std::cmp::min(old_progress.next_index - 1, last_log_index + 1),
-                    next_max_cnt: 1,
-                },
-                response::ReplicationStream { n_inserted, .. } => ReplicationProgress {
-                    match_index: old_progress.next_index + n_inserted - 1,
-                    next_index: old_progress.next_index + n_inserted,
-                    // If all entries are successfully inserted, then it is safe to double
-                    // the replication width for quick replication.
-                    next_max_cnt: if n_inserted == n { n * 2 } else { n },
-                },
-            }
-        } else {
-            old_progress
+        // If the follower is unable to respond for some internal reasons,
+        // we shouldn't repeat request otherwise the situation would be worse.
+        let resp = conn.send_replication_stream(out_stream).await?;
+
+        let new_progress = match resp {
+            response::ReplicationStream {
+                n_inserted: 0,
+                log_last_index: last_log_index,
+            } => ReplicationProgress {
+                match_index: old_progress.match_index,
+                next_index: std::cmp::min(old_progress.next_index - 1, last_log_index + 1),
+                next_max_cnt: 1,
+            },
+            response::ReplicationStream { n_inserted, .. } => ReplicationProgress {
+                match_index: old_progress.next_index + n_inserted - 1,
+                next_index: old_progress.next_index + n_inserted,
+                // If all entries are successfully inserted, then it is safe to double
+                // the replication width for quick replication.
+                next_max_cnt: if n_inserted == n { n * 2 } else { n },
+            },
         };
 
         self.peer_contexts
