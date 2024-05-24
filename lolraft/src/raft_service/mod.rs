@@ -194,6 +194,8 @@ impl raft::raft_server::Raft for RaftService {
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
         let leader_id: NodeId = req.leader_id.parse().unwrap();
+
+        let mut futs = vec![];
         for (lane_id, leader_state) in req.leader_commit_states {
             let req = request::Heartbeat {
                 leader_term: leader_state.leader_term,
@@ -201,9 +203,10 @@ impl raft::raft_server::Raft for RaftService {
             };
             if let Some(process) = self.node.get_process(lane_id) {
                 let leader_id = leader_id.clone();
-                tokio::spawn(async move { process.receive_heartbeat(leader_id, req).await.ok() });
+                futs.push(async move { process.receive_heartbeat(leader_id, req).await });
             }
         }
+        futures::future::try_join_all(futs).await.unwrap();
         Ok(tonic::Response::new(()))
     }
 
