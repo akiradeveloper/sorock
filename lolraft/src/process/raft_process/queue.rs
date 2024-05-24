@@ -46,9 +46,15 @@ impl RaftProcess {
                         .await?
                 }
                 command_log::TryInsertResult::SkippedInsertion => {}
-                command_log::TryInsertResult::InconsistencyDetected => {
-                    warn!("rejected append entry (clock={:?})", cur.this_clock);
+                command_log::TryInsertResult::InconsistentInsertion { want, found } => {
+                    warn!("rejected append entry (clock={:?}) for inconsisntency (want:{want:?} != found:{found:?}", cur.this_clock);
                     break;
+                }
+                command_log::TryInsertResult::LeapInsertion { want } => {
+                    warn!(
+                        "rejected append entry (clock={:?}) for leap insertion (want={want:?})",
+                        cur.this_clock
+                    );
                 }
             }
             prev_clock = cur.this_clock;

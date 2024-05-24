@@ -6,7 +6,13 @@ pub enum TryInsertResult {
     SkippedInsertion,
     /// If the entry is inconsistent with the log then we should reject the entry.
     /// In this case, the leader should rewind the replication status to the follower.
-    InconsistencyDetected,
+    InconsistentInsertion {
+        want: Clock,
+        found: Clock,
+    },
+    LeapInsertion {
+        want: Clock,
+    },
 }
 
 impl CommandLog {
@@ -95,7 +101,10 @@ impl CommandLog {
         {
             if prev_clock != entry.prev_clock {
                 // consistency check failed.
-                Ok(TryInsertResult::InconsistencyDetected)
+                Ok(TryInsertResult::InconsistentInsertion {
+                    want: entry.prev_clock,
+                    found: prev_clock,
+                })
             } else {
                 let Clock {
                     term: _,
@@ -125,7 +134,9 @@ impl CommandLog {
                 Ok(TryInsertResult::Inserted)
             }
         } else {
-            Ok(TryInsertResult::InconsistencyDetected)
+            Ok(TryInsertResult::LeapInsertion {
+                want: entry.prev_clock,
+            })
         }
     }
 }
