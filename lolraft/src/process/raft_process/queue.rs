@@ -51,10 +51,11 @@ impl RaftProcess {
                     break;
                 }
                 command_log::TryInsertResult::LeapInsertion { want } => {
-                    warn!(
+                    debug!(
                         "rejected append entry (clock={:?}) for leap insertion (want={want:?})",
                         cur.this_clock
                     );
+                    break;
                 }
             }
             prev_clock = cur.this_clock;
