@@ -1,10 +1,9 @@
 use anyhow::Result;
 use lol_tests::*;
 use serial_test::serial;
-use test_log::test;
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n1_cluster() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
@@ -13,7 +12,7 @@ async fn n1_cluster() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n1_write() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
@@ -27,7 +26,7 @@ async fn n1_write() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n1_read() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
@@ -43,7 +42,7 @@ async fn n1_read() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n1_snapshot() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
@@ -62,7 +61,7 @@ async fn n1_snapshot() -> Result<()> {
 }
 
 #[serial]
-#[test(tokio::test(flavor = "multi_thread"))]
+#[tokio::test(flavor = "multi_thread")]
 async fn n1_exec_once() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
