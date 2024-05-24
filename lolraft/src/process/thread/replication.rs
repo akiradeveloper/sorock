@@ -13,12 +13,11 @@ impl Thread {
             return Ok(false);
         }
 
-        let cont = self
-            .peers
+        self.peers
             .advance_replication(self.follower_id.clone())
             .await?;
 
-        Ok(cont)
+        Ok(true)
     }
 
     fn do_loop(self) -> ThreadHandle {

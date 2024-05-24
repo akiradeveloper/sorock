@@ -31,7 +31,7 @@ impl PeerSvc {
         })
     }
 
-    pub async fn advance_replication(&self, follower_id: NodeId) -> Result<bool> {
+    pub async fn advance_replication(&self, follower_id: NodeId) -> Result<()> {
         let peer_context = self
             .peer_contexts
             .read()
@@ -43,10 +43,7 @@ impl PeerSvc {
         let cur_last_log_index = self.command_log.get_log_last_index().await?;
 
         // More entries to send?
-        let should_send = old_progress.next_index <= cur_last_log_index;
-        if !should_send {
-            return Ok(false);
-        }
+        ensure!(old_progress.next_index <= cur_last_log_index);
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
@@ -62,7 +59,7 @@ impl PeerSvc {
                 .get_mut(&follower_id)
                 .context(Error::PeerNotFound(follower_id.clone()))?
                 .progress = new_progress;
-            return Ok(true);
+            return Ok(());
         }
 
         let n_max_possible = cur_last_log_index - old_progress.next_index + 1;
@@ -107,6 +104,6 @@ impl PeerSvc {
             .context(Error::PeerNotFound(follower_id.clone()))?
             .progress = new_progress;
 
-        Ok(true)
+        Ok(())
     }
 }

@@ -30,10 +30,9 @@ async fn N3_L100_K3_multi_raft_cluster() -> Result<()> {
         futs.push(fut);
     }
     futures::future::try_join_all(futs).await?;
-    
+
     Ok(())
 }
-
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
