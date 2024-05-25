@@ -1,6 +1,7 @@
 use anyhow::Result;
 use lol_tests::*;
 use serial_test::serial;
+use rand::Rng;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
@@ -20,10 +21,14 @@ async fn n3_write() -> Result<()> {
     cluster.add_server(0, 0, 1).await?;
     cluster.add_server(0, 1, 2).await?;
 
-    assert_eq!(cluster.user(2).fetch_add(0, 1).await?, 0);
-    assert_eq!(cluster.user(1).fetch_add(0, 10).await?, 1);
-    assert_eq!(cluster.user(0).fetch_add(0, 100).await?, 11);
-    assert_eq!(cluster.user(0).read(0).await?, 111);
+    let mut cur_state = 0;
+    for i in 0..100 {
+        let add_v = rand::thread_rng().gen_range(1..=9);
+        let io_node = (i % 3) as u8;
+        let old_v = cluster.user(io_node).fetch_add(0, add_v).await?;
+        assert_eq!(old_v, cur_state);
+        cur_state += add_v;
+    }
 
     Ok(())
 }
