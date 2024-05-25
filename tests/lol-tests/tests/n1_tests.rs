@@ -66,7 +66,7 @@ async fn n1_exec_once() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
 
-    let chan = cluster.env().connect_lazy(0);
+    let chan = cluster.env().get_connection(0);
     let cli = lolraft::client::RaftClient::new(chan);
 
     let req = lolraft::client::WriteRequest {
