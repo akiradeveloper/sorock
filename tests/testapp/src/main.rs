@@ -34,10 +34,10 @@ struct EnvConfig {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    console_subscriber::ConsoleLayer::builder()
-        .retention(std::time::Duration::from_secs(60))
-        .server_addr(([0, 0, 0, 0], 6669))
-        .init();
+    // console_subscriber::ConsoleLayer::builder()
+    //     .retention(std::time::Duration::from_secs(60))
+    //     .server_addr(([0, 0, 0, 0], 6669))
+    //     .init();
 
     env_logger::init();
 
