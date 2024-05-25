@@ -26,6 +26,7 @@ struct Container(String);
 pub struct Env {
     docker: Arc<Docker>,
     containers: HashMap<u8, Container>,
+    conn_cache: spin::Mutex<HashMap<u8, Channel>>,
 }
 impl Env {
     pub fn new() -> Result<Self> {
@@ -33,6 +34,7 @@ impl Env {
         Ok(Self {
             docker: docker.into(),
             containers: HashMap::new(),
+            conn_cache: spin::Mutex::new(HashMap::new()),
         })
     }
 
@@ -107,13 +109,17 @@ impl Env {
         Ok(cli)
     }
 
-    pub fn connect_lazy(&self, id: u8) -> Channel {
-        let uri: Uri = address_from_id(id).parse().unwrap();
-        let endpoint = Endpoint::from(uri)
-            .timeout(std::time::Duration::from_secs(1))
-            .connect_timeout(std::time::Duration::from_secs(1));
-        let chan = endpoint.connect_lazy();
-        chan
+    pub fn get_connection(&self, id: u8) -> Channel {
+        self.conn_cache.lock().entry(id).or_insert_with(|| {
+            let uri: Uri = address_from_id(id).parse().unwrap();
+            let endpoint = Endpoint::from(uri)
+                .http2_keep_alive_interval(std::time::Duration::from_secs(1))
+                .keep_alive_while_idle(true)
+                .timeout(std::time::Duration::from_secs(5))
+                .connect_timeout(std::time::Duration::from_secs(5));
+            let chan = endpoint.connect_lazy();
+            chan
+        }).clone()
     }
 }
 

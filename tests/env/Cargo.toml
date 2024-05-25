@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1"
 bollard = "0.16"
 log = "0.4"
+spin = "0.9"
 tokio = "1"
 tonic = { workspace = true }
 
