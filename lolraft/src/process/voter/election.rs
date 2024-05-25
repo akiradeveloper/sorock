@@ -102,6 +102,8 @@ impl Voter {
 
     /// Try to become a leader.
     pub async fn try_promote(&self, force_vote: bool) -> Result<()> {
+        info!("try to promote to leader (force={force_vote})");
+
         let _lk = self.vote_lock.lock().await;
 
         let pre_vote_term = {
