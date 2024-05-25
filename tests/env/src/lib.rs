@@ -110,16 +110,20 @@ impl Env {
     }
 
     pub fn get_connection(&self, id: u8) -> Channel {
-        self.conn_cache.lock().entry(id).or_insert_with(|| {
-            let uri: Uri = address_from_id(id).parse().unwrap();
-            let endpoint = Endpoint::from(uri)
-                .http2_keep_alive_interval(std::time::Duration::from_secs(1))
-                .keep_alive_while_idle(true)
-                .timeout(std::time::Duration::from_secs(5))
-                .connect_timeout(std::time::Duration::from_secs(5));
-            let chan = endpoint.connect_lazy();
-            chan
-        }).clone()
+        self.conn_cache
+            .lock()
+            .entry(id)
+            .or_insert_with(|| {
+                let uri: Uri = address_from_id(id).parse().unwrap();
+                let endpoint = Endpoint::from(uri)
+                    .http2_keep_alive_interval(std::time::Duration::from_secs(1))
+                    .keep_alive_while_idle(true)
+                    .timeout(std::time::Duration::from_secs(5))
+                    .connect_timeout(std::time::Duration::from_secs(5));
+                let chan = endpoint.connect_lazy();
+                chan
+            })
+            .clone()
     }
 }
 
