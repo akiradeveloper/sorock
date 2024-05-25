@@ -37,12 +37,9 @@ impl RaftConnection {
 
         let heartbeat_buffer = Arc::new(Mutex::new(HeartbeatBuffer::new()));
 
-        let abort_hdl = tokio::spawn(heartbeat_multiplex::run(
-            heartbeat_buffer.clone(),
-            client.clone(),
-            self_node_id,
-        ))
-        .abort_handle();
+        let fut = heartbeat_multiplex::run(heartbeat_buffer.clone(), client.clone(), self_node_id);
+        let fut = tokio::task::unconstrained(fut);
+        let abort_hdl = tokio::spawn(fut).abort_handle();
 
         Self {
             client,
