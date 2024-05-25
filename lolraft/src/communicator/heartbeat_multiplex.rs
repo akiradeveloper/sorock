@@ -30,10 +30,13 @@ pub async fn run(
     loop {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
-        let states = {
+        let heartbeats = {
             let mut buf = buf.lock();
-            let heartbeats = buf.drain();
+            let out = buf.drain();
+            out
+        };
 
+        let states = {
             let mut out = HashMap::new();
             for (lane_id, heartbeat) in heartbeats {
                 let state = raft::LeaderCommitState {
