@@ -12,9 +12,10 @@ FROM chef AS builder
 COPY --from=planner /work/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
 COPY . .
-RUN cargo build
+RUN RUSTFLAGS="--cfg tokio_unstable" cargo build
 
 FROM rust:1.78-slim-bookworm AS runtime
 EXPOSE 50000
+EXPOSE 6669
 COPY --from=builder /work/target/debug/testapp ./
 ENTRYPOINT ["./testapp"]
