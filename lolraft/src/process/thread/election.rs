@@ -26,14 +26,15 @@ impl Thread {
     }
 
     fn do_loop(self) -> ThreadHandle {
-        let hdl = tokio::spawn(async move {
+        let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_millis(300));
             loop {
                 interval.tick().await;
                 self.run_once().await.ok();
             }
-        })
-        .abort_handle();
+        };
+        let fut = tokio::task::unconstrained(fut);
+        let hdl = tokio::spawn(fut).abort_handle();
 
         ThreadHandle(hdl)
     }

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lol_tests::*;
-use serial_test::serial;
 use rand::Rng;
+use serial_test::serial;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
