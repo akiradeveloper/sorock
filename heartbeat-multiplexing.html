@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Orbit Pattern - lolraft documentation</title>
+        <title>Heartbeat Multiplexing - lolraft documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -30,6 +30,8 @@
 
         <!-- Custom theme stylesheets -->
 
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     </head>
     <body class="sidebar-visible no-js">
     <div id="body-container">
@@ -88,7 +90,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="orbit-pattern.html" class="active"><strong aria-hidden="true">2.1.</strong> Orbit Pattern</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html" class="active"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -173,23 +175,74 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="orbit-pattern"><a class="header" href="#orbit-pattern">Orbit Pattern</a></h1>
-<p>Inside RaftProcess, there is a state called <code>RaftCore</code> and
-many threads to process it concurrently on an event-driven basis,
-most of them are driven by timers.
-Since this is like threads are orbiting around the core,
-I call this <strong>Orbit Pattern</strong>.</p>
-<p><img src="images/orbit-pattern.png" alt="" /></p>
+                        <h1 id="heartbeat-multiplexing"><a class="header" href="#heartbeat-multiplexing">Heartbeat Multiplexing</a></h1>
+<p>In Raft, leader is responsible for periodically sending heartbeats to all followers to maintain the leadership.
+In Multi-Raft, without any optimization load from the the heartbeats can be non-negligible.
+However, we can optimize to reduce the heartbeat RPCs by multiplexing the heartbeats from different shards.</p>
+<h2 id="problem-of-naive-implementation"><a class="header" href="#problem-of-naive-implementation">Problem of naive implementation</a></h2>
+<p>In the following diagram, we have two nodes Node1 and Node2 and there are two shards.
+A Process is a leader if it is denoted with an asterisk (*):
+P1 is sending the heartbeats to the P3 and P2 to P4 as well.
+So there are two RPC messages sent from P1 to P3 and P2 to P4 independently.</p>
+<pre class="mermaid">graph LR
+  subgraph Node1
+    P1(P1*)
+    P2(P2*)
+  end
+  subgraph Node2
+    P3(P3)
+    P4(P4)
+  end
+  P1 --&gt;|heartbeat| P3
+  P2 --&gt; P4
+</pre>
+<h2 id="multiplexing-heartbeats"><a class="header" href="#multiplexing-heartbeats">Multiplexing heartbeats</a></h2>
+<p>To reduce the number of RPCs to only one, we can introduce multiplexer and demultiplexer in the nodes.
+The two heartbeats are buffered in the multiplexer and sent in a batched RPC to the destination node.
+In the destination node, the demultiplexer will split the batched RPC into individual heartbeats
+and send them to the corresponding processes.</p>
+<pre class="mermaid">graph LR
+  subgraph Node1
+    P1(P1*)
+    P2(P2*)
+    MUX(Mux)
+  end
+  subgraph Node2
+    DEMUX(Demux)
+    P3(P3)
+    P4(P4)
+  end
+  P1 --&gt; MUX
+  P2 --&gt; MUX
+  MUX --&gt; DEMUX
+  DEMUX --&gt; P3
+  DEMUX --&gt; P4
+</pre>
+<p>In this case the reduction rate is 2.
+But what would be the reduction rate in general.
+Let's do some math.</p>
+<h2 id="math-reduction-rate"><a class="header" href="#math-reduction-rate">Math: Reduction rate</a></h2>
+<p>Let's consider there are N nodes and L shards.
+Each shard have K replication and leader processes are
+balanced among the nodes.</p>
+<p>In this case,
+the total number of heartbeats sent in period is LK.
+And the total directed paths connecting two nodes is N(N-1) and
+these heartbeats are evenly attributed to these paths.
+Therefore, the number of heartbeats sent in each path is LK/(N(N-1))
+and this is the reduction rate.
+For example, if there are 5 nodes and 1000 shards with 3 replication,
+the reduction rate is 150.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="raft-process.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="multi-raft.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="application-state.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="raft-process.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -199,11 +252,11 @@ I call this <strong>Orbit Pattern</strong>.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="raft-process.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="multi-raft.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="application-state.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="raft-process.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

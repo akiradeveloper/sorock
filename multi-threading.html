@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Raft Process - lolraft documentation</title>
+        <title>Multi Threading - lolraft documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -90,7 +90,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html" class="active"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html" class="active"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -175,38 +175,21 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="raft-process"><a class="header" href="#raft-process">Raft Process</a></h1>
-<p>The core of multi-raft is Raft process.
-Each multi-raft server has one or more Raft processes.</p>
-<p>To implement multi-raft,
-lolraft implements Raft process as it is agnostic to
-detailed node communications through gRPC.
-Since the Raft process doesn't know about the IO,
-we call it <strong>Pure Raft</strong>.</p>
-<p><img src="images/raft-process.png" alt="" /></p>
-<p>To make Raft process to communicate with other Raft processes
-through network, <code>RaftDriver</code> must be provided.
-Everything about actual network communication is encapsulated under <code>RaftDriver</code>.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>impl RaftProcess {
-    pub async fn new(
-        app: impl RaftApp,
-        log_store: impl RaftLogStore,
-        ballot_store: impl RaftBallotStore,
-        driver: RaftDriver,
-    ) -&gt; Result&lt;Self&gt; {
-<span class="boring">}</span></code></pre></pre>
+                        <h1 id="orbit-pattern"><a class="header" href="#orbit-pattern">Orbit Pattern</a></h1>
+<p>Inside RaftProcess, there is a state called <code>RaftCore</code> and
+many threads to process it concurrently on an event-driven basis,
+most of them are driven by timers.</p>
+<p><img src="images/multi-threading.png" alt="" /></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="heartbeat-multiplexing.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="raft-process.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="multi-threading.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="application-state.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -216,11 +199,11 @@ Everything about actual network communication is encapsulated under <code>RaftDr
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="heartbeat-multiplexing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="raft-process.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="multi-threading.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="application-state.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
