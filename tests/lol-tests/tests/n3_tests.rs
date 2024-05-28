@@ -35,6 +35,30 @@ async fn n3_write() -> Result<()> {
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
+async fn n3_par_write() -> Result<()> {
+    const N: u64 = 1000;
+
+    let mut cluster = Cluster::new(3, 1).await?;
+    cluster.add_server(0, 0, 0).await?;
+    cluster.add_server(0, 0, 1).await?;
+    cluster.add_server(0, 1, 2).await?;
+
+    let mut futs = vec![];
+    for _ in 0..N {
+        let mut cli = cluster.user(0);
+        let fut = async move { cli.fetch_add(0, 1).await };
+        futs.push(fut);
+    }
+    futures::future::try_join_all(futs).await?;
+
+    let expected = cluster.user(0).read(0).await?;
+    assert_eq!(expected, N);
+
+    Ok(())
+}
+
+#[serial]
+#[tokio::test(flavor = "multi_thread")]
 async fn n3_snapshot() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
     cluster.add_server(0, 0, 0).await?;
