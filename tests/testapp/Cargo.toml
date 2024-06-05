@@ -14,6 +14,7 @@ console-subscriber = "0.2"
 envy = "0.4"
 env_logger = "0.10"
 futures = "0.3"
+redb = "2.1.0"
 serde = { version = "1.0", features = ["derive"] }
 shrinkwraprs = "0.3"
 signal-hook = "0.3"
@@ -26,6 +27,7 @@ tonic = { workspace = true, features = ["zstd"] }
 uuid = "1.5"
 
 lolraft = { workspace = true }
+redb-backend.workspace = true
 
 [build-dependencies]
 tonic-build = { workspace = true }
