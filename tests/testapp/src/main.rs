@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
     };
 
     for lane_id in 0..env_config.n_lanes {
-        let (log, ballot) = db.get(lane_id);
+        let (log, ballot) = db.get(lane_id)?;
         let driver = node.get_driver(lane_id);
         let process = app::new(log, ballot, driver).await?;
         node.attach_process(lane_id, process);
