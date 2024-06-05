@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use lolraft::process::*;
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use std::sync::Arc;
 
 mod entry {
@@ -42,6 +42,10 @@ mod entry {
     }
 }
 
+pub fn log_table_def(space: &str) -> redb::TableDefinition<u64, Vec<u8>> {
+    redb::TableDefinition::new(space)
+}
+
 struct LazyInsert {
     index: Index,
     inner: Entry,
@@ -54,10 +58,6 @@ struct Reaper {
     recv: flume::Receiver<LazyInsert>,
 }
 impl Reaper {
-    fn table_def(space: &str) -> redb::TableDefinition<u64, Vec<u8>> {
-        redb::TableDefinition::new(space)
-    }
-
     fn reap(&self) -> Result<()> {
         // wait for a entry
         let head = self.recv.recv()?;
@@ -68,13 +68,13 @@ impl Reaper {
 
         // insert the first entry
         {
-            let mut tbl = tx.open_table(Self::table_def(&head.space))?;
+            let mut tbl = tx.open_table(log_table_def(&head.space))?;
             tbl.insert(head.index, entry::ser(head.inner))?;
             notifiers.push(head.notifier);
         }
 
         for e in tail {
-            let mut tbl = tx.open_table(Self::table_def(&e.space))?;
+            let mut tbl = tx.open_table(log_table_def(&e.space))?;
             tbl.insert(e.index, entry::ser(e.inner))?;
             notifiers.push(e.notifier);
         }
@@ -93,10 +93,6 @@ struct LogStore {
     reaper_queue: flume::Sender<LazyInsert>,
 }
 impl LogStore {
-    fn table_def(&self) -> TableDefinition<u64, Vec<u8>> {
-        TableDefinition::new(&self.space)
-    }
-
     async fn enqueue_entry(&self, i: Index, e: Entry) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         let e = LazyInsert {
@@ -120,7 +116,7 @@ impl RaftLogStore for LogStore {
     async fn delete_entries_before(&self, i: Index) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
-            let mut tbl = tx.open_table(self.table_def())?;
+            let mut tbl = tx.open_table(log_table_def(&self.space))?;
             tbl.retain(|k, _| k >= i)?;
         }
         tx.commit()?;
@@ -128,7 +124,7 @@ impl RaftLogStore for LogStore {
     }
     async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
         let tx = self.db.begin_read()?;
-        let tbl = tx.open_table(self.table_def())?;
+        let tbl = tx.open_table(log_table_def(&self.space))?;
         match tbl.get(i)? {
             Some(bin) => Ok(Some(entry::desr(&bin.value()))),
             None => Ok(None),
@@ -136,7 +132,7 @@ impl RaftLogStore for LogStore {
     }
     async fn get_head_index(&self) -> Result<Index> {
         let tx = self.db.begin_read()?;
-        let tbl = tx.open_table(self.table_def())?;
+        let tbl = tx.open_table(log_table_def(&self.space))?;
         let out = tbl.first()?;
         Ok(match out {
             Some((k, _)) => k.value(),
@@ -145,7 +141,7 @@ impl RaftLogStore for LogStore {
     }
     async fn get_last_index(&self) -> Result<Index> {
         let tx = self.db.begin_read()?;
-        let tbl = tx.open_table(self.table_def())?;
+        let tbl = tx.open_table(log_table_def(&self.space))?;
         let out = tbl.last()?;
         Ok(match out {
             Some((k, _)) => k.value(),
@@ -181,21 +177,21 @@ mod ballot {
     }
 }
 
+pub fn ballot_table_def(space: &str) -> TableDefinition<(), Vec<u8>> {
+    TableDefinition::new(&space)
+}
+
 struct BallotStore {
     db: Arc<Database>,
     space: String,
 }
-impl BallotStore {
-    fn table_def(&self) -> TableDefinition<(), Vec<u8>> {
-        TableDefinition::new(&self.space)
-    }
-}
+
 #[async_trait]
 impl RaftBallotStore for BallotStore {
     async fn save_ballot(&self, ballot: Ballot) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
-            let mut tbl = tx.open_table(self.table_def())?;
+            let mut tbl = tx.open_table(ballot_table_def(&self.space))?;
             tbl.insert((), ballot::ser(ballot))?;
         }
         tx.commit()?;
@@ -203,7 +199,7 @@ impl RaftBallotStore for BallotStore {
     }
     async fn load_ballot(&self) -> Result<Ballot> {
         let tx = self.db.begin_read()?;
-        let tbl = tx.open_table(self.table_def())?;
+        let tbl = tx.open_table(ballot_table_def(&self.space))?;
         match tbl.get(())? {
             Some(bin) => Ok(ballot::desr(&bin.value())),
             None => Err(anyhow::anyhow!("No ballot")),
@@ -232,6 +228,17 @@ impl Backend {
     }
 
     pub fn get(&self, lane_id: u32) -> (impl RaftLogStore, impl RaftBallotStore) {
+        let tx = self.db.begin_write().unwrap();
+        {
+            let _ = tx.open_table(log_table_def(&format!("log-{lane_id}"))).unwrap();
+            let mut tbl = tx.open_table(ballot_table_def(&format!("ballot-{lane_id}"))).unwrap();
+            // insert the initial value.
+            if tbl.is_empty().unwrap() {
+                tbl.insert((), ballot::ser(Ballot::new())).unwrap();
+            }
+        }
+        tx.commit().unwrap();
+
         let log = LogStore {
             space: format!("log-{lane_id}"),
             db: self.db.clone(),
@@ -242,5 +249,53 @@ impl Backend {
             db: self.db.clone(),
         };
         (log, ballot)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn basic_test() -> Result<()> {
+        let mem = redb::backends::InMemoryBackend::new();
+        let db = redb::Database::builder().create_with_backend(mem)?;
+        let db = Backend::new(db);
+
+        let entry1 = Entry {
+            prev_clock: Clock { index: 0, term: 0 },
+            this_clock: Clock { index: 1, term: 1 },
+            command: bytes::Bytes::from("hello"),
+        };
+        let entry2 = Entry {
+            prev_clock: Clock { index: 1, term: 1 },
+            this_clock: Clock { index: 2, term: 1 },
+            command: bytes::Bytes::from("world"),
+        };
+
+        let (log, _) = db.get(0);
+
+        assert!(log.get_entry(1).await?.is_none());
+        assert!(log.get_entry(2).await?.is_none());
+
+        log.insert_entry(1, entry1).await?;
+        assert_eq!(log.get_head_index().await?, 1);
+        assert_eq!(log.get_last_index().await?, 1);
+        assert!(log.get_entry(1).await?.is_some());
+        assert!(log.get_entry(2).await?.is_none());
+
+        log.insert_entry(2, entry2).await?;
+        assert_eq!(log.get_head_index().await?, 1);
+        assert_eq!(log.get_last_index().await?, 2);
+        assert!(log.get_entry(1).await?.is_some());
+        assert!(log.get_entry(2).await?.is_some());
+
+        log.delete_entries_before(2).await?;
+        assert_eq!(log.get_head_index().await?, 2);
+        assert_eq!(log.get_last_index().await?, 2);
+        assert!(log.get_entry(1).await?.is_none());
+        assert!(log.get_entry(2).await?.is_some());
+
+        Ok(())
     }
 }

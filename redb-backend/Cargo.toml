@@ -15,3 +15,6 @@ oneshot = "0.1.7"
 redb = "2.1.0"
 serde = { version = "1.0.203", features = ["derive"] }
 lolraft.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
