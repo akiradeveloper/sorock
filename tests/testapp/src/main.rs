@@ -67,9 +67,16 @@ async fn main() -> Result<()> {
     let node_id = env_config.address.parse()?;
     let node = lolraft::RaftNode::new(node_id);
 
+    let db = {
+        let mem = redb::backends::InMemoryBackend::new();
+        let db = redb::Database::builder().create_with_backend(mem)?;
+        redb_backend::Backend::new(db)
+    };
+
     for lane_id in 0..env_config.n_lanes {
+        let (log, ballot) = db.get(lane_id);
         let driver = node.get_driver(lane_id);
-        let process = app::new(driver).await?;
+        let process = app::new(log, ballot, driver).await?;
         node.attach_process(lane_id, process);
     }
 

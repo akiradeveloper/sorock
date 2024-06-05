@@ -10,12 +10,9 @@ use testapp::{AppReadRequest, AppState, AppWriteRequest};
 
 mod snapshot_io;
 
-pub async fn new(driver: lolraft::RaftDriver) -> Result<RaftProcess> {
+pub async fn new(log: impl RaftLogStore, ballot: impl RaftBallotStore, driver: lolraft::RaftDriver) -> Result<RaftProcess> {
     let app_main = AppMain::new();
-    let app_log = AppLog::new();
-    let app_ballot = AppBallot::new();
-
-    let process = RaftProcess::new(app_main, app_log, app_ballot, driver).await?;
+    let process = RaftProcess::new(app_main, log, ballot, driver).await?;
     Ok(process)
 }
 
