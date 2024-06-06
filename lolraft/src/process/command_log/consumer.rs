@@ -79,9 +79,8 @@ impl CommandLog {
                     }
 
                     // Leader may have the completion for the request.
-                    if let Some(user_completion) =
-                        self.user_completions.lock().remove(&process_index)
-                    {
+                    let user_completion = self.user_completions.lock().remove(&process_index);
+                    if let Some(user_completion) = user_completion {
                         if let Some(resp) = response_cache.get_response(&request_id) {
                             // If client abort the request before retry,
                             // the completion channel is destroyed because the gRPC is context is cancelled.

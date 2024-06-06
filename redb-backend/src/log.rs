@@ -125,7 +125,9 @@ impl RaftLogStore for LogStore {
             space: self.space.clone(),
             notifier: tx,
         };
-        self.reaper_queue.send(e).map_err(|_| anyhow::anyhow!("failed to queue an entry"))?;
+        self.reaper_queue
+            .send(e)
+            .map_err(|_| anyhow::anyhow!("failed to queue an entry"))?;
         rx.await?;
         Ok(())
     }
