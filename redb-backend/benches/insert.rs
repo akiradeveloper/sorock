@@ -12,7 +12,6 @@ pub fn randbytes(n: usize) -> Vec<u8> {
     out
 }
 
-
 /// n bytes
 fn do_bench(n: usize, b: &mut test::Bencher) {
     let mut rt = tokio::runtime::Runtime::new().unwrap();
@@ -27,7 +26,10 @@ fn do_bench(n: usize, b: &mut test::Bencher) {
         i += 1;
         let bytes = randbytes(n);
         let entry = Entry {
-            prev_clock: Clock { index: i - 1, term: 1 },
+            prev_clock: Clock {
+                index: i - 1,
+                term: 1,
+            },
             this_clock: Clock { index: i, term: 1 },
             command: bytes.into(),
         };
