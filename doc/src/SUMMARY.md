@@ -2,6 +2,7 @@
 
 - [Multi-Raft](multi-raft.md)
   - [Heartbeat Multiplexing](heartbeat-multiplexing.md)
+  - [Batched Write](batched-write.md)
 - [Raft Process](raft-process.md)
   - [Multi Threading](multi-threading.md)
   - [Application State](application-state.md)
