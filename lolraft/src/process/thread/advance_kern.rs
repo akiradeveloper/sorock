@@ -4,6 +4,8 @@ use super::*;
 pub struct Thread {
     command_log: CommandLog,
     voter: Voter,
+    consumer: EventConsumer<CommitEvent>,
+    producer: EventProducer<KernEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<()> {
@@ -14,10 +16,10 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let fut = async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
-                interval.tick().await;
+                self.consumer.consume_events(Duration::from_secs(1)).await;
                 while self.advance_once().await.is_ok() {
+                    self.producer.push_event(KernEvent);
                     tokio::task::yield_now().await;
                 }
             }
@@ -28,6 +30,17 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, voter: Voter) -> ThreadHandle {
-    Thread { command_log, voter }.do_loop()
+pub fn new(
+    command_log: CommandLog,
+    voter: Voter,
+    consumer: EventConsumer<CommitEvent>,
+    producer: EventProducer<KernEvent>,
+) -> ThreadHandle {
+    Thread {
+        command_log,
+        voter,
+        consumer,
+        producer,
+    }
+    .do_loop()
 }

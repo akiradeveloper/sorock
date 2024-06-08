@@ -26,6 +26,9 @@ pub struct RaftProcess {
     query_queue: QueryQueue,
     driver: RaftDriver,
     _thread_handles: ThreadHandles,
+
+    queue_tx: thread::EventProducer<thread::QueueEvent>,
+    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
 }
 
 impl RaftProcess {
@@ -42,7 +45,17 @@ impl RaftProcess {
         let command_log = CommandLog::new(log_store, app.clone());
         command_log.restore_state().await?;
 
-        let peers = PeerSvc::new(Ref(command_log.clone()), driver.clone());
+        let (queue_tx, queue_rx) = thread::notify();
+        let (replication_tx, replication_rx) = thread::notify();
+        let (commit_tx, commit_rx) = thread::notify();
+        let (kern_tx, kern_rx) = thread::notify();
+
+        let peers = PeerSvc::new(
+            Ref(command_log.clone()),
+            queue_rx.clone(),
+            replication_tx.clone(),
+            driver.clone(),
+        );
 
         let voter = Voter::new(
             ballot_store,
@@ -54,13 +67,24 @@ impl RaftProcess {
         peers.restore_state(Ref(voter.clone())).await?;
 
         let _thread_handles = ThreadHandles {
-            advance_kern_handle: thread::advance_kern::new(command_log.clone(), voter.clone()),
-            advance_user_handle: thread::advance_user::new(command_log.clone(), app.clone()),
+            advance_kern_handle: thread::advance_kern::new(
+                command_log.clone(),
+                voter.clone(),
+                commit_rx.clone(),
+                kern_tx.clone(),
+            ),
+            advance_user_handle: thread::advance_user::new(
+                command_log.clone(),
+                app.clone(),
+                kern_rx.clone(),
+            ),
             advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
             advance_commit_handle: thread::advance_commit::new(
                 command_log.clone(),
                 Ref(peers.clone()),
                 Ref(voter.clone()),
+                replication_rx.clone(),
+                commit_tx.clone(),
             ),
             election_handle: thread::election::new(voter.clone()),
             log_compaction_handle: thread::log_compaction::new(command_log.clone()),
@@ -79,6 +103,9 @@ impl RaftProcess {
             query_queue,
             driver,
             _thread_handles,
+
+            queue_tx,
+            replication_tx,
         })
     }
 }

@@ -4,6 +4,7 @@ use super::*;
 pub struct Thread {
     command_log: CommandLog,
     app: App,
+    consumer: EventConsumer<KernEvent>,
 }
 
 impl Thread {
@@ -15,9 +16,8 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let fut = async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
-                interval.tick().await;
+                self.consumer.consume_events(Duration::from_secs(1)).await;
                 while self.advance_once().await.is_ok() {
                     tokio::task::yield_now().await;
                 }
@@ -28,6 +28,11 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, app: App) -> ThreadHandle {
-    Thread { command_log, app }.do_loop()
+pub fn new(command_log: CommandLog, app: App, consumer: EventConsumer<KernEvent>) -> ThreadHandle {
+    Thread {
+        command_log,
+        app,
+        consumer,
+    }
+    .do_loop()
 }
