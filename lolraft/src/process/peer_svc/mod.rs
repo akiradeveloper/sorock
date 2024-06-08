@@ -38,16 +38,26 @@ pub struct Inner {
 
     command_log: Ref<CommandLog>,
     driver: RaftDriver,
+
+    queue_rx: thread::EventConsumer<thread::QueueEvent>,
+    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct PeerSvc(pub Arc<Inner>);
 impl PeerSvc {
-    pub fn new(command_log: Ref<CommandLog>, driver: RaftDriver) -> Self {
+    pub fn new(
+        command_log: Ref<CommandLog>,
+        queue_rx: thread::EventConsumer<thread::QueueEvent>,
+        replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+        driver: RaftDriver,
+    ) -> Self {
         let inner = Inner {
             membership: HashSet::new().into(),
             peer_contexts: HashMap::new().into(),
             peer_threads: HashMap::new().into(),
+            queue_rx,
+            replication_tx,
             command_log,
             driver,
         };
@@ -103,7 +113,13 @@ impl PeerSvc {
         );
 
         let thread_handles = ThreadHandles {
-            replicator_handle: thread::replication::new(id.clone(), self.clone(), voter.clone()),
+            replicator_handle: thread::replication::new(
+                id.clone(),
+                self.clone(),
+                voter.clone(),
+                self.queue_rx.clone(),
+                self.replication_tx.clone(),
+            ),
             heartbeater_handle: thread::heartbeat::new(id.clone(), voter),
         };
         self.peer_threads.lock().insert(id, thread_handles);

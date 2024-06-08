@@ -19,6 +19,9 @@ impl RaftProcess {
         self.process_configuration_command(&command, append_index)
             .await?;
 
+        self.queue_tx.push_event(thread::QueueEvent);
+        self.replication_tx.push_event(thread::ReplicationEvent);
+
         Ok(append_index)
     }
 

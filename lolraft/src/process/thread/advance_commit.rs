@@ -5,6 +5,8 @@ pub struct Thread {
     command_log: CommandLog,
     peers: Ref<PeerSvc>,
     voter: Ref<Voter>,
+    consumer: EventConsumer<ReplicationEvent>,
+    producer: EventProducer<CommitEvent>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -18,6 +20,7 @@ impl Thread {
             self.command_log
                 .commit_pointer
                 .store(new_commit_index, Ordering::SeqCst);
+            self.producer.push_event(CommitEvent);
         }
 
         Ok(())
@@ -25,9 +28,8 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let fut = async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
-                interval.tick().await;
+                self.consumer.consume_events(Duration::from_secs(1)).await;
                 self.run_once().await.ok();
             }
         };
@@ -37,11 +39,19 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, peers: Ref<PeerSvc>, voter: Ref<Voter>) -> ThreadHandle {
+pub fn new(
+    command_log: CommandLog,
+    peers: Ref<PeerSvc>,
+    voter: Ref<Voter>,
+    consume: EventConsumer<ReplicationEvent>,
+    produce: EventProducer<CommitEvent>,
+) -> ThreadHandle {
     Thread {
         command_log,
         peers,
         voter,
+        consumer: consume,
+        producer: produce,
     }
     .do_loop()
 }

@@ -5,6 +5,8 @@ pub struct Thread {
     follower_id: NodeId,
     peers: PeerSvc,
     voter: Ref<Voter>,
+    consumer: EventConsumer<QueueEvent>,
+    producer: EventProducer<ReplicationEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
@@ -22,10 +24,10 @@ impl Thread {
 
     fn do_loop(self) -> ThreadHandle {
         let fut = async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
-                interval.tick().await;
+                self.consumer.consume_events(Duration::from_secs(1)).await;
                 while let Ok(true) = self.advance_once().await {
+                    self.producer.push_event(ReplicationEvent);
                     tokio::task::yield_now().await;
                 }
             }
@@ -36,11 +38,19 @@ impl Thread {
     }
 }
 
-pub fn new(follower_id: NodeId, peers: PeerSvc, voter: Ref<Voter>) -> ThreadHandle {
+pub fn new(
+    follower_id: NodeId,
+    peers: PeerSvc,
+    voter: Ref<Voter>,
+    consumer: EventConsumer<QueueEvent>,
+    producer: EventProducer<ReplicationEvent>,
+) -> ThreadHandle {
     Thread {
         follower_id,
         peers,
         voter,
+        consumer,
+        producer,
     }
     .do_loop()
 }
