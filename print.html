@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li><li class="chapter-item expanded "><a href="batched-write.html"><strong aria-hidden="true">1.2.</strong> Batched Write</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -263,6 +263,38 @@ Therefore, the number of heartbeats sent in each path is LK/(N(N-1))
 and this is the reduction rate.
 For example, if there are 5 nodes and 1000 shards with 3 replication,
 the reduction rate is 150.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="batched-write"><a class="header" href="#batched-write">Batched Write</a></h1>
+<p>In multi-raft, multiple shards process write requests. Conceptually, each shard maintains its own log for entry insertion.</p>
+<p>Having a physically independent log for each shard isn't efficient as each write requires a transaction to persist the data on the storage.</p>
+<p>However, an optimization technique called "batching" can be used. Here, each shard maintains a virtual log, and the entries are temporarily queued in a shared queue. These queued entries are then processed in a single transaction, reducing the number of transactions.</p>
+<p>This approach often presents a throughput versus latency dilemma. However, this implementation increases throughput without sacrificing latency.</p>
+<pre class="mermaid">graph LR
+  CLI(Client)
+
+  subgraph P1
+    T1(redb::Table)
+  end
+  subgraph P2
+    T2(redb::Table)
+  end
+  subgraph P3
+    T3(redb::Table)
+  end
+
+  subgraph Reaper
+    Q(Queue)
+  end
+  DB[(redb::Database)]
+
+  CLI --&gt;|entry| T1
+  CLI --&gt; T2
+  CLI --&gt; T3
+  T1 --&gt;|lazy entry| Q
+  T2 --&gt; Q
+  T3 --&gt; Q
+  Q --&gt;|transaction| DB
+
+</pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="raft-process"><a class="header" href="#raft-process">Raft Process</a></h1>
 <p>The core of multi-raft is Raft process.
 Each multi-raft server has one or more Raft processes.</p>
