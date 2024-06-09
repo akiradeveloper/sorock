@@ -18,7 +18,6 @@ use command_log::CommandLog;
 mod voter;
 use voter::Voter;
 mod query_queue;
-use query_queue::QueryQueue;
 mod app;
 use app::App;
 
