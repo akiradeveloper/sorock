@@ -23,7 +23,7 @@ pub struct RaftProcess {
     command_log: CommandLog,
     voter: Voter,
     peers: PeerSvc,
-    query_queue: QueryQueue,
+    query_tx: query_queue::Producer,
     driver: RaftDriver,
     _thread_handles: ThreadHandles,
 
@@ -40,7 +40,7 @@ impl RaftProcess {
     ) -> Result<Self> {
         let app = App::new(app);
 
-        let query_queue = QueryQueue::new(Ref(app.clone()));
+        let (query_tx, query_rx) = query_queue::new(Ref(app.clone()));
 
         let command_log = CommandLog::new(log_store, app.clone());
         command_log.restore_state().await?;
@@ -89,7 +89,7 @@ impl RaftProcess {
             election_handle: thread::election::new(voter.clone()),
             log_compaction_handle: thread::log_compaction::new(command_log.clone()),
             query_execution_handle: thread::query_execution::new(
-                query_queue.clone(),
+                query_rx.clone(),
                 Ref(command_log.clone()),
             ),
             snapshot_deleter_handle: thread::snapshot_deleter::new(command_log.clone()),
@@ -100,7 +100,7 @@ impl RaftProcess {
             command_log,
             voter,
             peers,
-            query_queue,
+            query_tx,
             driver,
             _thread_handles,
 

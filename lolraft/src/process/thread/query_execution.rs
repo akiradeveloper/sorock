@@ -2,15 +2,14 @@ use super::*;
 
 #[derive(Clone)]
 struct Thread {
-    query_queue: QueryQueue,
+    query_queue: query_queue::Processor,
     command_log: Ref<CommandLog>,
 }
 
 impl Thread {
     async fn advance_once(&self) -> bool {
         let last_applied = self.command_log.user_pointer.load(Ordering::SeqCst);
-        let cont = self.query_queue.execute(last_applied);
-        cont
+        self.query_queue.process(last_applied) > 0
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -28,7 +27,7 @@ impl Thread {
     }
 }
 
-pub fn new(query_queue: QueryQueue, command_log: Ref<CommandLog>) -> ThreadHandle {
+pub fn new(query_queue: query_queue::Processor, command_log: Ref<CommandLog>) -> ThreadHandle {
     Thread {
         query_queue,
         command_log,
