@@ -30,7 +30,12 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, app: App, consumer: EventConsumer<KernEvent>, producer: EventProducer<ApplicationEvent>) -> ThreadHandle {
+pub fn new(
+    command_log: CommandLog,
+    app: App,
+    consumer: EventConsumer<KernEvent>,
+    producer: EventProducer<ApplicationEvent>,
+) -> ThreadHandle {
     Thread {
         command_log,
         app,

@@ -31,7 +31,7 @@ fn do_bench(m: u16, b: &mut test::Bencher) {
 
     rt.block_on(async {
         drop(cluster);
-   });
+    });
 }
 
 #[bench]
