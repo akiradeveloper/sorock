@@ -17,8 +17,8 @@ mod command_log;
 use command_log::CommandLog;
 mod voter;
 use voter::Voter;
-mod query_queue;
 mod app;
+mod query_queue;
 use app::App;
 
 mod command;

@@ -27,7 +27,10 @@ impl Processor {
     /// Register a query to be executed when the read index reaches `read_index`.
     /// `read_index` is the index of the commit pointer of when the query is submitted.
     pub fn process(&self, index: Index) -> usize {
-        let qs = self.inner.try_iter().take_while(|(read_index, _)| *read_index <= index);
+        let qs = self
+            .inner
+            .try_iter()
+            .take_while(|(read_index, _)| *read_index <= index);
 
         let mut n = 0;
         for (_, q) in qs {
@@ -38,7 +41,7 @@ impl Processor {
                 // which just results in failing on the client side.
                 if let Ok(resp) = app.process_read(&q.message).await {
                     q.user_completion.complete_with(resp).ok();
-                } 
+                }
             };
             tokio::spawn(fut);
         }
@@ -49,10 +52,7 @@ impl Processor {
 
 pub fn new(app: Ref<App>) -> (Producer, Processor) {
     let (tx, rx) = flume::unbounded();
-    let processor = Processor {
-        inner: rx,
-        app,
-    };
+    let processor = Processor { inner: rx, app };
     let producer = Producer { inner: tx };
     (producer, processor)
 }
