@@ -5,6 +5,7 @@ pub struct Thread {
     command_log: CommandLog,
     app: App,
     consumer: EventConsumer<KernEvent>,
+    producer: EventProducer<ApplicationEvent>,
 }
 
 impl Thread {
@@ -19,6 +20,7 @@ impl Thread {
             loop {
                 self.consumer.consume_events(Duration::from_secs(1)).await;
                 while self.advance_once().await.is_ok() {
+                    self.producer.push_event(ApplicationEvent);
                     tokio::task::yield_now().await;
                 }
             }
@@ -28,11 +30,12 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, app: App, consumer: EventConsumer<KernEvent>) -> ThreadHandle {
+pub fn new(command_log: CommandLog, app: App, consumer: EventConsumer<KernEvent>, producer: EventProducer<ApplicationEvent>) -> ThreadHandle {
     Thread {
         command_log,
         app,
         consumer,
+        producer,
     }
     .do_loop()
 }

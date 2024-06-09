@@ -49,6 +49,7 @@ impl RaftProcess {
         let (replication_tx, replication_rx) = thread::notify();
         let (commit_tx, commit_rx) = thread::notify();
         let (kern_tx, kern_rx) = thread::notify();
+        let (app_tx, app_rx) = thread::notify();
 
         let peers = PeerSvc::new(
             Ref(command_log.clone()),
@@ -77,6 +78,7 @@ impl RaftProcess {
                 command_log.clone(),
                 app.clone(),
                 kern_rx.clone(),
+                app_tx.clone(),
             ),
             advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
             advance_commit_handle: thread::advance_commit::new(
@@ -91,6 +93,7 @@ impl RaftProcess {
             query_execution_handle: thread::query_execution::new(
                 query_rx.clone(),
                 Ref(command_log.clone()),
+                app_rx.clone(),
             ),
             snapshot_deleter_handle: thread::snapshot_deleter::new(command_log.clone()),
             stepdown_handle: thread::stepdown::new(voter.clone()),
