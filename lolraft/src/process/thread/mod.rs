@@ -76,3 +76,6 @@ pub struct CommitEvent;
 
 #[derive(Clone)]
 pub struct KernEvent;
+
+#[derive(Clone)]
+pub struct ApplicationEvent;
