@@ -2,10 +2,10 @@
 
 ## Build
 
-(lolraft crate only) The proto file should be compiled manually if you changed the proto file.
+The proto file should be compiled manually if you changed the proto file.
 In this case, please run `cargo run -p codegen`.
 
-## Test
+## Testing
 
 For testing, lolraft makes use of docker-compose.
 
@@ -41,6 +41,14 @@ graph
   DEV -->|command| APP2
   DEV -->|command| APP3
 ```
+
+## Benchmark
+
+You can run benchmark in a similar way as testing.
+
+- `docker compose build` to build test application.
+- TERM1: `./dev`
+- TERM1: `cargo +nightly bench`.
 
 ## Documentation
 
