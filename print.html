@@ -317,7 +317,7 @@ Everything about actual network communication is encapsulated under <code>RaftDr
         driver: RaftDriver,
     ) -&gt; Result&lt;Self&gt; {
 <span class="boring">}</span></code></pre></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="orbit-pattern"><a class="header" href="#orbit-pattern">Orbit Pattern</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="multi-threading"><a class="header" href="#multi-threading">Multi Threading</a></h1>
 <p>Inside RaftProcess, there is a state called <code>RaftCore</code> and
 many threads to process it concurrently on an event-driven basis,
 most of them are driven by timers.</p>
@@ -438,9 +438,9 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
 <h2 id="build"><a class="header" href="#build">Build</a></h2>
-<p>(lolraft crate only) The proto file should be compiled manually if you changed the proto file.
+<p>The proto file should be compiled manually if you changed the proto file.
 In this case, please run <code>cargo run -p codegen</code>.</p>
-<h2 id="test"><a class="header" href="#test">Test</a></h2>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
 <p>For testing, lolraft makes use of docker-compose.</p>
 <p>A docker image called testapp is built and the tests create some instances of it for testing: test code is running on dev container and it accesses the docker deamon in the host. In GHA, the tests are run in the same way.</p>
 <p>The log output in the stdout/stderr is collected into the log container. This is quite useful for debugging. So here is how you can run the tests for development.</p>
@@ -472,6 +472,13 @@ In this case, please run <code>cargo run -p codegen</code>.</p>
   DEV --&gt;|command| APP2
   DEV --&gt;|command| APP3
 </pre>
+<h2 id="benchmark"><a class="header" href="#benchmark">Benchmark</a></h2>
+<p>You can run benchmark in a similar way as testing.</p>
+<ul>
+<li><code>docker compose build</code> to build test application.</li>
+<li>TERM1: <code>./dev</code></li>
+<li>TERM1: <code>cargo +nightly bench</code>.</li>
+</ul>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
 <p>You can modify the documentations.</p>
 <p>For editing the mdbook under doc/ directory,
