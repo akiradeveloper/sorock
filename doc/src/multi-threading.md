@@ -1,4 +1,4 @@
-# Orbit Pattern
+# Multi Threading
 
 Inside RaftProcess, there is a state called `RaftCore` and
 many threads to process it concurrently on an event-driven basis,
