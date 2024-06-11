@@ -75,6 +75,12 @@ impl RaftProcess {
             };
             self.query_tx.register(read_index, query)?;
 
+            let app_index = self.command_log.user_pointer.load(Ordering::SeqCst);
+            // This must be `>=` because it is possible both commit_index and app_index are updated.
+            if app_index >= read_index {
+                self.app_tx.push_event(thread::ApplicationEvent);
+            }
+
             rx.await?
         } else {
             // This check is to avoid looping.

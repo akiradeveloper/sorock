@@ -29,6 +29,7 @@ pub struct RaftProcess {
 
     queue_tx: thread::EventProducer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+    app_tx: thread::EventProducer<thread::ApplicationEvent>,
 }
 
 impl RaftProcess {
@@ -109,6 +110,7 @@ impl RaftProcess {
 
             queue_tx,
             replication_tx,
+            app_tx,
         })
     }
 }
