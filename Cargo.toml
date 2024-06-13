@@ -13,8 +13,8 @@ async-trait = "0.1.80"
 bincode = "1.3.3"
 bytes = "1.6.0"
 tokio = "1.38"
-tonic = "0.11"
-tonic-build = "0.11"
+tonic = { git = "https://github.com/hyperium/tonic" }
+tonic-build = { git = "https://github.com/hyperium/tonic" }
 prost = "0.12"
 prost-build = "0.12"
 lolraft = { path = "lolraft" }

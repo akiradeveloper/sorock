@@ -19,7 +19,7 @@ bytes = "1.5"
 derive_more = "0.99"
 flume = "0.11"
 futures = "0.3"
-http-serde = "1"
+http-serde = "2"
 log = "0.4"
 moka = { version = "0.12", features = ["sync"] }
 phi-detector = "0.4"
@@ -33,7 +33,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt"] }
 tokio-util = "0.7"
 tonic = { workspace = true }
-tonic-reflection = "0.11"
+tonic-reflection = { git = "https://github.com/hyperium/tonic" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
