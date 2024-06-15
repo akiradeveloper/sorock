@@ -99,6 +99,24 @@ impl Env {
         Ok(())
     }
 
+    /// Wait for connection to be ready at most 5 seconds.
+    pub async fn check_connectivity(&self, id: u8) -> Result<()> {
+        for _ in 0..50 {
+            let uri: Uri = address_from_id(id).parse().unwrap();
+            let endpoint = Endpoint::from(uri)
+                .connect_timeout(std::time::Duration::from_secs(1));
+            match endpoint.connect().await {
+                Ok(_) => {
+                    break;
+                }
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn connect_ping_client(&self, id: u8) -> Result<testapp::PingClient<Channel>> {
         let uri: Uri = address_from_id(id).parse().unwrap();
         let endpoint = Endpoint::from(uri)
