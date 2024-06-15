@@ -15,6 +15,7 @@ impl Cluster {
             env.create(id, n_lanes).await?;
             env.start(id).await?;
             env.connect_network(id).await?;
+            env.check_connectivity(id).await?;
         }
         Ok(Self { env })
     }

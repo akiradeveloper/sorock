@@ -23,6 +23,7 @@ async fn start_stop() -> Result<()> {
     env.create(0, 1).await?;
     env.start(0).await?;
     env.connect_network(0).await?;
+    env.check_connectivity(0).await?;
 
     let mut cli = env.connect_ping_client(0).await?;
     cli.ping(()).await?;
@@ -40,6 +41,7 @@ async fn panic_loop() -> Result<()> {
     env.create(0, 1).await?;
     env.start(0).await?;
     env.connect_network(0).await?;
+    env.check_connectivity(0).await?;
 
     for i in 0..1000 {
         dbg!(i);
