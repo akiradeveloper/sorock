@@ -26,6 +26,7 @@ impl RaftConnection {
     pub fn new(self_node_id: NodeId, dest_node_id: NodeId) -> Self {
         let client = {
             let endpoint = tonic::transport::Endpoint::from(dest_node_id.0.clone())
+                .buffer_size(1 << 16)
                 // (http2) Send ping to keep connection (default: disabled)
                 .http2_keep_alive_interval(Duration::from_secs(1))
                 // (http2) Send ping even if there is no active streams (default: disabled)
