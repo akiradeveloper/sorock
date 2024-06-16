@@ -134,6 +134,7 @@ impl Env {
             .or_insert_with(|| {
                 let uri: Uri = address_from_id(id).parse().unwrap();
                 let endpoint = Endpoint::from(uri)
+                    .buffer_size(1<<16)
                     .http2_keep_alive_interval(std::time::Duration::from_secs(1))
                     .keep_alive_while_idle(true)
                     .timeout(std::time::Duration::from_secs(5))
