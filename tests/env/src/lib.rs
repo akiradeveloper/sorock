@@ -137,7 +137,7 @@ impl Env {
                     .buffer_size(1<<16)
                     .http2_keep_alive_interval(std::time::Duration::from_secs(1))
                     .keep_alive_while_idle(true)
-                    .timeout(std::time::Duration::from_secs(5))
+                    .timeout(std::time::Duration::from_secs(30))
                     .connect_timeout(std::time::Duration::from_secs(5));
                 let chan = endpoint.connect_lazy();
                 chan
