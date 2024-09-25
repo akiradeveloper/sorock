@@ -41,8 +41,8 @@ pub struct Producer {
     inner: Arc<spin::Mutex<Queue<Query>>>,
 }
 impl Producer {
-    /// Register a query to be executed when the read index reaches `read_index`.
-    /// `read_index` is the index of the commit pointer of when the query is submitted.
+    /// Register a query for execution when the readable index reaches `read_index`.
+    /// `read_index` should be the index of the commit pointer at the time of query.
     pub fn register(&self, read_index: Index, q: Query) -> Result<()> {
         self.inner.lock().push(read_index, q);
         Ok(())
@@ -55,10 +55,9 @@ pub struct Processor {
     inner: Arc<spin::Mutex<Queue<Query>>>,
 }
 impl Processor {
-    /// Register a query to be executed when the read index reaches `read_index`.
-    /// `read_index` is the index of the commit pointer of when the query is submitted.
-    pub fn process(&self, index: Index) -> usize {
-        let qs = self.inner.lock().pop(index);
+    /// Process the waiting queries up to `readable_index`.
+    pub fn process(&self, readable_index: Index) -> usize {
+        let qs = self.inner.lock().pop(readable_index);
 
         let mut n = 0;
         for (_, q) in qs {
