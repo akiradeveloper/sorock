@@ -1,7 +1,7 @@
 use super::*;
 
 struct Queue<T> {
-    inner: BTreeMap<Index, T>,
+    inner: BTreeMap<Index, Vec<T>>,
 }
 impl<T> Queue<T> {
     fn new() -> Self {
@@ -11,7 +11,7 @@ impl<T> Queue<T> {
     }
 
     fn push(&mut self, index: Index, q: T) {
-        self.inner.insert(index, q);
+        self.inner.entry(index).or_default().push(q);
     }
 
     fn pop(&mut self, upto: Index) -> Vec<(Index, T)> {
@@ -23,8 +23,10 @@ impl<T> Queue<T> {
         }
 
         for i in del_keys {
-            let q = self.inner.remove(&i).unwrap();
-            out.push((i, q));
+            let qs = self.inner.remove(&i).unwrap();
+            for q in qs {
+                out.push((i, q));
+            }
         }
 
         out
