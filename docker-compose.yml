@@ -9,39 +9,10 @@ services:
     volumes:
       - ./:/work
       - rust_target:/rust_target
-      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - raft-network
     environment:
       CARGO_BUILD_TARGET_DIR: /rust_target
 
-  log0:
-    image: gliderlabs/logspout
-    container_name: log0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-  
-  log:
-    image: rust
-    depends_on:
-      - log0
-    command: sh -c "curl log0:80/logs/name:lol-testapp-*"
-    
-  testapp:
-    image: lol-testapp:latest
-    build:
-      context: .
-      dockerfile: tests/testapp/Dockerfile
-    volumes:
-      - rust_target:/rust_target
-    environment:
-      CARGO_BUILD_TARGET_DIR: /rust_target
-    entrypoint:
-      - /bin/sh
-
 volumes:
   rust_target:
-
-networks:
-  raft-network:
-    driver: bridge

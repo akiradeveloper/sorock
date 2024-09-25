@@ -4,10 +4,8 @@ use lolraft::client::*;
 use tonic::codegen::CompressionEncoding;
 use tonic::transport::Channel;
 
-mod proto {
-    tonic::include_proto!("testapp");
-}
-pub use proto::ping_client::PingClient;
+pub mod ping_app;
+pub mod raft_process;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum AppWriteRequest {

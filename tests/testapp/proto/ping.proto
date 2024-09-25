@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package testapp;
+package ping;
 
 service Ping {
   rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);

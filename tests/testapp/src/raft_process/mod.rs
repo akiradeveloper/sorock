@@ -6,7 +6,6 @@ use futures::TryStreamExt;
 use lolraft::process::*;
 use spin::RwLock;
 use std::collections::BTreeMap;
-use testapp::{AppReadRequest, AppState, AppWriteRequest};
 
 mod snapshot_io;
 
@@ -64,7 +63,7 @@ impl RaftApp for AppMain {
     async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
         let mut cur_state = self.state.write();
 
-        let req = testapp::AppWriteRequest::deserialize(bytes);
+        let req = AppWriteRequest::deserialize(bytes);
         let old_state = match req {
             AppWriteRequest::FetchAdd { bytes } => {
                 let add_val = bytes.len() as u64;
@@ -81,7 +80,7 @@ impl RaftApp for AppMain {
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
         let cur_state = self.state.read();
 
-        let req = testapp::AppReadRequest::deserialize(bytes);
+        let req = AppReadRequest::deserialize(bytes);
         match req {
             AppReadRequest::MakeSnapshot => {
                 let idx = cur_state.state_index;

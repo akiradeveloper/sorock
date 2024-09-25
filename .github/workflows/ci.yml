@@ -16,43 +16,17 @@ jobs:
       - name: CPU
         run: lscpu
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build (dev)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          load: true
-          tags: lol-dev:latest
-          cache-from: type=gha,scope=dev
-          cache-to: type=gha,mode=max,scope=dev
-
-      - name: Build (testapp)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: tests/testapp/Dockerfile
-          push: false
-          load: true
-          tags: lol-testapp:latest
-          cache-from: type=gha,scope=testapp
-          cache-to: type=gha,mode=max,scope=testapp
-
       - name: Run tests
-        run: |
-          docker compose -f docker-compose.ci.yml build
-          docker compose -f docker-compose.ci.yml run --rm dev cargo test
+        run: cargo test
 
   test_docsrs:
     name: Test (docs.rs)

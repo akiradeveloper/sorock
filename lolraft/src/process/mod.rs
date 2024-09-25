@@ -1,10 +1,10 @@
 use super::*;
 
 use anyhow::Result;
-use log::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use tracing::{debug, error, info, warn};
 
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;

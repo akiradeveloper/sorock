@@ -10,12 +10,10 @@ impl Cluster {
     pub async fn new(n: u8, n_lanes: u32) -> Result<Self> {
         ensure!(n > 0);
         ensure!(n_lanes > 0);
-        let mut env = Env::new()?;
+        let mut env = Env::new();
         for id in 0..n {
-            env.create(id, n_lanes).await?;
-            env.start(id).await?;
-            env.connect_network(id).await?;
-            env.check_connectivity(id).await?;
+            env.add_node(id, n_lanes);
+            env.check_connectivity(0).await?;
         }
         Ok(Self { env })
     }
@@ -40,7 +38,7 @@ impl Cluster {
         self.admin(to)
             .add_server(lolraft::client::AddServerRequest {
                 lane_id,
-                server_id: env::address_from_id(id),
+                server_id: self.env.address(id).to_string(),
             })
             .await?;
         // Make sure the newly added server knows the current leader.
@@ -53,7 +51,7 @@ impl Cluster {
         self.admin(to)
             .remove_server(lolraft::client::RemoveServerRequest {
                 lane_id,
-                server_id: env::address_from_id(id),
+                server_id: self.env.address(id).to_string(),
             })
             .await?;
         eprintln!("removed node(id={id})");

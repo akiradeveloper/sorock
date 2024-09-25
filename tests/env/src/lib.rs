@@ -1,130 +1,134 @@
-use anyhow::{ensure, Result};
-use bollard::*;
-use log::*;
+use anyhow::Result;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::Once;
+use std::time::Duration;
+use tonic::codegen::CompressionEncoding;
 use tonic::transport::{Channel, Endpoint, Uri};
+use tracing::info;
 
-const NETWORK_NAME: &str = "lolraft_raft-network";
+static INIT: Once = Once::new();
 
-pub fn id_from_address(address: &str) -> u8 {
-    let id = address
-        .strip_prefix("http://lol-testapp-")
-        .unwrap()
-        .strip_suffix(":50000")
-        .unwrap();
-    id.parse().unwrap()
+struct Node {
+    port: u16,
+    abort_tx0: Option<tokio::sync::oneshot::Sender<()>>,
 }
+impl Node {
+    pub fn new(id: u8, port: u16, n_lanes: u32) -> Result<Self> {
+        let nd_tag = format!("ND{port}>");
+        let (tx, rx) = tokio::sync::oneshot::channel();
 
-pub fn address_from_id(id: u8) -> String {
-    format!("http://lol-testapp-{id}:50000")
-}
+        let svc_task = async move {
+            info!("add (id={id})");
 
-#[derive(Clone)]
-struct Container(String);
+            let node_id = {
+                let address = format!("http://127.0.0.1:{port}");
+                address.parse().unwrap()
+            };
+            let node = lolraft::RaftNode::new(node_id);
 
-pub struct Env {
-    docker: Arc<Docker>,
-    containers: HashMap<u8, Container>,
-    conn_cache: spin::Mutex<HashMap<u8, Channel>>,
-}
-impl Env {
-    pub fn new() -> Result<Self> {
-        let docker = Docker::connect_with_socket_defaults()?;
+            let db = {
+                let mem = redb::backends::InMemoryBackend::new();
+                let db = redb::Database::builder().create_with_backend(mem).unwrap();
+                redb_backend::Backend::new(db)
+            };
+
+            for lane_id in 0..n_lanes {
+                let (log, ballot) = db.get(lane_id).unwrap();
+                let driver = node.get_driver(lane_id);
+                let process = testapp::raft_process::new(log, ballot, driver)
+                    .await
+                    .unwrap();
+                node.attach_process(lane_id, process);
+            }
+
+            let raft_svc = lolraft::raft_service::new(node)
+                .send_compressed(CompressionEncoding::Zstd)
+                .accept_compressed(CompressionEncoding::Zstd);
+            let reflection_svc = lolraft::reflection_service::new();
+            let ping_svc = testapp::ping_app::new_service();
+
+            let socket = format!("127.0.0.1:{port}").parse().unwrap();
+
+            let mut builder = tonic::transport::Server::builder();
+            builder
+                .add_service(raft_svc)
+                .add_service(reflection_svc)
+                .add_service(ping_svc)
+                .serve_with_shutdown(socket, async {
+                    info!("remove (id={id})");
+                    rx.await.ok();
+                })
+                .await
+                .unwrap();
+        };
+
+        std::thread::Builder::new()
+            .name(nd_tag.clone())
+            .spawn(move || {
+                let runtime = tokio::runtime::Builder::new_multi_thread()
+                    .thread_name(nd_tag)
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(svc_task);
+            })
+            .unwrap();
+
         Ok(Self {
-            docker: docker.into(),
-            containers: HashMap::new(),
-            conn_cache: spin::Mutex::new(HashMap::new()),
+            port,
+            abort_tx0: Some(tx),
         })
     }
 
-    pub async fn create(&mut self, id: u8, n_lanes: u32) -> Result<()> {
-        ensure!(n_lanes > 0);
-        ensure!(!self.containers.contains_key(&id));
-        let options = container::CreateContainerOptions {
-            name: format!("lol-testapp-{}", id),
-            ..Default::default()
-        };
-        let address = address_from_id(id);
-        let config = container::Config {
-            image: Some("lol-testapp:latest".to_string()),
-            env: Some(vec![
-                format!("address={address}"),
-                format!("n_lanes={n_lanes}"),
-                "RUST_LOG=info".to_string(),
-            ]),
-            ..Default::default()
-        };
-        let resp = self.docker.create_container(Some(options), config).await?;
-        let container_id = resp.id;
-        self.containers.insert(id, Container(container_id));
-        Ok(())
+    fn address(&self) -> Uri {
+        let uri = format!("http://127.0.0.1:{}", self.port);
+        Uri::from_maybe_shared(uri).unwrap()
     }
-
-    pub async fn start(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = &self.containers.get(&id).unwrap().0.clone();
-        self.docker
-            .start_container::<&str>(&container_id, None)
-            .await?;
-        Ok(())
+}
+impl Drop for Node {
+    fn drop(&mut self) {
+        let tx = self.abort_tx0.take().unwrap();
+        tx.send(()).ok();
     }
+}
+pub struct Env {
+    nodes: HashMap<u8, Node>,
+    conn_cache: spin::Mutex<HashMap<u8, Channel>>,
+}
+impl Env {
+    pub fn new() -> Self {
+        INIT.call_once(|| {
+            // On terminating the tokio runtime,
+            // flooding stack traces are printed and they are super noisy.
+            // Until better idea is invented, we just suppress them.
+            std::panic::set_hook(Box::new(|_info| {}));
 
-    pub async fn stop(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-        self.docker.stop_container(&container_id, None).await?;
-        Ok(())
-    }
-
-    pub async fn connect_network(&mut self, id: u8) -> Result<()> {
-        ensure!(self.containers.contains_key(&id));
-        let container_id = self.containers.get(&id).unwrap().0.clone();
-        let config = network::ConnectNetworkOptions {
-            container: container_id,
-            ..Default::default()
-        };
-        self.docker.connect_network(NETWORK_NAME, config).await?;
-
-        let config = network::InspectNetworkOptions {
-            verbose: true,
-            ..Default::default()
-        };
-        dbg!(
-            self.docker
-                .inspect_network::<&str>(NETWORK_NAME, Some(config))
-                .await?
-        );
-
-        Ok(())
-    }
-
-    /// Wait for connection to be ready at most 5 seconds.
-    pub async fn check_connectivity(&self, id: u8) -> Result<()> {
-        for _ in 0..50 {
-            let uri: Uri = address_from_id(id).parse().unwrap();
-            let endpoint = Endpoint::from(uri)
-                .connect_timeout(std::time::Duration::from_secs(1));
-            match endpoint.connect().await {
-                Ok(_) => {
-                    break;
-                }
-                Err(_) => {
-                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                }
-            }
+            let format = tracing_subscriber::fmt::format()
+                .with_target(false)
+                .with_thread_names(true)
+                .compact();
+            tracing_subscriber::fmt().event_format(format).init();
+        });
+        Self {
+            nodes: HashMap::new(),
+            conn_cache: spin::Mutex::new(HashMap::new()),
         }
-        Ok(())
     }
 
-    pub async fn connect_ping_client(&self, id: u8) -> Result<testapp::PingClient<Channel>> {
-        let uri: Uri = address_from_id(id).parse().unwrap();
-        let endpoint = Endpoint::from(uri)
-            .timeout(std::time::Duration::from_secs(1))
-            .connect_timeout(std::time::Duration::from_secs(1));
-        let chan = endpoint.connect().await?;
-        let cli = testapp::PingClient::new(chan);
-        Ok(cli)
+    pub fn add_node(&mut self, id: u8, n_lanes: u32) {
+        let free_port = port_check::free_local_ipv4_port().unwrap();
+        let node = Node::new(id, free_port, n_lanes).unwrap();
+        port_check::is_port_reachable_with_timeout(
+            node.address().to_string(),
+            Duration::from_secs(5),
+        );
+        self.nodes.insert(id, node);
+    }
+
+    pub fn remove_node(&mut self, id: u8) {
+        if let Some(node) = self.nodes.remove(&id) {
+            // node is dropped
+        }
     }
 
     pub fn get_connection(&self, id: u8) -> Channel {
@@ -132,7 +136,7 @@ impl Env {
             .lock()
             .entry(id)
             .or_insert_with(|| {
-                let uri: Uri = address_from_id(id).parse().unwrap();
+                let uri = self.nodes.get(&id).unwrap().address();
                 let endpoint = Endpoint::from(uri)
                     .http2_keep_alive_interval(std::time::Duration::from_secs(1))
                     .keep_alive_while_idle(true)
@@ -143,43 +147,36 @@ impl Env {
             })
             .clone()
     }
-}
 
-impl Drop for Env {
-    fn drop(&mut self) {
-        for (id, container) in self.containers.drain() {
-            let docker = self.docker.clone();
-            let fut = async move {
-                let resp = docker
-                    .remove_container(
-                        &container.0,
-                        Some(container::RemoveContainerOptions {
-                            force: true,
-                            v: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-                match resp {
-                    Ok(_) => info!("removed container id={id}"),
-                    Err(e) => error!("failed to remove container id={id} (err={e})"),
-                }
-            };
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(fut);
-            });
-        }
+    pub async fn connect_ping_client(
+        &self,
+        id: u8,
+    ) -> Result<testapp::ping_app::PingClient<Channel>> {
+        let uri = self.nodes.get(&id).unwrap().address();
+        let endpoint = Endpoint::from(uri)
+            .timeout(std::time::Duration::from_secs(1))
+            .connect_timeout(std::time::Duration::from_secs(1));
+        let chan = endpoint.connect().await?;
+        let cli = testapp::ping_app::PingClient::new(chan);
+        Ok(cli)
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn id_address() {
-        for id in 0..=255 {
-            let address = address_from_id(id);
-            assert_eq!(id, id_from_address(&address));
+    pub fn address(&self, id: u8) -> Uri {
+        self.nodes.get(&id).unwrap().address()
+    }
+
+    pub async fn check_connectivity(&self, id: u8) -> Result<()> {
+        for _ in 0..50 {
+            let uri = self.nodes.get(&id).unwrap().address();
+            let endpoint =
+                Endpoint::from(uri).connect_timeout(std::time::Duration::from_millis(100));
+            match endpoint.connect().await {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+            }
         }
+        anyhow::bail!("failed to connect to id={}", id);
     }
 }
