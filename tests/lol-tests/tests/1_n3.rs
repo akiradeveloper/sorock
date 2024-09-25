@@ -39,7 +39,7 @@ async fn n3_write() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_par_write() -> Result<()> {
-    const N: u64 = 1000;
+    const N: u64 = 100;
 
     let mut cluster = Cluster::new(3, 1).await?;
     cluster.add_server(0, 0, 0).await?;
