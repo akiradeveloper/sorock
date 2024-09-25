@@ -1,0 +1,14 @@
+[package]
+name = "mrbench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4.5.18", features = ["derive"] }
+futures = "0.3"
+tokio = { workspace = true, features = ["full"] }
+
+lol-tests = { path = "../lol-tests" }
+humantime-serde = "1.1.1"
+humantime = "2.1.0"
