@@ -4,7 +4,6 @@
 /// `request_id` is unique identifier of the request to avoid executing duplicating requests.
 /// Client may send a write requests twice but they are executed only once as long as
 /// they have the same `request_id`.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WriteRequest {
     #[prost(uint32, tag = "1")]
@@ -16,7 +15,6 @@ pub struct WriteRequest {
 }
 /// Read-only request to the `RaftApp`.
 /// This type of request is processed in optimized path.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadRequest {
     #[prost(uint32, tag = "1")]
@@ -25,13 +23,11 @@ pub struct ReadRequest {
     pub message: ::prost::bytes::Bytes,
 }
 /// Response from the `RaftApp`.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Response {
     #[prost(bytes = "bytes", tag = "1")]
     pub message: ::prost::bytes::Bytes,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Clock {
     #[prost(uint64, tag = "1")]
@@ -39,7 +35,6 @@ pub struct Clock {
     #[prost(uint64, tag = "2")]
     pub index: u64,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernRequest {
     #[prost(uint32, tag = "1")]
@@ -47,7 +42,6 @@ pub struct KernRequest {
     #[prost(bytes = "bytes", tag = "2")]
     pub message: ::prost::bytes::Bytes,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReplicationStreamHeader {
     #[prost(uint32, tag = "1")]
@@ -57,7 +51,6 @@ pub struct ReplicationStreamHeader {
     #[prost(message, optional, tag = "3")]
     pub prev_clock: ::core::option::Option<Clock>,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReplicationStreamEntry {
     #[prost(message, optional, tag = "1")]
@@ -65,7 +58,6 @@ pub struct ReplicationStreamEntry {
     #[prost(bytes = "bytes", tag = "2")]
     pub command: ::prost::bytes::Bytes,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReplicationStreamChunk {
     #[prost(oneof = "replication_stream_chunk::Elem", tags = "1, 2")]
@@ -73,7 +65,6 @@ pub struct ReplicationStreamChunk {
 }
 /// Nested message and enum types in `ReplicationStreamChunk`.
 pub mod replication_stream_chunk {
-    #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Elem {
         #[prost(message, tag = "1")]
@@ -82,7 +73,6 @@ pub mod replication_stream_chunk {
         Entry(super::ReplicationStreamEntry),
     }
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ReplicationStreamResponse {
     #[prost(uint64, tag = "1")]
@@ -90,7 +80,6 @@ pub struct ReplicationStreamResponse {
     #[prost(uint64, tag = "2")]
     pub log_last_index: u64,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetSnapshotRequest {
     #[prost(uint32, tag = "1")]
@@ -98,13 +87,11 @@ pub struct GetSnapshotRequest {
     #[prost(uint64, tag = "2")]
     pub index: u64,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SnapshotChunk {
     #[prost(bytes = "bytes", tag = "1")]
     pub data: ::prost::bytes::Bytes,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VoteRequest {
     #[prost(uint32, tag = "1")]
@@ -120,13 +107,11 @@ pub struct VoteRequest {
     #[prost(bool, tag = "6")]
     pub pre_vote: bool,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct VoteResponse {
     #[prost(bool, tag = "1")]
     pub vote_granted: bool,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct LeaderCommitState {
     #[prost(uint64, tag = "1")]
@@ -134,7 +119,6 @@ pub struct LeaderCommitState {
     #[prost(uint64, tag = "2")]
     pub leader_commit_index: u64,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Heartbeat {
     #[prost(string, tag = "1")]
@@ -143,7 +127,6 @@ pub struct Heartbeat {
     pub leader_commit_states: ::std::collections::HashMap<u32, LeaderCommitState>,
 }
 /// Request to add a Raft process with `server_id` to a lane.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddServerRequest {
     #[prost(uint32, tag = "1")]
@@ -152,7 +135,6 @@ pub struct AddServerRequest {
     pub server_id: ::prost::alloc::string::String,
 }
 /// Request to remove a Raft process with `server_id` from a lane.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoveServerRequest {
     #[prost(uint32, tag = "1")]
@@ -163,7 +145,6 @@ pub struct RemoveServerRequest {
 /// On receiving this request, a server starts a new election
 /// to become a leader disregarding the election timeout.
 /// You can use this request to rebalance the leaders in the cluster.
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct TimeoutNow {
     #[prost(uint32, tag = "1")]
@@ -193,8 +174,8 @@ pub mod raft_client {
     where
         T: tonic::client::GrpcService<tonic::body::BoxBody>,
         T::Error: Into<StdError>,
-        T::ResponseBody: Body<Data = Bytes> + Send + 'static,
-        <T::ResponseBody as Body>::Error: Into<StdError> + Send,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
     {
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
@@ -219,7 +200,7 @@ pub mod raft_client {
             >,
             <T as tonic::codegen::Service<
                 http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + Send + Sync,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             RaftClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -474,7 +455,7 @@ pub mod raft_server {
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with RaftServer.
     #[async_trait]
-    pub trait Raft: Send + Sync + 'static {
+    pub trait Raft: std::marker::Send + std::marker::Sync + 'static {
         async fn write(
             &self,
             request: tonic::Request<super::WriteRequest>,
@@ -510,7 +491,7 @@ pub mod raft_server {
         type GetSnapshotStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::SnapshotChunk, tonic::Status>,
             >
-            + Send
+            + std::marker::Send
             + 'static;
         async fn get_snapshot(
             &self,
@@ -529,14 +510,14 @@ pub mod raft_server {
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
     }
     #[derive(Debug)]
-    pub struct RaftServer<T: Raft> {
+    pub struct RaftServer<T> {
         inner: Arc<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
         max_decoding_message_size: Option<usize>,
         max_encoding_message_size: Option<usize>,
     }
-    impl<T: Raft> RaftServer<T> {
+    impl<T> RaftServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -590,8 +571,8 @@ pub mod raft_server {
     impl<T, B> tonic::codegen::Service<http::Request<B>> for RaftServer<T>
     where
         T: Raft,
-        B: Body + Send + 'static,
-        B::Error: Into<StdError> + Send + 'static,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
     {
         type Response = http::Response<tonic::body::BoxBody>;
         type Error = std::convert::Infallible;
@@ -1060,7 +1041,7 @@ pub mod raft_server {
             }
         }
     }
-    impl<T: Raft> Clone for RaftServer<T> {
+    impl<T> Clone for RaftServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -1072,7 +1053,9 @@ pub mod raft_server {
             }
         }
     }
-    impl<T: Raft> tonic::server::NamedService for RaftServer<T> {
-        const NAME: &'static str = "lolraft.Raft";
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "lolraft.Raft";
+    impl<T> tonic::server::NamedService for RaftServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
     }
 }
