@@ -15,7 +15,9 @@ bytes = "1.6.0"
 tokio = "1.38"
 tonic = "0.12"
 tonic-build = "0.12"
+tracing = "0.1.40"
 prost = "0.13"
 prost-build = "0.13"
+
 lolraft = { path = "lolraft" }
 redb-backend = { path = "redb-backend" }
