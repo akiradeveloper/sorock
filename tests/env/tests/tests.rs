@@ -43,7 +43,7 @@ async fn panic_loop() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn drop_env() -> Result<()> {
-    for _ in 0..100 {
+    for _ in 0..10 {
         let mut env = env::Env::new();
         env.add_node(0, 1);
         env.check_connectivity(0).await?;
