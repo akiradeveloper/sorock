@@ -7,7 +7,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WriteRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(bytes = "bytes", tag = "2")]
     pub message: ::prost::bytes::Bytes,
     #[prost(string, tag = "3")]
@@ -18,7 +18,7 @@ pub struct WriteRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(bytes = "bytes", tag = "2")]
     pub message: ::prost::bytes::Bytes,
 }
@@ -38,14 +38,14 @@ pub struct Clock {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(bytes = "bytes", tag = "2")]
     pub message: ::prost::bytes::Bytes,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReplicationStreamHeader {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(string, tag = "2")]
     pub sender_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
@@ -83,7 +83,7 @@ pub struct ReplicationStreamResponse {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetSnapshotRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(uint64, tag = "2")]
     pub index: u64,
 }
@@ -95,7 +95,7 @@ pub struct SnapshotChunk {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VoteRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(uint64, tag = "2")]
     pub vote_term: u64,
     #[prost(string, tag = "3")]
@@ -126,11 +126,11 @@ pub struct Heartbeat {
     #[prost(map = "uint32, message", tag = "2")]
     pub leader_commit_states: ::std::collections::HashMap<u32, LeaderCommitState>,
 }
-/// Request to add a Raft process with `server_id` to a lane.
+/// Request to add a Raft process with `server_id` to a shard.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddServerRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(string, tag = "2")]
     pub server_id: ::prost::alloc::string::String,
 }
@@ -138,7 +138,7 @@ pub struct AddServerRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoveServerRequest {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
     #[prost(string, tag = "2")]
     pub server_id: ::prost::alloc::string::String,
 }
@@ -148,7 +148,7 @@ pub struct RemoveServerRequest {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct TimeoutNow {
     #[prost(uint32, tag = "1")]
-    pub lane_id: u32,
+    pub shard_id: u32,
 }
 /// Generated client implementations.
 pub mod raft_client {

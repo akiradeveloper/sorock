@@ -51,18 +51,18 @@ impl RaftConnection {
 
 pub struct Communicator {
     conn: RaftConnection,
-    lane_id: LaneId,
+    shard_id: ShardId,
 }
 impl Communicator {
-    pub fn new(conn: RaftConnection, lane_id: LaneId) -> Self {
-        Self { conn, lane_id }
+    pub fn new(conn: RaftConnection, shard_id: ShardId) -> Self {
+        Self { conn, shard_id }
     }
 }
 
 impl Communicator {
     pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
         let req = raft::GetSnapshotRequest {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
             index,
         };
         let st = self
@@ -77,7 +77,7 @@ impl Communicator {
     }
 
     pub fn queue_heartbeat(&self, req: request::Heartbeat) {
-        self.conn.heartbeat_buffer.lock().push(self.lane_id, req);
+        self.conn.heartbeat_buffer.lock().push(self.shard_id, req);
     }
 
     pub async fn process_user_write_request(
@@ -85,7 +85,7 @@ impl Communicator {
         req: request::UserWriteRequest,
     ) -> Result<Bytes> {
         let req = raft::WriteRequest {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
             message: req.message,
             request_id: req.request_id,
         };
@@ -95,7 +95,7 @@ impl Communicator {
 
     pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
         let req = raft::ReadRequest {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
             message: req.message,
         };
         let resp = self.conn.client.clone().read(req).await?.into_inner();
@@ -104,7 +104,7 @@ impl Communicator {
 
     pub async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
         let req = raft::KernRequest {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
             message: req.message,
         };
         self.conn.client.clone().process_kern_request(req).await?;
@@ -113,7 +113,7 @@ impl Communicator {
 
     pub async fn send_timeout_now(&self) -> Result<()> {
         let req = raft::TimeoutNow {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
         };
         self.conn.client.clone().send_timeout_now(req).await?;
         Ok(())
@@ -123,7 +123,7 @@ impl Communicator {
         &self,
         st: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
-        let st = stream::into_external_replication_stream(self.lane_id, st);
+        let st = stream::into_external_replication_stream(self.shard_id, st);
         let resp = self
             .conn
             .client
@@ -139,7 +139,7 @@ impl Communicator {
 
     pub async fn request_vote(&self, req: request::RequestVote) -> Result<bool> {
         let req = raft::VoteRequest {
-            lane_id: self.lane_id,
+            shard_id: self.shard_id,
             candidate_id: req.candidate_id.to_string(),
             candidate_clock: {
                 let e = req.candidate_clock;

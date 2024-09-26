@@ -15,6 +15,6 @@ pub enum Error {
     LeaderUnknown,
     #[error("peer (node_id={0}) not found")]
     PeerNotFound(NodeId),
-    #[error("process not found (lane_id={0})")]
-    ProcessNotFound(LaneId),
+    #[error("process not found (shard_id={0})")]
+    ProcessNotFound(ShardId),
 }

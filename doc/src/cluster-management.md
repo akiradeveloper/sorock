@@ -13,12 +13,12 @@ From the admin client, the following API can add or remove a Raft process in the
 
 ```proto
 message AddServerRequest {
-  uint32 lane_id = 1;
+  uint32 shard_id = 1;
   string server_id = 2;
 }
 
 message RemoveServerRequest {
-  uint32 lane_id = 1;
+  uint32 shard_id = 1;
   string server_id = 2;
 }
 ```

@@ -59,10 +59,10 @@ impl Client {
         Self { cli }
     }
 
-    pub async fn fetch_add(&mut self, lane_id: u32, n: u64) -> Result<u64> {
+    pub async fn fetch_add(&mut self, shard_id: u32, n: u64) -> Result<u64> {
         let request_id = uuid::Uuid::new_v4().to_string();
         let req = WriteRequest {
-            lane_id,
+            shard_id,
             message: AppWriteRequest::FetchAdd {
                 bytes: vec![1u8; n as usize].into(),
             }
@@ -87,9 +87,9 @@ impl Client {
         Ok(resp.0)
     }
 
-    pub async fn read(&self, lane_id: u32) -> Result<u64> {
+    pub async fn read(&self, shard_id: u32) -> Result<u64> {
         let req = ReadRequest {
-            lane_id,
+            shard_id,
             message: AppReadRequest::Read.serialize(),
         };
         let resp = self.cli.clone().read(req).await?.into_inner();
@@ -97,9 +97,9 @@ impl Client {
         Ok(resp.0)
     }
 
-    pub async fn make_snapshot(&self, lane_id: u32) -> Result<u64> {
+    pub async fn make_snapshot(&self, shard_id: u32) -> Result<u64> {
         let req = ReadRequest {
-            lane_id,
+            shard_id,
             message: AppReadRequest::MakeSnapshot.serialize(),
         };
         let resp = self.cli.clone().read(req).await?.into_inner();

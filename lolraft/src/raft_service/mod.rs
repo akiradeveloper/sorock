@@ -25,15 +25,15 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::WriteRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::UserWriteRequest {
             message: req.message,
             request_id: req.request_id,
         };
         let resp = self
             .node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .process_user_write_request(req)
             .await
@@ -46,14 +46,14 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::ReadRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::UserReadRequest {
             message: req.message,
         };
         let resp = self
             .node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .process_user_read_request(req)
             .await
@@ -66,13 +66,13 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::KernRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::KernRequest {
             message: req.message,
         };
         self.node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .process_kern_request(req)
             .await
@@ -85,7 +85,7 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::VoteRequest>,
     ) -> std::result::Result<tonic::Response<raft::VoteResponse>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::RequestVote {
             candidate_id: req.candidate_id.parse().unwrap(),
             candidate_clock: {
@@ -101,8 +101,8 @@ impl raft::raft_server::Raft for RaftService {
         };
         let resp = self
             .node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .request_vote(req)
             .await
@@ -117,13 +117,13 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::AddServerRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::AddServer {
             server_id: req.server_id.parse().unwrap(),
         };
         self.node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .add_server(req)
             .await
@@ -136,13 +136,13 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::RemoveServerRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let req = request::RemoveServer {
             server_id: req.server_id.parse().unwrap(),
         };
         self.node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .remove_server(req)
             .await
@@ -155,11 +155,11 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<tonic::Streaming<raft::ReplicationStreamChunk>>,
     ) -> std::result::Result<tonic::Response<raft::ReplicationStreamResponse>, tonic::Status> {
         let st = request.into_inner();
-        let (lane_id, st) = stream::into_internal_replication_stream(st).await.unwrap();
+        let (shard_id, st) = stream::into_internal_replication_stream(st).await.unwrap();
         let resp = self
             .node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .send_replication_stream(st)
             .await
@@ -175,11 +175,11 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::GetSnapshotRequest>,
     ) -> std::result::Result<tonic::Response<Self::GetSnapshotStream>, tonic::Status> {
         let req = request.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         let resp = self
             .node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .get_snapshot(req.index)
             .await
@@ -196,12 +196,12 @@ impl raft::raft_server::Raft for RaftService {
         let leader_id: NodeId = req.leader_id.parse().unwrap();
 
         let mut futs = vec![];
-        for (lane_id, leader_state) in req.leader_commit_states {
+        for (shard_id, leader_state) in req.leader_commit_states {
             let req = request::Heartbeat {
                 leader_term: leader_state.leader_term,
                 leader_commit_index: leader_state.leader_commit_index,
             };
-            if let Some(process) = self.node.get_process(lane_id) {
+            if let Some(process) = self.node.get_process(shard_id) {
                 let leader_id = leader_id.clone();
                 futs.push(async move { process.receive_heartbeat(leader_id, req).await });
             }
@@ -215,10 +215,10 @@ impl raft::raft_server::Raft for RaftService {
         req: tonic::Request<raft::TimeoutNow>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = req.into_inner();
-        let lane_id = req.lane_id;
+        let shard_id = req.shard_id;
         self.node
-            .get_process(lane_id)
-            .context(Error::ProcessNotFound(lane_id))
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
             .unwrap()
             .send_timeout_now()
             .await

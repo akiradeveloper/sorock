@@ -4,7 +4,7 @@ use spin::Mutex;
 use std::collections::HashMap;
 
 pub struct HeartbeatBuffer {
-    buf: HashMap<LaneId, request::Heartbeat>,
+    buf: HashMap<ShardId, request::Heartbeat>,
 }
 impl HeartbeatBuffer {
     pub fn new() -> Self {
@@ -13,11 +13,11 @@ impl HeartbeatBuffer {
         }
     }
 
-    pub fn push(&mut self, lane_id: LaneId, req: request::Heartbeat) {
-        self.buf.insert(lane_id, req);
+    pub fn push(&mut self, shard_id: ShardId, req: request::Heartbeat) {
+        self.buf.insert(shard_id, req);
     }
 
-    fn drain(&mut self) -> HashMap<LaneId, request::Heartbeat> {
+    fn drain(&mut self) -> HashMap<ShardId, request::Heartbeat> {
         self.buf.drain().collect()
     }
 }
@@ -38,12 +38,12 @@ pub async fn run(
 
         let states = {
             let mut out = HashMap::new();
-            for (lane_id, heartbeat) in heartbeats {
+            for (shard_id, heartbeat) in heartbeats {
                 let state = raft::LeaderCommitState {
                     leader_term: heartbeat.leader_term,
                     leader_commit_index: heartbeat.leader_commit_index,
                 };
-                out.insert(lane_id, state);
+                out.insert(shard_id, state);
             }
             out
         };

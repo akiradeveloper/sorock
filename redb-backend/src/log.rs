@@ -99,8 +99,8 @@ pub struct LogStore {
     reaper_queue: flume::Sender<LazyInsert>,
 }
 impl LogStore {
-    pub fn new(db: Arc<Database>, lane_id: u32, q: Sender) -> Result<Self> {
-        let space = format!("log-{lane_id}");
+    pub fn new(db: Arc<Database>, shard_id: u32, q: Sender) -> Result<Self> {
+        let space = format!("log-{shard_id}");
 
         let tx = db.begin_write()?;
         {
