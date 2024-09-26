@@ -202,7 +202,7 @@ for efficient I/O like write batching.
 For these problems, I will take the second approach.</p>
 <p>lolraft implements <strong>in-process multi-raft</strong>.
 As the name implies, lolraft allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
-These Raft processes can form a Raft cluster on independent <strong>lanes</strong>.</p>
+These Raft processes can form a Raft cluster on independent <strong>shards</strong>.</p>
 <p><img src="images/multi-raft.png" alt="" /></p>
 
                     </main>
