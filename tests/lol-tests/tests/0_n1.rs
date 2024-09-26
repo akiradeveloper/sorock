@@ -70,7 +70,7 @@ async fn n1_exec_once() -> Result<()> {
     let cli = lolraft::client::RaftClient::new(chan);
 
     let req = lolraft::client::WriteRequest {
-        lane_id: 0,
+        shard_id: 0,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
         }

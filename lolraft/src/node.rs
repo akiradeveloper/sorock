@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, RaftConnection>,
-    process: spin::RwLock<HashMap<LaneId, Arc<RaftProcess>>>,
+    process: spin::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
@@ -26,34 +26,34 @@ impl RaftNode {
         Self(inner.into())
     }
 
-    /// Get a Raft driver to drive a Raft process on a lane.
-    pub fn get_driver(&self, lane_id: LaneId) -> RaftDriver {
+    /// Get a Raft driver to drive a Raft process on a shard.
+    pub fn get_driver(&self, shard_id: ShardId) -> RaftDriver {
         RaftDriver {
-            lane_id,
+            shard_id,
             self_node_id: self.self_node_id.clone(),
             connection_cache: self.cache.clone(),
         }
     }
 
-    /// Attach a Raft process to a lane.
-    pub fn attach_process(&self, lane_id: LaneId, p: RaftProcess) {
-        self.process.write().insert(lane_id, Arc::new(p));
+    /// Attach a Raft process to a shard.
+    pub fn attach_process(&self, shard_id: ShardId, p: RaftProcess) {
+        self.process.write().insert(shard_id, Arc::new(p));
     }
 
-    /// Detach a Raft process from a lane.
-    pub fn detach_process(&self, lane_id: LaneId) {
-        self.process.write().remove(&lane_id);
+    /// Detach a Raft process from a shard.
+    pub fn detach_process(&self, shard_id: ShardId) {
+        self.process.write().remove(&shard_id);
     }
 
-    pub(crate) fn get_process(&self, lane_id: LaneId) -> Option<Arc<RaftProcess>> {
-        self.process.read().get(&lane_id).cloned()
+    pub(crate) fn get_process(&self, shard_id: ShardId) -> Option<Arc<RaftProcess>> {
+        self.process.read().get(&shard_id).cloned()
     }
 }
 
 /// `RaftDriver` is a context to drive a `RaftProcess`.
 #[derive(Clone)]
 pub struct RaftDriver {
-    lane_id: LaneId,
+    shard_id: ShardId,
     self_node_id: NodeId,
     connection_cache: moka::sync::Cache<NodeId, RaftConnection>,
 }
@@ -66,6 +66,6 @@ impl RaftDriver {
         let conn: RaftConnection = self.connection_cache.get_with(dest_node_id.clone(), || {
             RaftConnection::new(self.self_node_id.clone(), dest_node_id.clone())
         });
-        Communicator::new(conn, self.lane_id)
+        Communicator::new(conn, self.shard_id)
     }
 }

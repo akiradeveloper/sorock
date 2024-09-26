@@ -49,5 +49,5 @@ impl NodeId {
     }
 }
 
-/// Identifier of Lane.
-pub type LaneId = u32;
+/// Identifier of Shard.
+pub type ShardId = u32;

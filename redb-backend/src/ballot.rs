@@ -37,8 +37,8 @@ pub struct BallotStore {
 }
 
 impl BallotStore {
-    pub fn new(db: Arc<Database>, lane_id: u32) -> Result<Self> {
-        let space = format!("ballot-{lane_id}");
+    pub fn new(db: Arc<Database>, shard_id: u32) -> Result<Self> {
+        let space = format!("ballot-{shard_id}");
 
         // Insert the initial value if not exists.
         let tx = db.begin_write()?;

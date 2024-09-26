@@ -23,9 +23,9 @@ impl Backend {
         Self { db, tx }
     }
 
-    pub fn get(&self, lane_id: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
-        let log = log::LogStore::new(self.db.clone(), lane_id, self.tx.clone())?;
-        let ballot = ballot::BallotStore::new(self.db.clone(), lane_id)?;
+    pub fn get(&self, shard_id: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
+        let log = log::LogStore::new(self.db.clone(), shard_id, self.tx.clone())?;
+        let ballot = ballot::BallotStore::new(self.db.clone(), shard_id)?;
         Ok((log, ballot))
     }
 }

@@ -7,12 +7,12 @@ pub struct Cluster {
 }
 impl Cluster {
     /// Create `n` nodes and connect them to a network.
-    pub async fn new(n: u8, n_lanes: u32) -> Result<Self> {
+    pub async fn new(n: u8, n_shards: u32) -> Result<Self> {
         ensure!(n > 0);
-        ensure!(n_lanes > 0);
+        ensure!(n_shards > 0);
         let mut env = Env::new();
         for id in 0..n {
-            env.add_node(id, n_lanes);
+            env.add_node(id, n_shards);
             env.check_connectivity(0).await?;
         }
         Ok(Self { env })
@@ -34,29 +34,29 @@ impl Cluster {
     }
 
     /// Request node `to` to add a node `id`.
-    pub async fn add_server(&self, lane_id: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn add_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(lolraft::client::AddServerRequest {
-                lane_id,
+                shard_id,
                 server_id: self.env.address(id).to_string(),
             })
             .await?;
         // Make sure the newly added server knows the current leader.
-        self.user(id).fetch_add(lane_id, 0).await?;
+        self.user(id).fetch_add(shard_id, 0).await?;
         Ok(())
     }
 
     /// Request node `to` to remove a node `id`.
-    pub async fn remove_server(&self, lane_id: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn remove_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(lolraft::client::RemoveServerRequest {
-                lane_id,
+                shard_id,
                 server_id: self.env.address(id).to_string(),
             })
             .await?;
         eprintln!("removed node(id={id})");
         // Make sure consensus can be made after removing the server.
-        self.user(to).fetch_add(lane_id, 0).await?;
+        self.user(to).fetch_add(shard_id, 0).await?;
         Ok(())
     }
 }

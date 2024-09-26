@@ -13,7 +13,7 @@ A Multi-Raft implementation in Rust language.
 
 ## Features
 
-![スクリーンショット 2024-03-11 7 54 06](https://github.com/akiradeveloper/lolraft/assets/785824/ea538adc-54a1-4a86-9712-1cd98da00958)
+![](doc/src/images/multi-raft.png)
 
 - Implements all core [Raft](https://raft.github.io/) features for production use.
 - Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.

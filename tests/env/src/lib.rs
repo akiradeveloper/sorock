@@ -32,13 +32,13 @@ impl Node {
                 redb_backend::Backend::new(db)
             };
 
-            for lane_id in 0..n_lanes {
-                let (log, ballot) = db.get(lane_id).unwrap();
-                let driver = node.get_driver(lane_id);
+            for shard_id in 0..n_lanes {
+                let (log, ballot) = db.get(shard_id).unwrap();
+                let driver = node.get_driver(shard_id);
                 let process = testapp::raft_process::new(log, ballot, driver)
                     .await
                     .unwrap();
-                node.attach_process(lane_id, process);
+                node.attach_process(shard_id, process);
             }
 
             let raft_svc = lolraft::raft_service::new(node)

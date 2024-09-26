@@ -13,7 +13,7 @@ You can send a R/W command to the cluster with this API.
 
 ```proto
 message WriteRequest {
-  uint32 lane_id = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
   string request_id = 3;
 }
@@ -38,7 +38,7 @@ You can send a R/O command to the cluster with the following API.
 
 ```proto
 message ReadRequest {
-  uint32 lane_id = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
 }
 ```

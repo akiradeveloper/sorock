@@ -31,6 +31,6 @@ For these problems, I will take the second approach.
 
 lolraft implements **in-process multi-raft**.
 As the name implies, lolraft allows you to place multiple **Raft processes** in a single gRPC server process.
-These Raft processes can form a Raft cluster on independent **lanes**.
+These Raft processes can form a Raft cluster on independent **shards**.
 
 ![](images/multi-raft.png)
