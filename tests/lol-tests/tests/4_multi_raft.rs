@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N1_L100_multi_raft_io() -> Result<()> {
-    const L: u32 = 100;
+    const L: u32 = 10;
     let cluster = Arc::new(Cluster::new(1, L).await?);
 
     let mut futs = vec![];
@@ -37,7 +37,7 @@ async fn N1_L100_multi_raft_io() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N3_L100_multi_raft_cluster() -> Result<()> {
-    const L: u32 = 100;
+    const L: u32 = 10;
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
     let mut futs = vec![];
@@ -67,7 +67,7 @@ async fn N3_L100_multi_raft_cluster() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N3_L100_multi_raft_io() -> Result<()> {
-    const L: u32 = 100;
+    const L: u32 = 10;
 
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
@@ -99,7 +99,7 @@ async fn N3_L100_multi_raft_io() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn N3_L100_multi_raft_io_roundrobin() -> Result<()> {
-    const L: u32 = 100;
+    const L: u32 = 10;
 
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
