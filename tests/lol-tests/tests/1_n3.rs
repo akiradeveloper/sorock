@@ -54,7 +54,7 @@ async fn n3_par_write() -> Result<()> {
     }
     futures::future::try_join_all(futs).await?;
 
-    // let expected = cluster.user(1).read(0).await?;
+    let expected = cluster.user(1).read(0).await?;
     // assert_eq!(expected, N);
 
     Ok(())
