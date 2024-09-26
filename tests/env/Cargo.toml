@@ -16,7 +16,7 @@ tracing.workspace = true
 tracing-subscriber = "0.3.18"
 
 redb-backend.workspace = true
-lolraft.workspace = true
+lol.workspace = true
 testapp = { path = "../testapp" }
 
 [dev-dependencies]

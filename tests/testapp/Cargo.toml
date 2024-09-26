@@ -20,7 +20,7 @@ tonic = { workspace = true, features = ["zstd"] }
 tracing.workspace = true
 uuid = "1.5"
 
-lolraft.workspace = true
+lol.workspace = true
 redb-backend.workspace = true
 
 [build-dependencies]

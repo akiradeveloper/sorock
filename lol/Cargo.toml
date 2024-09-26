@@ -1,11 +1,11 @@
 [package]
-name = "lolraft"
+name = "lol"
 version = "0.10.2"
 authors = ["Akira Hayakawa <ruby.wktk@gmail.com>"]
 edition = "2021"
 license = "MIT"
 description = "A Multi-Raft implementation in Rust language."
-repository = "https://github.com/akiradeveloper/lolraft"
+repository = "https://github.com/akiradeveloper/lol"
 readme = "../README.md"
 categories = ["algorithms"]
 keywords = ["raft"]

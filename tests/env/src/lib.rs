@@ -24,7 +24,7 @@ impl Node {
                 let address = format!("http://127.0.0.1:{port}");
                 address.parse().unwrap()
             };
-            let node = lolraft::RaftNode::new(node_id);
+            let node = lol::RaftNode::new(node_id);
 
             let db = {
                 let mem = redb::backends::InMemoryBackend::new();
@@ -41,10 +41,10 @@ impl Node {
                 node.attach_process(shard_id, process);
             }
 
-            let raft_svc = lolraft::raft_service::new(node)
+            let raft_svc = lol::raft_service::new(node)
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
-            let reflection_svc = lolraft::reflection_service::new();
+            let reflection_svc = lol::reflection_service::new();
             let ping_svc = testapp::ping_app::new_service();
 
             let socket = format!("127.0.0.1:{port}").parse().unwrap();

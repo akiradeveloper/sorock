@@ -6,7 +6,7 @@ mod value {
     #[derive(serde::Deserialize, serde::Serialize)]
     struct OnDiskStruct {
         term: u64,
-        voted_for: Option<lolraft::NodeId>,
+        voted_for: Option<lol::NodeId>,
     }
 
     pub fn ser(x: Ballot) -> Vec<u8> {

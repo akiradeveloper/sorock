@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use lolraft::process::*;
+use lol::process::*;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use std::sync::Arc;
 

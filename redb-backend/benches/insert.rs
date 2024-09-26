@@ -1,6 +1,6 @@
 #![feature(test)]
 
-use lolraft::process::{Clock, Entry, RaftLogStore};
+use lol::process::{Clock, Entry, RaftLogStore};
 
 extern crate test;
 
