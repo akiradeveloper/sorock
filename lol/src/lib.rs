@@ -8,6 +8,7 @@ mod error;
 mod node;
 pub mod raft_service;
 use error::Error;
+pub mod backend;
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
