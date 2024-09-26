@@ -126,7 +126,7 @@ impl Env {
     }
 
     pub fn remove_node(&mut self, id: u8) {
-        if let Some(node) = self.nodes.remove(&id) {
+        if let Some(_node) = self.nodes.remove(&id) {
             // node is dropped
         }
     }

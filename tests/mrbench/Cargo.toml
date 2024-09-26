@@ -7,8 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 clap = { version = "4.5.18", features = ["derive"] }
 futures = "0.3"
+humantime = "2.1.0"
 tokio = { workspace = true, features = ["full"] }
 
 lol-tests = { path = "../lol-tests" }
-humantime-serde = "1.1.1"
-humantime = "2.1.0"
