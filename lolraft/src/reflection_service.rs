@@ -6,7 +6,7 @@ const FILE_DESCRIPTOR_SET: &[u8] = include_bytes!("generated/lolraft_descriptor.
 pub fn new() -> ServerReflectionServer<impl ServerReflection> {
     let svc = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
-        .build()
+        .build_v1()
         .unwrap();
 
     svc
