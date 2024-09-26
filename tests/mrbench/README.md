@@ -8,9 +8,9 @@ mrbench is a benchmark program for lol.
 cluster = create_cluster(num_nodes, num_shards)
 while elapsed < du:
   io_batch = []
-  for i in [0, num_shards)
-    io_batch <- num_batch_writes * cluster[0].shard[i].write(io_size)
-    io_batch <- num_batch_reads * cluster[0].shard[i].read()
+  for shard_id in [0, num_shards)
+    io_batch <- num_batch_writes * cluster[0].shard[shard_id].write(io_size)
+    io_batch <- num_batch_reads * cluster[0].shard[shard_id].read()
   par_execute(io_batch)
 ```
 
@@ -27,4 +27,4 @@ while elapsed < du:
 | du (t) | 1s | 500ms | IO duration |
 | n-batch-writes (w) | 1 | 30 | Number of writes in a IO batch |
 | n-batch-reads (r) | 1 | 70 | Number of reads in a IO batch |
-| io_-ize | 1 | 1024 | Write IO size in B |
+| io-size | 1 | 1024 | Write IO size in B |
