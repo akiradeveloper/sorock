@@ -134,7 +134,7 @@ pub struct AddServerRequest {
     #[prost(string, tag = "2")]
     pub server_id: ::prost::alloc::string::String,
 }
-/// Request to remove a Raft process with `server_id` from a lane.
+/// Request to remove a Raft process with `server_id` from a shard.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoveServerRequest {
     #[prost(uint32, tag = "1")]

@@ -13,7 +13,7 @@ struct Node {
     abort_tx0: Option<tokio::sync::oneshot::Sender<()>>,
 }
 impl Node {
-    pub fn new(id: u8, port: u16, n_lanes: u32) -> Result<Self> {
+    pub fn new(id: u8, port: u16, n_shards: u32) -> Result<Self> {
         let nd_tag = format!("ND{port}>");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -32,7 +32,7 @@ impl Node {
                 redb_backend::Backend::new(db)
             };
 
-            for shard_id in 0..n_lanes {
+            for shard_id in 0..n_shards {
                 let (log, ballot) = db.get(shard_id).unwrap();
                 let driver = node.get_driver(shard_id);
                 let process = testapp::raft_process::new(log, ballot, driver)
@@ -115,9 +115,9 @@ impl Env {
         }
     }
 
-    pub fn add_node(&mut self, id: u8, n_lanes: u32) {
+    pub fn add_node(&mut self, id: u8, n_shards: u32) {
         let free_port = port_check::free_local_ipv4_port().unwrap();
-        let node = Node::new(id, free_port, n_lanes).unwrap();
+        let node = Node::new(id, free_port, n_shards).unwrap();
         port_check::is_port_reachable_with_timeout(
             node.address().to_string(),
             Duration::from_secs(5),

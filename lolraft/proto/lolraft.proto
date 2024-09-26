@@ -95,7 +95,7 @@ message AddServerRequest {
   string server_id = 2;
 }
 
-// Request to remove a Raft process with `server_id` from a lane.
+// Request to remove a Raft process with `server_id` from a shard.
 message RemoveServerRequest {
   uint32 shard_id = 1;
   string server_id = 2;
