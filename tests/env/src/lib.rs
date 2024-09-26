@@ -29,7 +29,7 @@ impl Node {
             let db = {
                 let mem = redb::backends::InMemoryBackend::new();
                 let db = redb::Database::builder().create_with_backend(mem).unwrap();
-                lol::backend::Backend::new(db)
+                lol::backends::redb::Backend::new(db)
             };
 
             for shard_id in 0..n_shards {
