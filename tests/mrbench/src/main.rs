@@ -14,9 +14,11 @@ struct Opts {
     #[clap(long="du", short='t', value_parser = humantime::parse_duration, default_value = "1s")]
     io_duration: Duration,
     #[clap(long, short = 'w', default_value_t = 1)]
-    n_par_writes: u32,
+    n_batch_writes: u32,
     #[clap(long, short = 'r', default_value_t = 1)]
-    n_par_reads: u32,
+    n_batch_reads: u32,
+    #[clap(long, default_value_t = 1)]
+    io_size: usize,
 }
 
 #[tokio::main]
@@ -49,11 +51,11 @@ async fn main() -> anyhow::Result<()> {
         let fail_r = Arc::new(AtomicU64::new(0));
         let mut futs = vec![];
         for shard_id in 0..opts.num_shards {
-            for _ in 0..opts.n_par_writes {
+            for _ in 0..opts.n_batch_writes {
                 let error_counter = fail_w.clone();
                 let mut cli = cluster.user(0);
                 let fut = async move {
-                    if let Err(_) = cli.fetch_add(shard_id, 1).await {
+                    if let Err(_) = cli.fetch_add(shard_id, opts.io_size as u64).await {
                         error_counter.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -62,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         for shard_id in 0..opts.num_shards {
-            for _ in 0..opts.n_par_reads {
+            for _ in 0..opts.n_batch_reads {
                 let error_counter = fail_r.clone();
                 let cli = cluster.user(0);
                 let fut = async move {
