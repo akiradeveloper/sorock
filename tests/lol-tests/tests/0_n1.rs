@@ -5,7 +5,7 @@ use serial_test::serial;
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_cluster() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
 
     Ok(())
@@ -14,7 +14,7 @@ async fn n1_cluster() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_write() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
     cluster.add_server(0, 0, 0).await?;
 
     let mut cli = cluster.user(0);

@@ -6,10 +6,10 @@ extern crate test;
 
 /// n nodes, m parallel
 fn do_bench(n: u8, m: u16, b: &mut test::Bencher) {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
 
     let cluster = rt.block_on(async {
-        let mut cluster = Cluster::new(n, 1).await.unwrap();
+        let cluster = Cluster::new(n, 1).await.unwrap();
         for i in 0..n {
             cluster.add_server(0, 0, i).await.unwrap();
         }
@@ -24,10 +24,6 @@ fn do_bench(n: u8, m: u16, b: &mut test::Bencher) {
             futs.push(fut);
         }
         rt.block_on(futures::future::try_join_all(futs)).unwrap();
-    });
-
-    rt.block_on(async {
-        drop(cluster);
     });
 }
 
