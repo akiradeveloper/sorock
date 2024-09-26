@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>lolraft documentation</title>
+        <title>lol documentation</title>
         <meta name="robots" content="noindex">
 
 
@@ -144,7 +144,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">lolraft documentation</h1>
+                    <h1 class="menu-title">lol documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
@@ -201,8 +201,8 @@ Another problem is that shards can't share the resources efficiently.
 In the implementation of a key-value store, the embedded datastore should be shared among the shards
 for efficient I/O like write batching.
 For these problems, I will take the second approach.</p>
-<p>lolraft implements <strong>in-process multi-raft</strong>.
-As the name implies, lolraft allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
+<p>lol implements <strong>in-process multi-raft</strong>.
+As the name implies, lol allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
 These Raft processes can form a Raft cluster on independent <strong>shards</strong>.</p>
 <p><img src="images/multi-raft.png" alt="" /></p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="heartbeat-multiplexing"><a class="header" href="#heartbeat-multiplexing">Heartbeat Multiplexing</a></h1>
@@ -299,7 +299,7 @@ the reduction rate is 150.</p>
 <p>The core of multi-raft is Raft process.
 Each multi-raft server has one or more Raft processes.</p>
 <p>To implement multi-raft,
-lolraft implements Raft process as it is agnostic to
+lol implements Raft process as it is agnostic to
 detailed node communications through gRPC.
 Since the Raft process doesn't know about the IO,
 we call it <strong>Pure Raft</strong>.</p>
@@ -351,7 +351,7 @@ exists in the snapshot repository. 52 to 55 are applied.
 56 or later are not applied yet. They are either uncommitted or committed.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="client-interaction"><a class="header" href="#client-interaction">Client Interaction</a></h1>
 <p>You can send application-defined commands to the Raft cluster.</p>
-<p>lolraft distinguishes the command into two types: read-write and read-only.
+<p>lol distinguishes the command into two types: read-write and read-only.
 The read-only command is called <strong>query</strong> and queries can be processed through the optimized path.</p>
 <h2 id="rw-commnand"><a class="header" href="#rw-commnand">R/W commnand</a></h2>
 <p>R/W command is a normal application command that is inserted into the log to be applied later.</p>
@@ -384,7 +384,7 @@ commit index at query time is applied. This is called <strong>read_index</strong
 <h2 id="single-server-change-approach"><a class="header" href="#single-server-change-approach">Single server change approach</a></h2>
 <p>There are two approaches to membership change.
 One is by joint consensus and the other is what is called <strong>single server change approach</strong>.
-lolraft implements the second one.</p>
+lol implements the second one.</p>
 <p>This approach exploits the log replication mechanism in membership change
 and therefore can be implemented as an extension of the normal log replication
 by defining AddServer and RemoveServer commands.
@@ -410,7 +410,7 @@ the node tries to form a new cluster with itself and immediately becomes a leade
 <p>Raft is a leader-based consensus algorithm.
 Only a single leader can exist in the cluster at a time and
 all commands are directed to the leader.</p>
-<p>In lolraft, if the receiving Raft process isn't the leader,
+<p>In lol, if the receiving Raft process isn't the leader,
 the command is redirected to the leader.</p>
 <h2 id="adaptive-leader-failure-detection"><a class="header" href="#adaptive-leader-failure-detection">Adaptive leader failure detection</a></h2>
 <p>Detecting the leader's failure is a very important issue in Raft algorithm.
@@ -420,7 +420,7 @@ However, this approach requires the heartbeat interval and the timeout duration
 to be set properly before deployment. This brings another complexity.
 Not only that, these times can't be fixed to a single value when
 the distance between nodes is heterogeneous such as geo-distributed environment.</p>
-<p>To solve this problem, lolraft uses an adaptive failure detection algorithm called
+<p>To solve this problem, lol uses an adaptive failure detection algorithm called
 <strong>Phi accrual failure detector</strong>.
 With this approach, users are free from setting the timing parameters.</p>
 <h2 id="leadership-transfer-extension"><a class="header" href="#leadership-transfer-extension">Leadership transfer extension</a></h2>
@@ -441,7 +441,7 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
 <p>The proto file should be compiled manually if you changed the proto file.
 In this case, please run <code>cargo run -p codegen</code>.</p>
 <h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
-<p>For testing, lolraft makes use of docker-compose.</p>
+<p>For testing, lol makes use of docker-compose.</p>
 <p>A docker image called testapp is built and the tests create some instances of it for testing: test code is running on dev container and it accesses the docker deamon in the host. In GHA, the tests are run in the same way.</p>
 <p>The log output in the stdout/stderr is collected into the log container. This is quite useful for debugging. So here is how you can run the tests for development.</p>
 <ul>
