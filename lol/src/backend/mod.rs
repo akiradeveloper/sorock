@@ -1,3 +1,5 @@
+use crate as lol;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use lol::process::*;

@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "codegen",
     "lol",
-    "redb-backend",
     "tests/*"
 ]
 
@@ -20,4 +19,3 @@ prost = "0.13"
 prost-build = "0.13"
 
 lol = { path = "lol" }
-redb-backend = { path = "redb-backend" }
