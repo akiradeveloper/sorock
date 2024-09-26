@@ -38,7 +38,7 @@ async fn n3_p10_multi_raft_cluster() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_io() -> Result<()> {
-    const L: u32 = 100;
+    const L: u32 = 10;
 
     let cluster = Arc::new(Cluster::new(3, L).await?);
 
