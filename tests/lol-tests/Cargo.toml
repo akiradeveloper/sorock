@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace = true
 
 env = { path = "../env" } 
-lolraft = { workspace = true }
+lol = { workspace = true }
 testapp = { path = "../testapp" }
 
 [dev-dependencies]

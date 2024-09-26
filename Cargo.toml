@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "codegen",
-    "lolraft",
+    "lol",
     "redb-backend",
     "tests/*"
 ]
@@ -19,5 +19,5 @@ tracing = "0.1.40"
 prost = "0.13"
 prost-build = "0.13"
 
-lolraft = { path = "lolraft" }
+lol = { path = "lol" }
 redb-backend = { path = "redb-backend" }

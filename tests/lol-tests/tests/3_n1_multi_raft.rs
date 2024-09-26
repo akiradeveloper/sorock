@@ -1,6 +1,6 @@
 use anyhow::Result;
+use lol::client::TimeoutNow;
 use lol_tests::*;
-use lolraft::client::TimeoutNow;
 use rand::Rng;
 use serial_test::serial;
 use std::sync::Arc;

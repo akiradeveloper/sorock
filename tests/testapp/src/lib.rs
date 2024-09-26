@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
-use lolraft::client::*;
+use lol::client::*;
 use tonic::codegen::CompressionEncoding;
 use tonic::transport::Channel;
 

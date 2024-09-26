@@ -4,7 +4,7 @@
 
 There are two approaches to membership change.
 One is by joint consensus and the other is what is called **single server change approach**.
-lolraft implements the second one.
+lol implements the second one.
 
 This approach exploits the log replication mechanism in membership change
 and therefore can be implemented as an extension of the normal log replication

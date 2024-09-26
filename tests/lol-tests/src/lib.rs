@@ -1,6 +1,6 @@
 use anyhow::{ensure, Result};
 use env::Env;
-use lolraft::client::RaftClient;
+use lol::client::RaftClient;
 
 pub struct Cluster {
     env: Env,
@@ -30,13 +30,13 @@ impl Cluster {
 
     pub fn admin(&self, id: u8) -> RaftClient {
         let conn = self.env.get_connection(id);
-        lolraft::client::RaftClient::new(conn)
+        lol::client::RaftClient::new(conn)
     }
 
     /// Request node `to` to add a node `id`.
     pub async fn add_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
-            .add_server(lolraft::client::AddServerRequest {
+            .add_server(lol::client::AddServerRequest {
                 shard_id,
                 server_id: self.env.address(id).to_string(),
             })
@@ -49,7 +49,7 @@ impl Cluster {
     /// Request node `to` to remove a node `id`.
     pub async fn remove_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
-            .remove_server(lolraft::client::RemoveServerRequest {
+            .remove_server(lol::client::RemoveServerRequest {
                 shard_id,
                 server_id: self.env.address(id).to_string(),
             })

@@ -4,21 +4,21 @@ fn main() {
     let root_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("lolraft");
+        .join("lol");
 
     let out_dir = root_dir.join("src/generated");
-    let file_descriptor_set_path = out_dir.join("lolraft_descriptor.bin");
-    let ifiles = [root_dir.join("proto/lolraft.proto")];
+    let file_descriptor_set_path = out_dir.join("lol_descriptor.bin");
+    let ifiles = [root_dir.join("proto/lol.proto")];
     let include_dirs = [root_dir.join("proto")];
 
     let mut config = prost_build::Config::new();
     config.bytes(&[
-        ".lolraft.WriteRequest.message",
-        ".lolraft.ReadRequest.message",
-        ".lolraft.Response.message",
-        ".lolraft.KernRequest.message",
-        ".lolraft.ReplicationStreamEntry.command",
-        ".lolraft.SnapshotChunk.data",
+        ".lol.WriteRequest.message",
+        ".lol.ReadRequest.message",
+        ".lol.Response.message",
+        ".lol.KernRequest.message",
+        ".lol.ReplicationStreamEntry.command",
+        ".lol.SnapshotChunk.data",
     ]);
 
     tonic_build::configure()

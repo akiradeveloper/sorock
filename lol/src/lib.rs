@@ -21,11 +21,11 @@ use tonic::transport::Uri;
 pub mod reflection_service;
 
 mod generated {
-    pub mod lolraft;
+    pub mod lol;
 }
 
 mod raft {
-    pub use super::generated::lolraft::*;
+    pub use super::generated::lol::*;
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 

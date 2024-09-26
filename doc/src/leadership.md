@@ -6,7 +6,7 @@ Raft is a leader-based consensus algorithm.
 Only a single leader can exist in the cluster at a time and
 all commands are directed to the leader.
 
-In lolraft, if the receiving Raft process isn't the leader,
+In lol, if the receiving Raft process isn't the leader,
 the command is redirected to the leader.
 
 ## Adaptive leader failure detection
@@ -19,7 +19,7 @@ to be set properly before deployment. This brings another complexity.
 Not only that, these times can't be fixed to a single value when
 the distance between nodes is heterogeneous such as geo-distributed environment.
 
-To solve this problem, lolraft uses an adaptive failure detection algorithm called
+To solve this problem, lol uses an adaptive failure detection algorithm called
 **Phi accrual failure detector**.
 With this approach, users are free from setting the timing parameters.
 

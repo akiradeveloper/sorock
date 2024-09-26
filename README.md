@@ -1,15 +1,15 @@
-# lolraft
+# lol
 
-[![Crates.io](https://img.shields.io/crates/v/lolraft.svg)](https://crates.io/crates/lolraft)
-[![API doc](https://docs.rs/lolraft/badge.svg)](https://docs.rs/lolraft)
-![CI](https://github.com/akiradeveloper/lolraft/actions/workflows/ci.yml/badge.svg)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lolraft/blob/master/LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/lol.svg)](https://crates.io/crates/lol)
+[![API doc](https://docs.rs/lol/badge.svg)](https://docs.rs/lol)
+![CI](https://github.com/akiradeveloper/lol/actions/workflows/ci.yml/badge.svg)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/lol/blob/master/LICENSE)
 
 A Multi-Raft implementation in Rust language.
 
-[Documentation](https://akiradeveloper.github.io/lolraft/)
+[Documentation](https://akiradeveloper.github.io/lol/)
 
-![146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2](https://github.com/akiradeveloper/lolraft/assets/785824/12a016fe-35a0-4d12-8ffa-955ef61b25b9)
+![146726060-63b12378-ecb7-49f9-8025-a65dbd37e9b2](https://github.com/akiradeveloper/lol/assets/785824/12a016fe-35a0-4d12-8ffa-955ef61b25b9)
 
 ## Features
 

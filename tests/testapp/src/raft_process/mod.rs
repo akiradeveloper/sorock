@@ -3,7 +3,7 @@ use super::*;
 use anyhow::ensure;
 use bytes::Bytes;
 use futures::TryStreamExt;
-use lolraft::process::*;
+use lol::process::*;
 use spin::RwLock;
 use std::collections::BTreeMap;
 
@@ -12,7 +12,7 @@ mod snapshot_io;
 pub async fn new(
     log: impl RaftLogStore,
     ballot: impl RaftBallotStore,
-    driver: lolraft::RaftDriver,
+    driver: lol::RaftDriver,
 ) -> Result<RaftProcess> {
     let app_main = AppMain::new();
     let process = RaftProcess::new(app_main, log, ballot, driver).await?;

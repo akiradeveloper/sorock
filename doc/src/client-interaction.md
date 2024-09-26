@@ -2,7 +2,7 @@
 
 You can send application-defined commands to the Raft cluster.
 
-lolraft distinguishes the command into two types: read-write and read-only.
+lol distinguishes the command into two types: read-write and read-only.
 The read-only command is called **query** and queries can be processed through the optimized path.
 
 ## R/W commnand
