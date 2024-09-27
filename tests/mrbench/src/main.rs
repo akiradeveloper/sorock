@@ -102,10 +102,12 @@ async fn main() -> anyhow::Result<()> {
 
         if !opts.no_compaction {
             let mut futs = vec![];
-            for shard_id in 0..opts.num_shards {
-                let cli = cluster.user(0);
-                let fut = async move { cli.make_snapshot(shard_id).await };
-                futs.push(fut);
+            for node_id in 0..opts.num_nodes {
+                for shard_id in 0..opts.num_shards {
+                    let cli = cluster.user(node_id);
+                    let fut = async move { cli.make_snapshot(shard_id).await };
+                    futs.push(fut);
+                }
             }
             if let Err(e) = futures::future::try_join_all(futs).await {
                 eprintln!("failed to make snapshot: {:?}", e);
