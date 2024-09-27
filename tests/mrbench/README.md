@@ -16,7 +16,7 @@ while elapsed < du:
 
 ## Example
 
-`mrbench -n 3 -p 10 -t 10s -w 10 -r 90 --io-size=1024`
+`mrbench -n 3 -p 10 -t 10s -w 10 -r 90 --io-size=1024 --enable-console`
 
 ## Options
 
@@ -28,3 +28,4 @@ while elapsed < du:
 | n-batch-writes (w) | 1 | 30 | Number of writes in a IO batch |
 | n-batch-reads (r) | 1 | 70 | Number of reads in a IO batch |
 | io-size | 1 | 1024 | Write IO size in B |
+| enable-console | false | | Enable tokio-console |

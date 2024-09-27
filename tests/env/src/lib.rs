@@ -96,18 +96,20 @@ pub struct Env {
     conn_cache: spin::Mutex<HashMap<u8, Channel>>,
 }
 impl Env {
-    pub fn new() -> Self {
+    pub fn new(with_logging: bool) -> Self {
         INIT.call_once(|| {
             // On terminating the tokio runtime,
             // flooding stack traces are printed and they are super noisy.
             // Until better idea is invented, we just suppress them.
             std::panic::set_hook(Box::new(|_info| {}));
 
-            let format = tracing_subscriber::fmt::format()
-                .with_target(false)
-                .with_thread_names(true)
-                .compact();
-            tracing_subscriber::fmt().event_format(format).init();
+            if with_logging {
+                let format = tracing_subscriber::fmt::format()
+                    .with_target(false)
+                    .with_thread_names(true)
+                    .compact();
+                tracing_subscriber::fmt().event_format(format).init();
+            }
         });
         Self {
             nodes: HashMap::new(),

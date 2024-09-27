@@ -2,20 +2,44 @@ use anyhow::{ensure, Result};
 use env::Env;
 use lol::client::RaftClient;
 
+pub struct Builder {
+    with_logging: bool,
+}
+impl Builder {
+    fn new() -> Self {
+        Self { with_logging: true }
+    }
+
+    pub fn with_logging(self, b: bool) -> Self {
+        Self {
+            with_logging: b,
+            ..self
+        }
+    }
+
+    pub async fn build(self, n: u8, p: u32) -> Result<Cluster> {
+        ensure!(n > 0);
+        ensure!(p > 0);
+        let mut env = Env::new(self.with_logging);
+        for id in 0..n {
+            env.add_node(id, p);
+            env.check_connectivity(0).await?;
+        }
+        Ok(Cluster { env })
+    }
+}
+
 pub struct Cluster {
     env: Env,
 }
 impl Cluster {
+    pub fn builder() -> Builder {
+        Builder::new()
+    }
+
     /// Create `n` nodes and connect them to a network.
     pub async fn new(n: u8, n_shards: u32) -> Result<Self> {
-        ensure!(n > 0);
-        ensure!(n_shards > 0);
-        let mut env = Env::new();
-        for id in 0..n {
-            env.add_node(id, n_shards);
-            env.check_connectivity(0).await?;
-        }
-        Ok(Self { env })
+        Self::builder().build(n, n_shards).await
     }
 
     pub fn env(&mut self) -> &mut Env {

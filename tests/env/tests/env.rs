@@ -4,7 +4,7 @@ use serial_test::serial;
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn create() -> Result<()> {
-    let mut env = env::Env::new();
+    let mut env = env::Env::new(true);
     env.add_node(0, 1);
     env.check_connectivity(0).await?;
     Ok(())
@@ -13,7 +13,7 @@ async fn create() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn create_remove() -> Result<()> {
-    let mut env = env::Env::new();
+    let mut env = env::Env::new(true);
     env.add_node(0, 1);
     env.check_connectivity(0).await?;
 
@@ -28,7 +28,7 @@ async fn create_remove() -> Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_loop() -> Result<()> {
-    let mut env = env::Env::new();
+    let mut env = env::Env::new(true);
     env.add_node(0, 1);
     env.check_connectivity(0).await?;
 
@@ -44,7 +44,7 @@ async fn panic_loop() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn drop_env() -> Result<()> {
     for _ in 0..10 {
-        let mut env = env::Env::new();
+        let mut env = env::Env::new(true);
         env.add_node(0, 1);
         env.check_connectivity(0).await?;
     }
