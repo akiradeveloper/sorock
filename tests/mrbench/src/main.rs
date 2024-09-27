@@ -21,6 +21,8 @@ struct Opts {
     io_size: usize,
     #[clap(long, default_value_t = false)]
     enable_console: bool,
+    #[clap(long, default_value_t = false)]
+    no_compaction: bool,
 }
 
 #[tokio::main]
@@ -97,6 +99,18 @@ async fn main() -> anyhow::Result<()> {
             "io done. {:?}. error=(w={error_w},r={error_r})",
             t.elapsed()
         );
+
+        if !opts.no_compaction {
+            let mut futs = vec![];
+            for shard_id in 0..opts.num_shards {
+                let cli = cluster.user(0);
+                let fut = async move { cli.make_snapshot(shard_id).await };
+                futs.push(fut);
+            }
+            if let Err(e) = futures::future::try_join_all(futs).await {
+                eprintln!("failed to make snapshot: {:?}", e);
+            }
+        }
     }
 
     eprintln!("done");
