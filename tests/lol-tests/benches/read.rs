@@ -9,7 +9,11 @@ fn do_bench(m: u16, b: &mut test::Bencher) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     let cluster = rt.block_on(async {
-        let cluster = Cluster::new(1, 1).await.unwrap();
+        let cluster = Cluster::builder()
+            .with_logging(false)
+            .build(1, 1)
+            .await
+            .unwrap();
         cluster.add_server(0, 0, 0).await.unwrap();
         cluster
     });
@@ -31,18 +35,18 @@ fn do_bench(m: u16, b: &mut test::Bencher) {
 }
 
 #[bench]
-fn query_1(b: &mut test::Bencher) {
+fn read_n1_par1(b: &mut test::Bencher) {
     do_bench(1, b);
 }
 #[bench]
-fn query_10(b: &mut test::Bencher) {
+fn read_n1_par10(b: &mut test::Bencher) {
     do_bench(10, b);
 }
 #[bench]
-fn query_100(b: &mut test::Bencher) {
+fn read_n1_par100(b: &mut test::Bencher) {
     do_bench(100, b);
 }
 #[bench]
-fn query_1000(b: &mut test::Bencher) {
+fn read_n1_par1000(b: &mut test::Bencher) {
     do_bench(1000, b);
 }

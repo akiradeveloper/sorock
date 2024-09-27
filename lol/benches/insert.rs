@@ -39,18 +39,18 @@ fn do_bench(n: usize, b: &mut test::Bencher) {
 }
 
 #[bench]
-fn insert_1(b: &mut test::Bencher) {
+fn insert_iosize1b(b: &mut test::Bencher) {
     do_bench(1, b);
 }
 #[bench]
-fn insert_100(b: &mut test::Bencher) {
+fn insert_iosize100b(b: &mut test::Bencher) {
     do_bench(100, b);
 }
 #[bench]
-fn insert_10k(b: &mut test::Bencher) {
+fn insert_iosize10kb(b: &mut test::Bencher) {
     do_bench(10000, b);
 }
 #[bench]
-fn insert_1m(b: &mut test::Bencher) {
+fn insert_iosize1mb(b: &mut test::Bencher) {
     do_bench(1000000, b);
 }

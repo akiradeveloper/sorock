@@ -19,6 +19,8 @@ struct Opts {
     n_batch_reads: u32,
     #[clap(long, default_value_t = 1)]
     io_size: usize,
+    #[clap(long, default_value_t = false)]
+    enable_console: bool,
 }
 
 #[tokio::main]
@@ -26,7 +28,17 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     dbg!(&opts);
 
-    let cluster = Arc::new(Cluster::new(opts.num_nodes, opts.num_shards).await?);
+    if opts.enable_console {
+        console_subscriber::init();
+    }
+
+    let cluster = {
+        let cluster = Cluster::builder()
+            .with_logging(false)
+            .build(opts.num_nodes, opts.num_shards)
+            .await?;
+        Arc::new(cluster)
+    };
 
     let t = Instant::now();
     let mut futs = vec![];

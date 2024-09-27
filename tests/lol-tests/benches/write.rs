@@ -9,7 +9,11 @@ fn do_bench(n: u8, m: u16, b: &mut test::Bencher) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     let cluster = rt.block_on(async {
-        let cluster = Cluster::new(n, 1).await.unwrap();
+        let cluster = Cluster::builder()
+            .with_logging(false)
+            .build(n, 1)
+            .await
+            .unwrap();
         for i in 0..n {
             cluster.add_server(0, 0, i).await.unwrap();
         }
@@ -28,26 +32,26 @@ fn do_bench(n: u8, m: u16, b: &mut test::Bencher) {
 }
 
 #[bench]
-fn commit_n1_m1(b: &mut test::Bencher) {
+fn write_n1_par1(b: &mut test::Bencher) {
     do_bench(1, 1, b);
 }
 #[bench]
-fn commit_n1_m10(b: &mut test::Bencher) {
+fn write_n1_par10(b: &mut test::Bencher) {
     do_bench(1, 10, b);
 }
 #[bench]
-fn commit_n1_m100(b: &mut test::Bencher) {
+fn write_n1_par100(b: &mut test::Bencher) {
     do_bench(1, 100, b);
 }
 #[bench]
-fn commit_n1_m1000(b: &mut test::Bencher) {
+fn write_n1_par1000(b: &mut test::Bencher) {
     do_bench(1, 1000, b);
 }
 #[bench]
-fn commit_n3_m1(b: &mut test::Bencher) {
+fn write_n3_par1(b: &mut test::Bencher) {
     do_bench(3, 1, b);
 }
 #[bench]
-fn commit_n3_m10(b: &mut test::Bencher) {
+fn write_n3_par10(b: &mut test::Bencher) {
     do_bench(3, 10, b);
 }
