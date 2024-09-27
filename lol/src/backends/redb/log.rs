@@ -136,7 +136,7 @@ impl RaftLogStore for LogStore {
         let tx = self.db.begin_write()?;
         {
             let mut tbl = tx.open_table(table_def(&self.space))?;
-            tbl.retain(|k, _| k >= i)?;
+            tbl.retain_in(..i, |_, _| false)?;
         }
         tx.commit()?;
         Ok(())
