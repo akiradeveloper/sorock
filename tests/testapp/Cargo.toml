@@ -24,6 +24,3 @@ lol.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true
-
-[profile.release]
-debug = true

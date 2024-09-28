@@ -19,3 +19,6 @@ prost = "0.13"
 prost-build = "0.13"
 
 lol = { path = "lol" }
+
+[profile.release]
+debug = true
