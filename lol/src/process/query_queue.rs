@@ -58,12 +58,11 @@ pub struct Processor {
 }
 impl Processor {
     /// Process the waiting queries up to `readable_index`.
-    pub fn process(&self, readable_index: Index) -> usize {
+    pub async fn process(&self, readable_index: Index) -> usize {
         let qs = self.inner.lock().pop(readable_index);
 
-        let mut n = 0;
+        let mut futs = vec![];
         for (_, q) in qs {
-            n += 1;
             let app = self.app.clone();
             let fut = async move {
                 // The `completion` of the failed queries are dropped
@@ -72,8 +71,10 @@ impl Processor {
                     q.user_completion.complete_with(resp).ok();
                 }
             };
-            tokio::spawn(fut);
+            futs.push(fut);
         }
+        let n = futs.len();
+        futures::future::join_all(futs).await;
 
         n
     }

@@ -10,7 +10,7 @@ struct Thread {
 impl Thread {
     async fn advance_once(&self) -> bool {
         let last_applied = self.command_log.user_pointer.load(Ordering::SeqCst);
-        self.query_queue.process(last_applied) > 0
+        self.query_queue.process(last_applied).await > 0
     }
 
     fn do_loop(self) -> ThreadHandle {
