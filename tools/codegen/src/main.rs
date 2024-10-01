@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 fn main() {
     let root_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
+        .parent().unwrap()
+        .parent().unwrap()
         .join("sorock");
 
     let out_dir = root_dir.join("src/generated");
