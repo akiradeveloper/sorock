@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Leadership - lol documentation</title>
+        <title>Leadership - sorock documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -143,7 +143,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">lol documentation</h1>
+                    <h1 class="menu-title">sorock documentation</h1>
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
@@ -180,7 +180,7 @@
 <p>Raft is a leader-based consensus algorithm.
 Only a single leader can exist in the cluster at a time and
 all commands are directed to the leader.</p>
-<p>In lol, if the receiving Raft process isn't the leader,
+<p>In sorock, if the receiving Raft process isn't the leader,
 the command is redirected to the leader.</p>
 <h2 id="adaptive-leader-failure-detection"><a class="header" href="#adaptive-leader-failure-detection">Adaptive leader failure detection</a></h2>
 <p>Detecting the leader's failure is a very important issue in Raft algorithm.
@@ -190,7 +190,7 @@ However, this approach requires the heartbeat interval and the timeout duration
 to be set properly before deployment. This brings another complexity.
 Not only that, these times can't be fixed to a single value when
 the distance between nodes is heterogeneous such as geo-distributed environment.</p>
-<p>To solve this problem, lol uses an adaptive failure detection algorithm called
+<p>To solve this problem, sorock uses an adaptive failure detection algorithm called
 <strong>Phi accrual failure detector</strong>.
 With this approach, users are free from setting the timing parameters.</p>
 <h2 id="leadership-transfer-extension"><a class="header" href="#leadership-transfer-extension">Leadership transfer extension</a></h2>
