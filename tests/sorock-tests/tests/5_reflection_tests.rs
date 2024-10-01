@@ -1,6 +1,6 @@
 use anyhow::Result;
-use lol_tests::*;
 use serial_test::serial;
+use sorock_tests::*;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]

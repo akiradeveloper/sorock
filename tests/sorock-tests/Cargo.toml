@@ -1,5 +1,5 @@
 [package]
-name = "lol-tests"
+name = "sorock-tests"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace = true
 
 env = { path = "../env" } 
-lol = { workspace = true }
+sorock = { workspace = true }
 testapp = { path = "../testapp" }
 
 [dev-dependencies]

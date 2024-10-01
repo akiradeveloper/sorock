@@ -15,7 +15,7 @@ tonic.workspace = true
 tracing.workspace = true
 tracing-subscriber = "0.3.18"
 
-lol.workspace = true
+sorock.workspace = true
 testapp = { path = "../testapp" }
 
 [dev-dependencies]

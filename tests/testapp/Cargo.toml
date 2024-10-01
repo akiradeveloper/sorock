@@ -20,7 +20,7 @@ tonic = { workspace = true, features = ["zstd"] }
 tracing.workspace = true
 uuid = "1.5"
 
-lol.workspace = true
+sorock.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

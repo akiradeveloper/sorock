@@ -152,13 +152,7 @@ pub struct TimeoutNow {
 }
 /// Generated client implementations.
 pub mod raft_client {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
@@ -249,14 +243,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/Write");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/Write");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "Write"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "Write"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn read(
@@ -267,14 +262,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/Read");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/Read");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "Read"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "Read"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn process_kern_request(
@@ -285,17 +281,18 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/lol.Raft/ProcessKernRequest",
+                "/sorock.Raft/ProcessKernRequest",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("lol.Raft", "ProcessKernRequest"));
+                .insert(GrpcMethod::new("sorock.Raft", "ProcessKernRequest"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn request_vote(
@@ -306,14 +303,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/RequestVote");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/RequestVote");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "RequestVote"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "RequestVote"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn add_server(
@@ -324,14 +322,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/AddServer");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/AddServer");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "AddServer"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "AddServer"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn remove_server(
@@ -342,14 +341,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/RemoveServer");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/RemoveServer");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "RemoveServer"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "RemoveServer"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn send_replication_stream(
@@ -365,17 +365,18 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/lol.Raft/SendReplicationStream",
+                "/sorock.Raft/SendReplicationStream",
             );
             let mut req = request.into_streaming_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("lol.Raft", "SendReplicationStream"));
+                .insert(GrpcMethod::new("sorock.Raft", "SendReplicationStream"));
             self.inner.client_streaming(req, path, codec).await
         }
         pub async fn get_snapshot(
@@ -389,14 +390,15 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/GetSnapshot");
+            let path = http::uri::PathAndQuery::from_static("/sorock.Raft/GetSnapshot");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "GetSnapshot"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "GetSnapshot"));
             self.inner.server_streaming(req, path, codec).await
         }
         pub async fn send_heartbeat(
@@ -407,14 +409,17 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/SendHeartbeat");
+            let path = http::uri::PathAndQuery::from_static(
+                "/sorock.Raft/SendHeartbeat",
+            );
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "SendHeartbeat"));
+            req.extensions_mut().insert(GrpcMethod::new("sorock.Raft", "SendHeartbeat"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn send_timeout_now(
@@ -425,27 +430,25 @@ pub mod raft_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/lol.Raft/SendTimeoutNow");
+            let path = http::uri::PathAndQuery::from_static(
+                "/sorock.Raft/SendTimeoutNow",
+            );
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("lol.Raft", "SendTimeoutNow"));
+            req.extensions_mut()
+                .insert(GrpcMethod::new("sorock.Raft", "SendTimeoutNow"));
             self.inner.unary(req, path, codec).await
         }
     }
 }
 /// Generated server implementations.
 pub mod raft_server {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with RaftServer.
     #[async_trait]
@@ -579,7 +582,7 @@ pub mod raft_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/lol.Raft/Write" => {
+                "/sorock.Raft/Write" => {
                     #[allow(non_camel_case_types)]
                     struct WriteSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::WriteRequest>
@@ -622,7 +625,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/Read" => {
+                "/sorock.Raft/Read" => {
                     #[allow(non_camel_case_types)]
                     struct ReadSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::ReadRequest>
@@ -665,7 +668,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/ProcessKernRequest" => {
+                "/sorock.Raft/ProcessKernRequest" => {
                     #[allow(non_camel_case_types)]
                     struct ProcessKernRequestSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::KernRequest>
@@ -708,7 +711,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/RequestVote" => {
+                "/sorock.Raft/RequestVote" => {
                     #[allow(non_camel_case_types)]
                     struct RequestVoteSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::VoteRequest>
@@ -751,7 +754,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/AddServer" => {
+                "/sorock.Raft/AddServer" => {
                     #[allow(non_camel_case_types)]
                     struct AddServerSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::AddServerRequest>
@@ -794,7 +797,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/RemoveServer" => {
+                "/sorock.Raft/RemoveServer" => {
                     #[allow(non_camel_case_types)]
                     struct RemoveServerSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::RemoveServerRequest>
@@ -837,7 +840,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/SendReplicationStream" => {
+                "/sorock.Raft/SendReplicationStream" => {
                     #[allow(non_camel_case_types)]
                     struct SendReplicationStreamSvc<T: Raft>(pub Arc<T>);
                     impl<
@@ -885,7 +888,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/GetSnapshot" => {
+                "/sorock.Raft/GetSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct GetSnapshotSvc<T: Raft>(pub Arc<T>);
                     impl<
@@ -931,7 +934,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/SendHeartbeat" => {
+                "/sorock.Raft/SendHeartbeat" => {
                     #[allow(non_camel_case_types)]
                     struct SendHeartbeatSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::Heartbeat>
@@ -974,7 +977,7 @@ pub mod raft_server {
                     };
                     Box::pin(fut)
                 }
-                "/lol.Raft/SendTimeoutNow" => {
+                "/sorock.Raft/SendTimeoutNow" => {
                     #[allow(non_camel_case_types)]
                     struct SendTimeoutNowSvc<T: Raft>(pub Arc<T>);
                     impl<T: Raft> tonic::server::UnaryService<super::TimeoutNow>
@@ -1019,19 +1022,17 @@ pub mod raft_server {
                 }
                 _ => {
                     Box::pin(async move {
-                        let mut response = http::Response::new(empty_body());
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", tonic::Code::Unimplemented as i32)
+                                .header(
+                                    http::header::CONTENT_TYPE,
+                                    tonic::metadata::GRPC_CONTENT_TYPE,
+                                )
+                                .body(empty_body())
+                                .unwrap(),
+                        )
                     })
                 }
             }
@@ -1050,7 +1051,7 @@ pub mod raft_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "lol.Raft";
+    pub const SERVICE_NAME: &str = "sorock.Raft";
     impl<T> tonic::server::NamedService for RaftServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }

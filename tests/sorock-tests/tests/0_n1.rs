@@ -1,6 +1,6 @@
 use anyhow::Result;
-use lol_tests::*;
 use serial_test::serial;
+use sorock_tests::*;
 
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
@@ -67,9 +67,9 @@ async fn n1_exec_once() -> Result<()> {
     cluster.add_server(0, 0, 0).await?;
 
     let chan = cluster.env().get_connection(0);
-    let cli = lol::client::RaftClient::new(chan);
+    let cli = sorock::client::RaftClient::new(chan);
 
-    let req = lol::client::WriteRequest {
+    let req = sorock::client::WriteRequest {
         shard_id: 0,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),

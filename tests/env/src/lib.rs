@@ -24,12 +24,12 @@ impl Node {
                 let address = format!("http://127.0.0.1:{port}");
                 address.parse().unwrap()
             };
-            let node = lol::RaftNode::new(node_id);
+            let node = sorock::RaftNode::new(node_id);
 
             let db = {
                 let mem = redb::backends::InMemoryBackend::new();
                 let db = redb::Database::builder().create_with_backend(mem).unwrap();
-                lol::backends::redb::Backend::new(db)
+                sorock::backends::redb::Backend::new(db)
             };
 
             for shard_id in 0..n_shards {
@@ -41,10 +41,10 @@ impl Node {
                 node.attach_process(shard_id, process);
             }
 
-            let raft_svc = lol::raft_service::new(node)
+            let raft_svc = sorock::raft_service::new(node)
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
-            let reflection_svc = lol::reflection_service::new();
+            let reflection_svc = sorock::reflection_service::new();
             let ping_svc = testapp::ping_app::new_service();
 
             let socket = format!("127.0.0.1:{port}").parse().unwrap();

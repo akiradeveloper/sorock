@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "codegen",
-    "lol",
+    "sorock",
     "tests/*"
 ]
 
@@ -18,7 +18,7 @@ tracing = "0.1.40"
 prost = "0.13"
 prost-build = "0.13"
 
-lol = { path = "lol" }
+sorock = { path = "sorock" }
 
 [profile.release]
 debug = true

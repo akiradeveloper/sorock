@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package lol;
+package sorock;
 
 // Update request to the `RaftApp`.
 // This type of request is serialized in the log and processed sequentially.
