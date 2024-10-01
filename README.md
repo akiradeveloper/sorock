@@ -3,6 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/sorock.svg)](https://crates.io/crates/sorock)
 [![API doc](https://docs.rs/sorock/badge.svg)](https://docs.rs/sorock)
 ![CI](https://github.com/akiradeveloper/sorock/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/akiradeveloper/sorock/graph/badge.svg?token=QOUNE81WNS)](https://codecov.io/gh/akiradeveloper/sorock)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/sorock/blob/master/LICENSE)
 
 A Multi-Raft implementation in Rust language.
