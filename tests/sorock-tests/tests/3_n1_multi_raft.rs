@@ -1,8 +1,8 @@
 use anyhow::Result;
-use lol::client::TimeoutNow;
-use lol_tests::*;
 use rand::Rng;
 use serial_test::serial;
+use sorock::client::TimeoutNow;
+use sorock_tests::*;
 use std::sync::Arc;
 
 #[serial]

@@ -29,8 +29,8 @@ In the implementation of a key-value store, the embedded datastore should be sha
 for efficient I/O like write batching.
 For these problems, I will take the second approach.
 
-lol implements **in-process multi-raft**.
-As the name implies, lol allows you to place multiple **Raft processes** in a single gRPC server process.
+sorock implements **in-process multi-raft**.
+As the name implies, sorock allows you to place multiple **Raft processes** in a single gRPC server process.
 These Raft processes can form a Raft cluster on independent **shards**.
 
 ![](images/multi-raft.png)

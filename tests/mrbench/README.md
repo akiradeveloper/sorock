@@ -1,6 +1,6 @@
 # Mr. Bench
 
-mrbench is a benchmark program for lol.
+mrbench is a benchmark program for sorock.
 
 ## Pseudo Code
 

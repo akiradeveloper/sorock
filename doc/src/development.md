@@ -7,7 +7,7 @@ In this case, please run `cargo run -p codegen`.
 
 ## Testing
 
-For testing, lol makes use of docker-compose.
+For testing, sorock makes use of docker-compose.
 
 A docker image called testapp is built and the tests create some instances of it for testing: test code is running on dev container and it accesses the docker deamon in the host. In GHA, the tests are run in the same way.
 

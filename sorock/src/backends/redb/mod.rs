@@ -1,9 +1,9 @@
-use crate as lol;
+use crate as sorock;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use lol::process::*;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use sorock::process::*;
 use std::sync::Arc;
 
 mod ballot;

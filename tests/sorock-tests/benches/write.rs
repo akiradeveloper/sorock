@@ -1,6 +1,6 @@
 #![feature(test)]
 
-use lol_tests::*;
+use sorock_tests::*;
 
 extern crate test;
 

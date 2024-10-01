@@ -4,7 +4,7 @@ The core of multi-raft is Raft process.
 Each multi-raft server has one or more Raft processes.
 
 To implement multi-raft,
-lol implements Raft process as it is agnostic to
+sorock implements Raft process as it is agnostic to
 detailed node communications through gRPC.
 Since the Raft process doesn't know about the IO,
 we call it **Pure Raft**.

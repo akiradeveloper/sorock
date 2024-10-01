@@ -1,6 +1,6 @@
 #![feature(test)]
 
-use lol::process::{Clock, Entry, RaftLogStore};
+use sorock::process::{Clock, Entry, RaftLogStore};
 
 extern crate test;
 
@@ -18,7 +18,7 @@ fn do_bench(n: usize, b: &mut test::Bencher) {
 
     let mem = redb::backends::InMemoryBackend::new();
     let db = redb::Database::builder().create_with_backend(mem).unwrap();
-    let db = lol::backends::redb::Backend::new(db);
+    let db = sorock::backends::redb::Backend::new(db);
     let (log, _) = db.get(0).unwrap();
 
     let mut i = 0;

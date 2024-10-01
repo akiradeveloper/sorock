@@ -1,6 +1,6 @@
 use clap::Parser;
 use futures::future::FutureExt;
-use lol_tests::*;
+use sorock_tests::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
