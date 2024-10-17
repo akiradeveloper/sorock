@@ -5,6 +5,7 @@ pub mod process;
 pub mod client;
 mod communicator;
 mod error;
+pub mod monitor_service;
 mod node;
 pub mod raft_service;
 use error::Error;
@@ -23,6 +24,7 @@ pub mod reflection_service;
 
 mod generated {
     pub mod sorock;
+    pub mod sorock_monitor;
 }
 
 mod raft {
