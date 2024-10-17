@@ -34,13 +34,16 @@ async fn main() -> anyhow::Result<()> {
         console_subscriber::init();
     }
 
-    let cluster = {
-        let cluster = Cluster::builder()
-            .with_logging(false)
-            .build(opts.num_nodes, opts.num_shards)
-            .await?;
-        Arc::new(cluster)
-    };
+    let mut cluster = Cluster::builder()
+        .with_logging(false)
+        .build(opts.num_nodes, opts.num_shards)
+        .await?;
+
+    for node_id in 0..opts.num_nodes {
+        let addr = cluster.env().address(node_id);
+        eprintln!("node#{node_id} = {addr}");
+    }
+    let cluster = Arc::new(cluster);
 
     let t = Instant::now();
     let mut futs = vec![];

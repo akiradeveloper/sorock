@@ -128,6 +128,11 @@ impl Inner {
         Ok(st)
     }
 
+    pub async fn get_log_head_index(&self) -> Result<Index> {
+        let head_log_index = self.storage.get_head_index().await?;
+        Ok(head_log_index)
+    }
+
     pub async fn get_log_last_index(&self) -> Result<Index> {
         let last_log_index = self.storage.get_last_index().await?;
         Ok(last_log_index)

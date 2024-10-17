@@ -164,4 +164,22 @@ impl RaftProcess {
             .await?;
         Ok(vote_granted)
     }
+
+    pub(crate) async fn get_log_state(&self) -> Result<response::LogState> {
+        let out = response::LogState {
+            head_index: self.command_log.get_log_head_index().await?,
+            last_index: self.command_log.get_log_last_index().await?,
+            snap_index: self.command_log.snapshot_pointer.load(Ordering::SeqCst),
+            app_index: self.command_log.user_pointer.load(Ordering::SeqCst),
+            commit_index: self.command_log.commit_pointer.load(Ordering::SeqCst),
+        };
+        Ok(out)
+    }
+
+    pub(crate) async fn get_membership(&self) -> Result<response::Membership> {
+        let out = response::Membership {
+            members: self.peers.read_membership(),
+        };
+        Ok(out)
+    }
 }

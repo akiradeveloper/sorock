@@ -63,4 +63,14 @@ pub mod response {
         pub n_inserted: u64,
         pub log_last_index: Index,
     }
+    pub struct LogState {
+        pub head_index: Index,
+        pub snap_index: Index,
+        pub app_index: Index,
+        pub commit_index: Index,
+        pub last_index: Index,
+    }
+    pub struct Membership {
+        pub members: HashSet<NodeId>,
+    }
 }
