@@ -37,6 +37,7 @@ impl AppSnapshot {
     }
 }
 
+#[derive(Debug)]
 struct InnerState {
     state_index: u64,
     counter: u64,
@@ -87,7 +88,7 @@ impl RaftApp for AppMain {
                 let mut snapshots = self.snapshots.write();
                 // dbg!("make snapshot", idx);
                 snapshots.insert(idx, AppState(cur_state.counter));
-                eprintln!("inserted, L={}", snapshots.len());
+                eprintln!("inserted, L={}, state={:?}", snapshots.len(), self.state.read());
             }
             AppReadRequest::Read => {}
         };
@@ -122,7 +123,7 @@ impl RaftApp for AppMain {
 
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
         let mut snapshots = self.snapshots.write();
-        eprintln!("delete snap L={}, x={}", snapshots.len(), x);
+        eprintln!("delete snap L={}, x={}, state={:?}", snapshots.len(), x, self.state.read());
         let latter = snapshots.split_off(&x);
         *snapshots = latter;
         Ok(())
