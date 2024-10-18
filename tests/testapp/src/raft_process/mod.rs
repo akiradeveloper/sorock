@@ -88,7 +88,7 @@ impl RaftApp for AppMain {
                 let mut snapshots = self.snapshots.write();
                 // dbg!("make snapshot", idx);
                 snapshots.insert(idx, AppState(cur_state.counter));
-                eprintln!("inserted, L={}, state={:?}", snapshots.len(), self.state.read());
+                eprintln!("inserted, L={}, state={:?}", snapshots.len(), cur_state);
             }
             AppReadRequest::Read => {}
         };
