@@ -80,19 +80,19 @@ async fn main() -> anyhow::Result<()> {
                 futs.push(fut);
             }
         }
-        for shard_id in 0..opts.num_shards {
-            for _ in 0..opts.n_batch_reads {
-                let error_counter = fail_r.clone();
-                let cli = cluster.user(0);
-                let fut = async move {
-                    if let Err(_) = cli.read(shard_id).await {
-                        error_counter.fetch_add(1, Ordering::Relaxed);
-                    }
-                }
-                .boxed();
-                futs.push(fut);
-            }
-        }
+        // for shard_id in 0..opts.num_shards {
+        //     for _ in 0..opts.n_batch_reads {
+        //         let error_counter = fail_r.clone();
+        //         let cli = cluster.user(0);
+        //         let fut = async move {
+        //             if let Err(_) = cli.read(shard_id).await {
+        //                 error_counter.fetch_add(1, Ordering::Relaxed);
+        //             }
+        //         }
+        //         .boxed();
+        //         futs.push(fut);
+        //     }
+        // }
         let t = Instant::now();
         futures::future::join_all(futs).await;
 

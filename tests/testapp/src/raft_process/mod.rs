@@ -10,11 +10,13 @@ use std::collections::BTreeMap;
 mod snapshot_io;
 
 pub async fn new(
+    id: u8,
     log: impl RaftLogStore,
     ballot: impl RaftBallotStore,
     driver: sorock::RaftDriver,
 ) -> Result<RaftProcess> {
-    let app_main = AppMain::new();
+    let app_main = AppMain::new(id);
+    dbg!(app_main.n as *const u32);
     let process = RaftProcess::new(app_main, log, ballot, driver).await?;
     Ok(process)
 }
@@ -43,18 +45,20 @@ struct InnerState {
     counter: u64,
 }
 struct AppMain {
+    id: u8,
     n: u32,
     state: RwLock<InnerState>,
     snapshots: RwLock<BTreeMap<u64, AppState>>,
 }
 impl AppMain {
-    pub fn new() -> Self {
+    pub fn new(id: u8) -> Self {
         let init_state = InnerState {
             state_index: 0,
             counter: 0,
         };
         let snapshots = BTreeMap::new();
         Self {
+            id,
             n: 0,
             state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
@@ -64,8 +68,8 @@ impl AppMain {
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
     async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
-        dbg!(&self.n as *const u32);
-        
+        // dbg!(&self.n as *const u32);
+
         let mut cur_state = self.state.write();
 
         let req = AppWriteRequest::deserialize(bytes);
@@ -83,7 +87,7 @@ impl RaftApp for AppMain {
     }
 
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
-        dbg!(&self.n as *const u32);
+        dbg!(self.id, &self.n as *const u32);
 
         let cur_state = self.state.read();
 
@@ -94,7 +98,7 @@ impl RaftApp for AppMain {
                 let mut snapshots = self.snapshots.write();
                 // dbg!("make snapshot", idx);
                 snapshots.insert(idx, AppState(cur_state.counter));
-                eprintln!("inserted, L={}, state={:?}", snapshots.len(), cur_state);
+                eprintln!("id={}, inserted, L={}, state={:?}", self.id, snapshots.len(), cur_state);
             }
             AppReadRequest::Read => {}
         };
@@ -128,17 +132,17 @@ impl RaftApp for AppMain {
     }
 
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
-        dbg!(&self.n as *const u32);
+        dbg!(self.id, &self.n as *const u32);
 
         let mut snapshots = self.snapshots.write();
-        eprintln!("delete snap L={}, x={}, state={:?}", snapshots.len(), x, self.state.read());
+        eprintln!("id={}, delete snap L={}, x={}, state={:?}", self.id, snapshots.len(), x, self.state.read());
         let latter = snapshots.split_off(&x);
         *snapshots = latter;
         Ok(())
     }
 
     async fn get_latest_snapshot(&self) -> Result<Index> {
-        dbg!(&self.n as *const u32);
+        dbg!(self.id, &self.n as *const u32);
 
         let k = {
             let mut out = vec![];

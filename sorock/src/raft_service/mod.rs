@@ -45,6 +45,7 @@ impl raft::raft_server::Raft for RaftService {
         &self,
         request: tonic::Request<raft::ReadRequest>,
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
+        dbg!(&self.node.self_node_id);
         let req = request.into_inner();
         let shard_id = req.shard_id;
         let req = request::UserReadRequest {
@@ -58,6 +59,7 @@ impl raft::raft_server::Raft for RaftService {
             .process_user_read_request(req)
             .await
             .unwrap();
+        dbg!(&self.node.self_node_id);
         Ok(tonic::Response::new(raft::Response { message: resp }))
     }
 

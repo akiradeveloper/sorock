@@ -4,7 +4,7 @@ use communicator::{Communicator, RaftConnection};
 use std::collections::HashMap;
 
 pub struct Inner {
-    self_node_id: NodeId,
+    pub self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, RaftConnection>,
     process: spin::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
 }

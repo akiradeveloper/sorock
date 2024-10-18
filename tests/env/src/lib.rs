@@ -35,7 +35,7 @@ impl Node {
             for shard_id in 0..n_shards {
                 let (log, ballot) = db.get(shard_id).unwrap();
                 let driver = node.get_driver(shard_id);
-                let process = testapp::raft_process::new(log, ballot, driver)
+                let process = testapp::raft_process::new(id, log, ballot, driver)
                     .await
                     .unwrap();
                 node.attach_process(shard_id, process);
@@ -141,6 +141,7 @@ impl Env {
             .entry(id)
             .or_insert_with(|| {
                 let uri = self.nodes.get(&id).unwrap().address();
+                dbg!(id, &uri);
                 let endpoint = Endpoint::from(uri)
                     .http2_keep_alive_interval(std::time::Duration::from_secs(1))
                     .keep_alive_while_idle(true)
