@@ -43,6 +43,7 @@ struct InnerState {
     counter: u64,
 }
 struct AppMain {
+    n: u32,
     state: RwLock<InnerState>,
     snapshots: RwLock<BTreeMap<u64, AppState>>,
 }
@@ -54,6 +55,7 @@ impl AppMain {
         };
         let snapshots = BTreeMap::new();
         Self {
+            n: 0,
             state: RwLock::new(init_state),
             snapshots: RwLock::new(snapshots),
         }
@@ -62,6 +64,8 @@ impl AppMain {
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
     async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
+        dbg!(&self.n as *const u32);
+        
         let mut cur_state = self.state.write();
 
         let req = AppWriteRequest::deserialize(bytes);
@@ -79,6 +83,8 @@ impl RaftApp for AppMain {
     }
 
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
+        dbg!(&self.n as *const u32);
+
         let cur_state = self.state.read();
 
         let req = AppReadRequest::deserialize(bytes);
@@ -122,6 +128,8 @@ impl RaftApp for AppMain {
     }
 
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
+        dbg!(&self.n as *const u32);
+
         let mut snapshots = self.snapshots.write();
         eprintln!("delete snap L={}, x={}, state={:?}", snapshots.len(), x, self.state.read());
         let latter = snapshots.split_off(&x);
@@ -130,6 +138,8 @@ impl RaftApp for AppMain {
     }
 
     async fn get_latest_snapshot(&self) -> Result<Index> {
+        dbg!(&self.n as *const u32);
+
         let k = {
             let mut out = vec![];
             let snapshots = self.snapshots.read();
