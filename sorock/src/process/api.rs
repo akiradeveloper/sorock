@@ -10,6 +10,7 @@ pub mod request {
 
     pub struct UserReadRequest {
         pub message: Bytes,
+        pub read_locally: bool,
     }
 
     pub struct KernRequest {

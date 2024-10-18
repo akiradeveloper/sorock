@@ -21,6 +21,8 @@ pub struct ReadRequest {
     pub shard_id: u32,
     #[prost(bytes = "bytes", tag = "2")]
     pub message: ::prost::bytes::Bytes,
+    #[prost(bool, tag = "3")]
+    pub read_locally: bool,
 }
 /// Response from the `RaftApp`.
 #[derive(Clone, PartialEq, ::prost::Message)]

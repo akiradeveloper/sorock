@@ -62,10 +62,13 @@ impl RaftProcess {
             anyhow::bail!(Error::LeaderUnknown)
         };
 
-        let resp = if std::matches!(
-            self.voter.read_election_state(),
-            voter::ElectionState::Leader
-        ) {
+        let will_process = req.read_locally
+            || std::matches!(
+                self.voter.read_election_state(),
+                voter::ElectionState::Leader
+            );
+
+        let resp = if will_process {
             let (user_completion, rx) = completion::prepare_user_completion();
 
             let read_index = self.command_log.commit_pointer.load(Ordering::SeqCst);

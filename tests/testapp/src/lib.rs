@@ -91,6 +91,7 @@ impl Client {
         let req = ReadRequest {
             shard_id,
             message: AppReadRequest::Read.serialize(),
+            read_locally: false,
         };
         let resp = self.cli.clone().read(req).await?.into_inner();
         let resp = AppState::deserialize(&resp.message);
@@ -101,6 +102,7 @@ impl Client {
         let req = ReadRequest {
             shard_id,
             message: AppReadRequest::MakeSnapshot.serialize(),
+            read_locally: true,
         };
         let resp = self.cli.clone().read(req).await?.into_inner();
         let resp = AppState::deserialize(&resp.message);

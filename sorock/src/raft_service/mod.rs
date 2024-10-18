@@ -49,6 +49,7 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
         let req = request::UserReadRequest {
             message: req.message,
+            read_locally: req.read_locally,
         };
         let resp = self
             .node
