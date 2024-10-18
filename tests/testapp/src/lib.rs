@@ -36,7 +36,7 @@ impl AppReadRequest {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct AppState(pub u64);
 impl AppState {
     pub fn serialize(&self) -> Bytes {

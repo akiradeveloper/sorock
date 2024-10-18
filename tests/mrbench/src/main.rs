@@ -107,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
             let mut futs = vec![];
             for node_id in 0..opts.num_nodes {
                 for shard_id in 0..opts.num_shards {
+                    // dbg!((node_id, shard_id));
                     let cli = cluster.user(node_id);
                     let fut = async move { cli.make_snapshot(shard_id).await };
                     futs.push(fut);

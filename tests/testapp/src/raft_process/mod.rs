@@ -85,7 +85,9 @@ impl RaftApp for AppMain {
             AppReadRequest::MakeSnapshot => {
                 let idx = cur_state.state_index;
                 let mut snapshots = self.snapshots.write();
+                // dbg!("make snapshot", idx);
                 snapshots.insert(idx, AppState(cur_state.counter));
+                eprintln!("inserted, L={}", snapshots.len());
             }
             AppReadRequest::Read => {}
         };
@@ -120,6 +122,7 @@ impl RaftApp for AppMain {
 
     async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
         let mut snapshots = self.snapshots.write();
+        eprintln!("delete snap L={}, x={}", snapshots.len(), x);
         let latter = snapshots.split_off(&x);
         *snapshots = latter;
         Ok(())
@@ -135,6 +138,7 @@ impl RaftApp for AppMain {
             out.sort();
             out.pop().unwrap_or(0)
         };
+        // dbg!(k);
         Ok(k)
     }
 }
