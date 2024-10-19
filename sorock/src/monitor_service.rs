@@ -3,7 +3,7 @@ use super::*;
 use std::pin::Pin;
 
 mod proto {
-    pub use super::generated::sorock_monitor::*;
+    tonic::include_proto!("sorock_monitor");
 }
 use proto::*;
 

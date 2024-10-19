@@ -22,13 +22,8 @@ use std::time::Duration;
 use tonic::transport::Uri;
 pub mod reflection_service;
 
-mod generated {
-    pub mod sorock;
-    pub mod sorock_monitor;
-}
-
 mod raft {
-    pub use super::generated::sorock::*;
+    tonic::include_proto!("sorock");
     pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 

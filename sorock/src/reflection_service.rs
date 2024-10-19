@@ -1,6 +1,6 @@
 use tonic_reflection::server::{ServerReflection, ServerReflectionServer};
 
-const FILE_DESCRIPTOR_SET: &[u8] = include_bytes!("generated/sorock_descriptor.bin");
+const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("sorock_descriptor");
 
 /// Create a reflection service.
 pub fn new() -> ServerReflectionServer<impl ServerReflection> {
