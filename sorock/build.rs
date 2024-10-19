@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use protox::prost::Message;
+use std::path::PathBuf;
 
 fn main() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
