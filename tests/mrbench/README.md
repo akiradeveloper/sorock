@@ -26,7 +26,7 @@ while elapsed < du:
 | num-shards (p)  | 1 | 100 | Number of shards in each node |
 | du (t) | 1s | 500ms | IO duration |
 | n-batch-writes (w) | 1 | 30 | Number of writes in a IO batch |
-| n-batch-reads (r) | 1 | 70 | Number of reads in a IO batch |
+| n-batch-reads (r) | 0 | 70 | Number of reads in a IO batch |
 | io-size | 1 | 1024 | Write IO size in B |
 | enable-console | false | | Enable tokio-console |
-| no-compaction | false | | Disable compaction after each IO batch | 
+| compaction-compaction | 1 | | The cycles to be done between compactions |
