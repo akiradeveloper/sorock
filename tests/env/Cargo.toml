@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 port_check = "0.2.1"
-redb = "2.1.0"
-spin = "0.9"
+redb.workspace = true
+spin.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
@@ -19,6 +19,4 @@ sorock.workspace = true
 testapp = { path = "../testapp" }
 
 [dev-dependencies]
-serial_test = "2"
-test-log = "0.2.12"
 tokio = { version = "1", features = ["full"] }

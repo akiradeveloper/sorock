@@ -1,9 +1,7 @@
 use anyhow::Result;
-use serial_test::serial;
 use sorock::service::raft::client::*;
 use sorock_tests::*;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_cluster() -> Result<()> {
     let cluster = Cluster::new(1, 1).await?;
@@ -12,7 +10,6 @@ async fn n1_cluster() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_write() -> Result<()> {
     let cluster = Cluster::new(1, 1).await?;
@@ -26,7 +23,6 @@ async fn n1_write() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_read() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
@@ -42,7 +38,6 @@ async fn n1_read() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_snapshot() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;
@@ -61,7 +56,6 @@ async fn n1_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_exec_once() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;

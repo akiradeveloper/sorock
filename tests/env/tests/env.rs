@@ -1,7 +1,5 @@
 use anyhow::Result;
-use serial_test::serial;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn create() -> Result<()> {
     let mut env = env::Env::new(true);
@@ -10,7 +8,6 @@ async fn create() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn create_remove() -> Result<()> {
     let mut env = env::Env::new(true);
@@ -25,7 +22,6 @@ async fn create_remove() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_loop() -> Result<()> {
     let mut env = env::Env::new(true);
@@ -40,7 +36,6 @@ async fn panic_loop() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn drop_env() -> Result<()> {
     for _ in 0..10 {

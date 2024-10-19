@@ -1,11 +1,9 @@
 use anyhow::Result;
 use rand::Rng;
-use serial_test::serial;
 use sorock::service::raft::client::*;
 use sorock_tests::*;
 use std::sync::Arc;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_cluster() -> Result<()> {
     const P: u32 = 10;
@@ -35,7 +33,6 @@ async fn n3_p10_multi_raft_cluster() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_io() -> Result<()> {
     const L: u32 = 10;
@@ -67,7 +64,6 @@ async fn n3_p10_multi_raft_io() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_io_roundrobin() -> Result<()> {
     const P: u32 = 10;

@@ -1,9 +1,7 @@
 use anyhow::Result;
 use rand::Rng;
-use serial_test::serial;
 use sorock_tests::*;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_cluster() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
@@ -13,7 +11,6 @@ async fn n3_cluster() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_write() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
@@ -36,7 +33,6 @@ async fn n3_write() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_par_write() -> Result<()> {
     const N: u64 = 50;
@@ -60,7 +56,6 @@ async fn n3_par_write() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_snapshot() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
@@ -80,7 +75,6 @@ async fn n3_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_leader_stop() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
@@ -107,7 +101,6 @@ async fn n3_leader_stop() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_leader_stepdown() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
@@ -131,7 +124,6 @@ async fn n3_leader_stepdown() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_down2_err() -> Result<()> {
     let mut cluster = Cluster::new(3, 1).await?;
