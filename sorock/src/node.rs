@@ -1,6 +1,6 @@
 use super::*;
 
-use communicator::{Communicator, RaftConnection};
+use service::raft::communicator::{Communicator, RaftConnection};
 use std::collections::HashMap;
 
 pub struct Inner {

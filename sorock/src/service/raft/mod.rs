@@ -1,8 +1,15 @@
 use super::*;
 
+mod raft {
+    tonic::include_proto!("sorock");
+    pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
+}
+
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 
+pub mod client;
+pub(crate) mod communicator;
 mod stream;
 
 /// Create a Raft service backed by a `RaftNode`.

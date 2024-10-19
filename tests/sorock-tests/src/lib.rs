@@ -1,6 +1,6 @@
 use anyhow::{ensure, Result};
 use env::Env;
-use sorock::client::RaftClient;
+use sorock::service::raft::client::*;
 
 pub struct Builder {
     with_logging: bool,
@@ -54,13 +54,13 @@ impl Cluster {
 
     pub fn admin(&self, id: u8) -> RaftClient {
         let conn = self.env.get_connection(id);
-        sorock::client::RaftClient::new(conn)
+        RaftClient::new(conn)
     }
 
     /// Request node `to` to add a node `id`.
     pub async fn add_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
-            .add_server(sorock::client::AddServerRequest {
+            .add_server(AddServerRequest {
                 shard_id,
                 server_id: self.env.address(id).to_string(),
             })
@@ -73,7 +73,7 @@ impl Cluster {
     /// Request node `to` to remove a node `id`.
     pub async fn remove_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
-            .remove_server(sorock::client::RemoveServerRequest {
+            .remove_server(RemoveServerRequest {
                 shard_id,
                 server_id: self.env.address(id).to_string(),
             })

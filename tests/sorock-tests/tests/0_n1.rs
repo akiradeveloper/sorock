@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serial_test::serial;
+use sorock::service::raft::client::*;
 use sorock_tests::*;
 
 #[serial]
@@ -67,9 +68,9 @@ async fn n1_exec_once() -> Result<()> {
     cluster.add_server(0, 0, 0).await?;
 
     let chan = cluster.env().get_connection(0);
-    let cli = sorock::client::RaftClient::new(chan);
+    let cli = RaftClient::new(chan);
 
-    let req = sorock::client::WriteRequest {
+    let req = WriteRequest {
         shard_id: 0,
         message: testapp::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
