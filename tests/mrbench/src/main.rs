@@ -21,8 +21,8 @@ struct Opts {
     io_size: usize,
     #[clap(long, default_value_t = false)]
     enable_console: bool,
-    #[clap(long, default_value_t = false)]
-    no_compaction: bool,
+    #[clap(long, default_value_t = 1)]
+    compaction_cycle: u32,
 }
 
 #[tokio::main]
@@ -63,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
 
     let t = Instant::now();
     let du = opts.io_duration;
+    let mut cycle = 1;
     while t.elapsed() < du {
         let fail_w = Arc::new(AtomicU64::new(0));
         let fail_r = Arc::new(AtomicU64::new(0));
@@ -103,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
             t.elapsed()
         );
 
-        if !opts.no_compaction {
+        if cycle % opts.compaction_cycle == 0 {
             let mut futs = vec![];
             for node_id in 0..opts.num_nodes {
                 for shard_id in 0..opts.num_shards {
@@ -116,6 +117,8 @@ async fn main() -> anyhow::Result<()> {
                 eprintln!("failed to make snapshot: {:?}", e);
             }
         }
+
+        cycle += 1;
     }
 
     eprintln!("done");
