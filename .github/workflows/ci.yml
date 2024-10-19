@@ -15,19 +15,12 @@ jobs:
     steps:
       - name: Check CPU
         run: lscpu
-
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
-
       - name: Set up Go
         uses: actions/setup-go@v4
-
       - name: Install grpcurl
         run: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
-
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Run tests
         run: cargo test
 
