@@ -29,4 +29,4 @@ while elapsed < du:
 | n-batch-reads (r) | 0 | 70 | Number of reads in a IO batch |
 | io-size | 1 | 1024 | Write IO size in B |
 | enable-console | false | | Enable tokio-console |
-| compaction-compaction | 1 | | The cycles to be done between compactions |
+| compaction-cycle | 1 | | The cycles to be done between compactions |
