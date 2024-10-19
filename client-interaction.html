@@ -90,7 +90,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li><li class="chapter-item expanded "><a href="batched-write.html"><strong aria-hidden="true">1.2.</strong> Batched Write</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html" class="active"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="cover.html">Cover</a></li><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li><li class="chapter-item expanded "><a href="batched-write.html"><strong aria-hidden="true">1.2.</strong> Batched Write</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html" class="active"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -201,9 +201,12 @@ Let's think about this scenario:</p>
 <p>The R/O command can bypass the log because it is safe to execute the query after the
 commit index at query time is applied. This is called <strong>read_index</strong> optimization.</p>
 <p>You can send a R/O command to the cluster with the following API.</p>
+<p>When <code>read_locally</code> is set to true, the request isn't proxied to the leader but
+processed locally.</p>
 <pre><code class="language-proto">message ReadRequest {
   uint32 shard_id = 1;
   bytes message = 2;
+  bool read_locally = 3;
 }
 </code></pre>
 

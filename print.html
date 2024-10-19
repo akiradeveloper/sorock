@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li><li class="chapter-item expanded "><a href="batched-write.html"><strong aria-hidden="true">1.2.</strong> Batched Write</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="cover.html">Cover</a></li><li class="chapter-item expanded "><a href="multi-raft.html"><strong aria-hidden="true">1.</strong> Multi-Raft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="heartbeat-multiplexing.html"><strong aria-hidden="true">1.1.</strong> Heartbeat Multiplexing</a></li><li class="chapter-item expanded "><a href="batched-write.html"><strong aria-hidden="true">1.2.</strong> Batched Write</a></li></ol></li><li class="chapter-item expanded "><a href="raft-process.html"><strong aria-hidden="true">2.</strong> Raft Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="multi-threading.html"><strong aria-hidden="true">2.1.</strong> Multi Threading</a></li><li class="chapter-item expanded "><a href="application-state.html"><strong aria-hidden="true">2.2.</strong> Application State</a></li></ol></li><li class="chapter-item expanded "><a href="client-interaction.html"><strong aria-hidden="true">3.</strong> Client Interaction</a></li><li class="chapter-item expanded "><a href="cluster-management.html"><strong aria-hidden="true">4.</strong> Cluster Management</a></li><li class="chapter-item expanded "><a href="leadership.html"><strong aria-hidden="true">5.</strong> Leadership</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">6.</strong> Development</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -176,7 +176,8 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="multi-raft"><a class="header" href="#multi-raft">Multi-Raft</a></h1>
+                        <h1 id="cover"><a class="header" href="#cover">Cover</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="multi-raft"><a class="header" href="#multi-raft">Multi-Raft</a></h1>
 <p><a href="https://raft.github.io/">Raft</a> consensus algorithm is nowadays a widely used building block of distributed applications.
 The algorithm is about consensus on the sequence of log entries, which are applied to a state machine.
 When the two log entries are identical, then the resulting state is identical too.
@@ -375,9 +376,12 @@ Let's think about this scenario:</p>
 <p>The R/O command can bypass the log because it is safe to execute the query after the
 commit index at query time is applied. This is called <strong>read_index</strong> optimization.</p>
 <p>You can send a R/O command to the cluster with the following API.</p>
+<p>When <code>read_locally</code> is set to true, the request isn't proxied to the leader but
+processed locally.</p>
 <pre><code class="language-proto">message ReadRequest {
   uint32 shard_id = 1;
   bytes message = 2;
+  bool read_locally = 3;
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="cluster-management"><a class="header" href="#cluster-management">Cluster Management</a></h1>
@@ -437,50 +441,15 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="development"><a class="header" href="#development">Development</a></h1>
-<h2 id="build"><a class="header" href="#build">Build</a></h2>
-<p>The proto file should be compiled manually if you changed the proto file.
-In this case, please run <code>cargo run -p codegen</code>.</p>
 <h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
-<p>For testing, sorock makes use of docker-compose.</p>
-<p>A docker image called testapp is built and the tests create some instances of it for testing: test code is running on dev container and it accesses the docker deamon in the host. In GHA, the tests are run in the same way.</p>
-<p>The log output in the stdout/stderr is collected into the log container. This is quite useful for debugging. So here is how you can run the tests for development.</p>
-<ul>
-<li><code>docker compose build</code> to build test application.</li>
-<li>TERM1: <code>./log</code> to start log watcher.</li>
-<li>TERM2: <code>./dev</code> to start the dev container.</li>
-<li>TERM2: <code>cargo test</code>.</li>
-</ul>
-<pre class="mermaid">graph
-  subgraph raft_network
-
-  subgraph cluster
-  APP1(testapp-1)
-  APP2(testapp-2)
-  APP3(testapp-3)
-  end
-  
-  DEV(dev)
-  LOG(log)
-  
-  end
-  
-  APP1 --&gt;|log| LOG
-  APP2 --&gt;|log| LOG
-  APP3 --&gt;|log| LOG
-  
-  DEV --&gt;|command| APP1
-  DEV --&gt;|command| APP2
-  DEV --&gt;|command| APP3
-</pre>
+<p><code>cargo test</code> to run unit tests.</p>
 <h2 id="benchmark"><a class="header" href="#benchmark">Benchmark</a></h2>
-<p>You can run benchmark in a similar way as testing.</p>
-<ul>
-<li><code>docker compose build</code> to build test application.</li>
-<li>TERM1: <code>./dev</code></li>
-<li>TERM1: <code>cargo +nightly bench</code>.</li>
-</ul>
+<p><code>cargo +nightly bench</code> to run benchmarks.</p>
+<h2 id="load-testing"><a class="header" href="#load-testing">Load Testing</a></h2>
+<p>We have a nice load testing tool named "Mr. Bench".
+To ask him for a help, run <code>cargo run -p mrbench</code>.
+For detail, please refer to the README.</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
-<p>You can modify the documentations.</p>
 <p>For editing the mdbook under doc/ directory,
 you can run <code>mdbook serve doc</code> to start the local mdbook server.</p>
 
