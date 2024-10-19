@@ -15,7 +15,7 @@ struct Opts {
     io_duration: Duration,
     #[clap(long, short = 'w', default_value_t = 1)]
     n_batch_writes: u32,
-    #[clap(long, short = 'r', default_value_t = 1)]
+    #[clap(long, short = 'r', default_value_t = 0)]
     n_batch_reads: u32,
     #[clap(long, default_value_t = 1)]
     io_size: usize,
