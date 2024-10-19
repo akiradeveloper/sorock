@@ -1,5 +1,7 @@
 # Summary
 
+[Cover](cover.md)
+
 - [Multi-Raft](multi-raft.md)
   - [Heartbeat Multiplexing](heartbeat-multiplexing.md)
   - [Batched Write](batched-write.md)
