@@ -29,7 +29,7 @@ impl Node {
             let db = {
                 let mem = redb::backends::InMemoryBackend::new();
                 let db = redb::Database::builder().create_with_backend(mem).unwrap();
-                sorock::backends::redb::Backend::new(db)
+                sorock::backend::redb::Backend::new(db)
             };
 
             for shard_id in 0..n_shards {
@@ -41,11 +41,11 @@ impl Node {
                 node.attach_process(shard_id, process);
             }
 
-            let raft_svc = sorock::raft_service::new(node.clone())
+            let raft_svc = sorock::service::raft::new(node.clone())
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
-            let monitor_svc = sorock::monitor_service::new(node);
-            let reflection_svc = sorock::reflection_service::new();
+            let monitor_svc = sorock::service::monitor::new(node);
+            let reflection_svc = sorock::service::reflection::new();
             let ping_svc = testapp::ping_app::new_service();
 
             let socket = format!("127.0.0.1:{port}").parse().unwrap();

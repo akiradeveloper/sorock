@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rand::Rng;
 use serial_test::serial;
-use sorock::client::TimeoutNow;
+use sorock::service::raft::client::*;
 use sorock_tests::*;
 use std::sync::Arc;
 

@@ -1,15 +1,15 @@
 #![deny(unused_must_use)]
 
+/// Implementation of `RaftProcess`.
 pub mod process;
 
-pub mod client;
-mod communicator;
 mod error;
-pub mod monitor_service;
 mod node;
-pub mod raft_service;
 use error::Error;
-pub mod backends;
+
+pub mod backend;
+/// Implementation of gRPC services.
+pub mod service;
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
@@ -20,12 +20,6 @@ use process::RaftProcess;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
-pub mod reflection_service;
-
-mod raft {
-    tonic::include_proto!("sorock");
-    pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
-}
 
 /// Identifier of `RaftNode`.
 #[derive(
