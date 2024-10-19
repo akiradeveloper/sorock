@@ -16,6 +16,7 @@ tonic-build = "0.12"
 tracing = "0.1.40"
 prost = "0.13"
 prost-build = "0.13"
+protox = "0.7"
 
 sorock = { path = "sorock" }
 

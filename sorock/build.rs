@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use protox::prost::Message;
 
 fn main() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
@@ -18,9 +19,11 @@ fn main() {
         ".sorock.SnapshotChunk.data",
     ]);
 
+    let fds = protox::compile(ifiles, include_dirs).unwrap();
+    std::fs::write(&fd_path, fds.encode_to_vec()).unwrap();
+
     tonic_build::configure()
         .out_dir(out_dir)
-        .file_descriptor_set_path(fd_path)
-        .compile_protos_with_config(config, &ifiles, &include_dirs)
+        .compile_fds_with_config(config, fds)
         .unwrap();
 }
