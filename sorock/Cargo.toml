@@ -43,3 +43,4 @@ tokio = { version = "1", features = ["full"] }
 [build-dependencies]
 tonic-build.workspace = true
 prost-build.workspace = true
+protox.workspace = true

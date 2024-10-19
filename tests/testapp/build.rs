@@ -1,5 +1,6 @@
 fn main() {
+    let fds = protox::compile(&["ping.proto"], &["proto"]).unwrap();
     tonic_build::configure()
-        .compile_protos(&["ping.proto"], &["proto"])
+        .compile_fds(fds)
         .unwrap();
 }
