@@ -36,9 +36,13 @@ commit index at query time is applied. This is called **read_index** optimizatio
 
 You can send a R/O command to the cluster with the following API.
 
+When `read_locally` is set to true, the request isn't proxied to the leader but
+processed locally.
+
 ```proto
 message ReadRequest {
   uint32 shard_id = 1;
   bytes message = 2;
+  bool read_locally = 3;
 }
 ```

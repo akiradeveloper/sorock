@@ -1,4 +1,4 @@
-# sorock
+# Sorock
 
 [![Crates.io](https://img.shields.io/crates/v/sorock.svg)](https://crates.io/crates/sorock)
 [![API doc](https://docs.rs/sorock/badge.svg)](https://docs.rs/sorock)
@@ -19,9 +19,14 @@ A Multi-Raft implementation in Rust language.
   - Tested with 1000 shards.
   - Batched heartbeat optimization is implemented.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
-- [Phi Accrual Failure Detector](https://github.com/akiradeveloper/phi-detector) is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number in prior to deployment and makes it possible to deploy Raft node in even geo-distributed environment.
+- Phi Accrual Failure Detector is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number before deployment and makes it possible to deploy Raft node in even geo-distributed environment where the latency between nodes isn't identical.
+
+## Related Projects
+
+- [sorock-monitor](https://github.com/akiradeveloper/sorock-monitor): Monitoring tool to watch the log state in a cluster. Implementing using [ratatui](https://github.com/ratatui/ratatui).
+- [phi-detector](https://github.com/akiradeveloper/phi-detector): Implementation of Phi Accrual Failure Detector in Rust.
 
 ## Author
 
-Akira Hayakawa  
-EMail: ruby.wktk@gmail.com
+Name: Akira Hayakawa  
+Email: ruby.wktk@gmail.com
