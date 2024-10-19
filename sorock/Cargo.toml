@@ -11,21 +11,21 @@ categories = ["algorithms"]
 keywords = ["raft"]
 
 [dependencies]
-anyhow = "1"
+anyhow.workspace = true
 async-stream = "0.3"
 async-trait = "0.1"
-bincode = "1.3"
-bytes = { version = "1.5", features = ["serde"] }
-derive_more = "0.99"
+bincode.workspace = true
+bytes = { workspace = true, features = ["serde"] }
+derive_more = { version = "1", features = ["full"] }
 flume = "0.11.0"
-futures = "0.3"
+futures.workspace = true
 http-serde = "2"
 moka = { version = "0.12", features = ["sync"] }
 oneshot = "0.1.7"
 phi-detector = "0.4"
 prost.workspace = true
-rand = "0.8"
-redb = "2.1.0"
+rand.workspace = true
+redb.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 shrinkwraprs = "0.3"
@@ -41,6 +41,6 @@ tracing.workspace = true
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-tonic-build.workspace = true
 prost-build.workspace = true
 protox.workspace = true
+tonic-build.workspace = true

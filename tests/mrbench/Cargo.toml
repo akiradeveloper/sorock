@@ -7,7 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 clap = { version = "4.5.18", features = ["derive"] }
 console-subscriber = "0.4.0"
-futures = "0.3"
+futures.workspace = true
 humantime = "2.1.0"
 tokio = { workspace = true, features = ["full"] }
 

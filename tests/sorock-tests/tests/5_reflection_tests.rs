@@ -1,8 +1,6 @@
 use anyhow::Result;
-use serial_test::serial;
 use sorock_tests::*;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn reflection_grpcurl_access() -> Result<()> {
     let mut cluster = Cluster::new(1, 1).await?;

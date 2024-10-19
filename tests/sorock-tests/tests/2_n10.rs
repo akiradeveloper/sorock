@@ -1,9 +1,7 @@
 use anyhow::Result;
 use rand::Rng;
-use serial_test::serial;
 use sorock_tests::*;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n10_cluster() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;
@@ -14,7 +12,6 @@ async fn n10_cluster() -> Result<()> {
     Ok(())
 }
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n10_write() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;

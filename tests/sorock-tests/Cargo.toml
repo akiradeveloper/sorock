@@ -13,10 +13,8 @@ sorock = { workspace = true }
 testapp = { path = "../testapp" }
 
 [dev-dependencies]
-futures = "0.3"
-rand = "0.8"
-serial_test = "3"
-test-log = "0.2.12"
+futures.workspace = true
+rand.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tonic.workspace = true
-uuid = "1.5"
+uuid.workspace = true

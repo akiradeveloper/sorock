@@ -1,10 +1,8 @@
 use anyhow::Result;
 use rand::Rng;
-use serial_test::serial;
 use sorock_tests::*;
 use std::sync::Arc;
 
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_p10_multi_raft_io() -> Result<()> {
     const P: u32 = 10;
