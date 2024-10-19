@@ -8,18 +8,20 @@
 
 A Multi-Raft implementation in Rust language.
 
-[Documentation](https://akiradeveloper.github.io/sorock/)
+[Documentation (mdbook)](https://akiradeveloper.github.io/sorock/)
 
 ## Features
 
 ![](doc/src/images/multi-raft.png)
 
-- Implements all core [Raft](https://raft.github.io/) features for production use.
 - Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.
-  - Tested with 1000 shards.
-  - Batched heartbeat optimization is implemented.
+  - Tested with 1000 shards per node.
+  - Heartbeats in shards are batched to reduce the network overhead.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
-- Phi Accrual Failure Detector is used for leader failure detection. The adaptive algorithm allows you to not choose a fixed timeout number before deployment and makes it possible to deploy Raft node in even geo-distributed environment where the latency between nodes isn't identical.
+- Efficient default backend implementation using [redb](https://github.com/cberner/redb).
+  - Writes in shards are batched in one transaction. 
+- Phi Accrual Failure Detector is used for leader failure detection.
+  - The adaptive algorithm allows you to not choose a fixed timeout number before deployment and to deploy Raft node in even geo-distributed environment where the latency between nodes isn't identical.
 
 ## Related Projects
 
