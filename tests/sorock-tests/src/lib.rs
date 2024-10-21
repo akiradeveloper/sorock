@@ -3,11 +3,22 @@ use env::Env;
 use sorock::service::raft::client::*;
 
 pub struct Builder {
+    with_persistency: bool,
     with_logging: bool,
 }
 impl Builder {
     fn new() -> Self {
-        Self { with_logging: true }
+        Self {
+            with_persistency: false,
+            with_logging: true,
+        }
+    }
+
+    pub fn with_persistency(self, b: bool) -> Self {
+        Self {
+            with_persistency: b,
+            ..self
+        }
     }
 
     pub fn with_logging(self, b: bool) -> Self {
@@ -20,9 +31,9 @@ impl Builder {
     pub async fn build(self, n: u8, p: u32) -> Result<Cluster> {
         ensure!(n > 0);
         ensure!(p > 0);
-        let mut env = Env::new(self.with_logging);
+        let mut env = Env::new(p, self.with_persistency, self.with_logging);
         for id in 0..n {
-            env.add_node(id, p);
+            env.add_node(id);
             env.check_connectivity(0).await?;
         }
         Ok(Cluster { env })
