@@ -12,17 +12,22 @@ mod log;
 pub struct Backend {
     db: Arc<redb::Database>,
     tx: log::Sender,
+    _kill_tx: flume::Receiver<()>,
 }
 impl Backend {
     pub fn new(redb: redb::Database) -> Self {
         let db = Arc::new(redb);
 
         let (reaper, tx) = log::Reaper::new(db.clone());
+        let (kill_rx, _kill_tx) = flume::bounded(1);
         std::thread::spawn(move || loop {
+            if kill_rx.is_disconnected() {
+                break;
+            }
             reaper.reap().ok();
         });
 
-        Self { db, tx }
+        Self { db, tx, _kill_tx }
     }
 
     pub fn get(&self, shard_id: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {

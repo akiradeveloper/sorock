@@ -31,6 +31,7 @@ impl App {
         if snapshot_index == 1 {
             return Ok(());
         }
+        info!("install snapshot@{snapshot_index}");
         self.install_snapshot(snapshot_index).await?;
         Ok(())
     }

@@ -1,5 +1,7 @@
 use super::*;
 
+use std::time::Duration;
+
 mod value {
     use super::*;
 
@@ -68,7 +70,7 @@ impl Reaper {
 
     pub fn reap(&self) -> Result<()> {
         // Blocked until the first element is received.
-        let head = self.rx.recv()?;
+        let head = self.rx.recv_timeout(Duration::from_millis(100))?;
         let tail = self.rx.drain();
 
         let mut notifiers = vec![];

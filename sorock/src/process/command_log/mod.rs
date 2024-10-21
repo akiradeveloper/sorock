@@ -58,7 +58,10 @@ impl CommandLog {
     pub async fn restore_state(&self) -> Result<()> {
         let log_last_index = self.get_log_last_index().await?;
         let snapshot_index = match self.find_last_snapshot_index(log_last_index).await? {
-            Some(x) => x,
+            Some(x) => {
+                info!("restore state: found snapshot_index={x}");
+                x
+            }
             None => 0,
         };
         let start_index = if snapshot_index == 0 {
@@ -73,6 +76,7 @@ impl CommandLog {
         self.kern_pointer.store(start_index, Ordering::SeqCst);
         self.user_pointer.store(start_index, Ordering::SeqCst);
 
+        info!("restore state: commit_index={start_index}");
         Ok(())
     }
 }
