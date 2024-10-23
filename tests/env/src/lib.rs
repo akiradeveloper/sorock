@@ -81,8 +81,8 @@ impl Node {
                 .add_service(reflection_svc)
                 .add_service(ping_svc)
                 .serve_with_shutdown(socket, async {
-                    info!("env: remove (id={id})");
                     rx.await.ok();
+                    info!("env: remove (id={id})");
                 })
                 .await
                 .unwrap();
