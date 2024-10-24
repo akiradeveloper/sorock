@@ -28,7 +28,7 @@ async fn panic_loop() -> Result<()> {
     env.add_node(0);
     env.check_connectivity(0).await?;
 
-    for _ in 0..10 {
+    for _ in 0..1000 {
         let mut cli = env.connect_ping_client(0).await?;
         cli.panic(()).await.ok();
     }
