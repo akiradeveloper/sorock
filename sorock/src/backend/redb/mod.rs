@@ -84,4 +84,52 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn insert_test() -> Result<()> {
+        use rand::Rng;
+
+        let mem = redb::backends::InMemoryBackend::new();
+        let db = redb::Database::builder().create_with_backend(mem)?;
+        let db = Arc::new(Backend::new(db));
+
+        let mut futs = vec![];
+        for shard in 0..100 {
+            let db = db.clone();
+            let fut = async move {
+                let mut rng = rand::thread_rng();
+                let (log, _) = db.get(shard).unwrap();
+                for i in 0..300 {
+                    let prev = i;
+                    let cur = i + 1;
+                    let b: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
+                    let e = Entry {
+                        prev_clock: Clock {
+                            index: prev,
+                            term: 1,
+                        },
+                        this_clock: Clock {
+                            index: cur,
+                            term: 1,
+                        },
+                        command: b.into(),
+                    };
+                    log.insert_entry(cur, e).await.unwrap();
+                }
+            };
+            futs.push(fut);
+        }
+
+        futures::future::join_all(futs).await;
+
+        for shard_id in 0..100 {
+            for i in 1..=100 {
+                let (log, _) = db.get(shard_id).unwrap();
+                let e = log.get_entry(i).await.unwrap().unwrap();
+                assert_eq!(e.this_clock.index, i);
+            }
+        }
+
+        Ok(())
+    }
 }
