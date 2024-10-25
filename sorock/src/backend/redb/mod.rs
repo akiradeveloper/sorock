@@ -41,41 +41,41 @@ impl Backend {
 mod tests {
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn insert_test() -> Result<()> {
         use rand::Rng;
 
         let mem = redb::backends::InMemoryBackend::new();
         let db = redb::Database::builder().create_with_backend(mem)?;
         let db = Arc::new(Backend::new(db));
-        let mut rng = rand::thread_rng();
 
         let mut futs = vec![];
-        for shard in 0..10 {
-            for i in 0..100 {
-                let b: Vec<u8> = (0..10).map(|_| rng.gen()).collect();
-                let prev = i;
-                let cur = i + 1;
-                let e = Entry {
-                    prev_clock: Clock {
-                        index: prev,
-                        term: prev,
-                    },
-                    this_clock: Clock {
-                        index: cur,
-                        term: cur,
-                    },
-                    command: b.into(),
-                };
-                let db = db.clone();
-                let fut = async move {
-                    let (log, _) = db.get(shard).unwrap();
-                    log.insert_entry(cur, e).await
-                };
-                futs.push(fut);
-            }
+        for shard in 0..100 {
+            let db = db.clone();
+            let fut = async move {
+                let mut rng = rand::thread_rng();
+                let (log, _) = db.get(shard).unwrap();
+                for i in 0..1000 {
+                    let prev = i;
+                    let cur = i + 1;
+                    let b: Vec<u8> = (0..10).map(|_| rng.gen()).collect();
+                    let e = Entry {
+                        prev_clock: Clock {
+                            index: prev,
+                            term: prev,
+                        },
+                        this_clock: Clock {
+                            index: cur,
+                            term: cur,
+                        },
+                        command: b.into(),
+                    };
+                    log.insert_entry(cur, e).await.unwrap();
+                }
+            };
+            futs.push(fut);
         }
-        futures::future::try_join_all(futs).await?;
+        futures::future::join_all(futs).await;
 
         Ok(())
     }
