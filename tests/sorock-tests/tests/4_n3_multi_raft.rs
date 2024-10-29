@@ -4,9 +4,9 @@ use sorock::service::raft::client::*;
 use sorock_tests::*;
 use std::sync::Arc;
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn n3_p10_multi_raft_cluster() -> Result<()> {
-    const P: u32 = 10;
+    const P: u32 = 1000;
     let cluster = Arc::new(Cluster::new(3, P).await?);
 
     let mut futs = vec![];

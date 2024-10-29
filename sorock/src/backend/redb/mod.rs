@@ -41,7 +41,7 @@ impl Backend {
 mod tests {
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn insert_test() -> Result<()> {
         use rand::Rng;
 
