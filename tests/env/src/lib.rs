@@ -91,6 +91,7 @@ impl Node {
             .name(nd_tag.clone())
             .spawn(move || {
                 let runtime = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(8)
                     .thread_name(nd_tag)
                     .enable_all()
                     .build()
