@@ -3,7 +3,7 @@ use rand::Rng;
 use sorock_tests::*;
 use std::time::Duration;
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn n3_restore() -> Result<()> {
     let mut cluster = Cluster::builder()
         .with_persistency(true)
