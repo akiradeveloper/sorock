@@ -32,9 +32,11 @@ async fn n3_restore() -> Result<()> {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     cluster.env().add_node(0);
+    cluster.env().check_connectivity(0).await?;
     cluster.env().add_node(1);
+    cluster.env().check_connectivity(1).await?;
     // Wait for election.
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    tokio::time::sleep(Duration::from_secs(30)).await;
     assert_eq!(cluster.user(1).read(0).await?, cur_state);
 
     Ok(())

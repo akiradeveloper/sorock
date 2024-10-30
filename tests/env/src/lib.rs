@@ -1,5 +1,4 @@
 use anyhow::Result;
-use core::error;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Once;
@@ -200,10 +199,6 @@ impl Env {
             .or_insert_with(|| port_check::free_local_ipv4_port().unwrap());
         let snap_states = self.penv.as_mut().map(|env| env.get(id));
         let node = Node::new(id, free_port, self.n_shards, snap_states).unwrap();
-        port_check::is_port_reachable_with_timeout(
-            node.address().to_string(),
-            Duration::from_secs(5),
-        );
         self.nodes.insert(id, node);
     }
 

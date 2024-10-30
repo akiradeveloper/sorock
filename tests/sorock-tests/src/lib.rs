@@ -34,7 +34,7 @@ impl Builder {
         let mut env = Env::new(p, self.with_persistency, self.with_logging);
         for id in 0..n {
             env.add_node(id);
-            env.check_connectivity(0).await?;
+            env.check_connectivity(id).await?;
         }
         Ok(Cluster { env })
     }
