@@ -3,7 +3,10 @@ use rand::Rng;
 use sorock_tests::*;
 use std::time::Duration;
 
-#[tokio::test(flavor = "multi_thread")]
+// FIXME
+// Lowering the number of worker threads like to 2 causes the query to timeout.
+// This is likely due to threads being blocked and this should be resolved.
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 async fn n3_restore() -> Result<()> {
     let mut cluster = Cluster::builder()
         .with_persistency(true)
@@ -36,7 +39,7 @@ async fn n3_restore() -> Result<()> {
     cluster.env().add_node(1);
     cluster.env().check_connectivity(1).await?;
     // Wait for election.
-    tokio::time::sleep(Duration::from_secs(30)).await;
+    tokio::time::sleep(Duration::from_secs(5)).await;
     assert_eq!(cluster.user(1).read(0).await?, cur_state);
 
     Ok(())
