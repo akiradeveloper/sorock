@@ -168,7 +168,7 @@ impl Env {
             // On terminating the tokio runtime,
             // flooding stack traces are printed and they are super noisy.
             // Until better idea is invented, we just suppress them.
-            std::panic::set_hook(Box::new(|_info| {}));
+            // std::panic::set_hook(Box::new(|_info| {}));
 
             if with_logging {
                 let format = tracing_subscriber::fmt::format()
