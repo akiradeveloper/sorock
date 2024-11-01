@@ -29,7 +29,7 @@ pub struct Inner {
     pub membership_pointer: AtomicU64,
 
     app: App,
-    response_cache: spin::Mutex<ResponseCache>,
+    response_cache: tokio::sync::Mutex<ResponseCache>,
     user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
     kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
 }
@@ -50,7 +50,7 @@ impl CommandLog {
             snapshot_lock: tokio::sync::RwLock::new(()),
             user_completions: spin::Mutex::new(BTreeMap::new()),
             kern_completions: spin::Mutex::new(BTreeMap::new()),
-            response_cache: spin::Mutex::new(ResponseCache::new()),
+            response_cache: tokio::sync::Mutex::new(ResponseCache::new()),
         };
         Self(inner.into())
     }
