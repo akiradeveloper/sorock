@@ -40,13 +40,13 @@ pub struct Query {
 
 #[derive(Clone)]
 pub struct Producer {
-    inner: Arc<spin::Mutex<Queue<Query>>>,
+    inner: Arc<std::sync::Mutex<Queue<Query>>>,
 }
 impl Producer {
     /// Register a query for execution when the readable index reaches `read_index`.
     /// `read_index` should be the index of the commit pointer at the time of query.
     pub fn register(&self, read_index: Index, q: Query) -> Result<()> {
-        self.inner.lock().push(read_index, q);
+        self.inner.lock().unwrap().push(read_index, q);
         Ok(())
     }
 }
@@ -54,12 +54,12 @@ impl Producer {
 #[derive(Clone)]
 pub struct Processor {
     app: Ref<App>,
-    inner: Arc<spin::Mutex<Queue<Query>>>,
+    inner: Arc<std::sync::Mutex<Queue<Query>>>,
 }
 impl Processor {
     /// Process the waiting queries up to `readable_index`.
     pub async fn process(&self, readable_index: Index) -> usize {
-        let qs = self.inner.lock().pop(readable_index);
+        let qs = self.inner.lock().unwrap().pop(readable_index);
 
         let mut futs = vec![];
         for (_, q) in qs {
@@ -81,7 +81,7 @@ impl Processor {
 }
 
 pub fn new(app: Ref<App>) -> (Producer, Processor) {
-    let q = Arc::new(spin::Mutex::new(Queue::new()));
+    let q = Arc::new(std::sync::Mutex::new(Queue::new()));
     let processor = Processor {
         inner: q.clone(),
         app,

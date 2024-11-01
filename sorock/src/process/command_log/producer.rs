@@ -128,8 +128,8 @@ impl CommandLog {
                 self.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.user_completions.lock().split_off(&this_index);
-                self.kern_completions.lock().split_off(&this_index);
+                self.user_completions.lock().unwrap().split_off(&this_index);
+                self.kern_completions.lock().unwrap().split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)
             }

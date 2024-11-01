@@ -4,10 +4,16 @@ impl CommandLog {
     pub fn register_completion(&self, index: Index, completion: Completion) {
         match completion {
             Completion::User(completion) => {
-                self.user_completions.lock().insert(index, completion);
+                self.user_completions
+                    .lock()
+                    .unwrap()
+                    .insert(index, completion);
             }
             Completion::Kern(completion) => {
-                self.kern_completions.lock().insert(index, completion);
+                self.kern_completions
+                    .lock()
+                    .unwrap()
+                    .insert(index, completion);
             }
         }
     }
@@ -63,7 +69,6 @@ impl CommandLog {
         };
 
         if do_process {
-            let mut response_cache = self.response_cache.lock();
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
@@ -73,13 +78,15 @@ impl CommandLog {
                     message,
                     request_id,
                 } => {
+                    let mut response_cache = self.response_cache.lock().await;
                     if response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
                         response_cache.insert_response(request_id.clone(), resp);
                     }
 
                     // Leader may have the completion for the request.
-                    let user_completion = self.user_completions.lock().remove(&process_index);
+                    let user_completion =
+                        self.user_completions.lock().unwrap().remove(&process_index);
                     if let Some(user_completion) = user_completion {
                         if let Some(resp) = response_cache.get_response(&request_id) {
                             // If client abort the request before retry,
@@ -100,6 +107,7 @@ impl CommandLog {
                     }
                 }
                 Command::CompleteRequest { request_id } => {
+                    let mut response_cache = self.response_cache.lock().await;
                     response_cache.complete_response(&request_id);
                 }
                 _ => {}
@@ -135,7 +143,9 @@ impl CommandLog {
                 Command::ClusterConfiguration { .. } => {}
                 _ => {}
             }
-            if let Some(kern_completion) = self.kern_completions.lock().remove(&process_index) {
+            if let Some(kern_completion) =
+                self.kern_completions.lock().unwrap().remove(&process_index)
+            {
                 kern_completion.complete();
             }
         }

@@ -1,7 +1,7 @@
 use super::*;
 
-use spin::Mutex;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub struct HeartbeatBuffer {
     buf: HashMap<ShardId, request::Heartbeat>,
@@ -31,7 +31,7 @@ pub async fn run(
         tokio::time::sleep(Duration::from_millis(300)).await;
 
         let heartbeats = {
-            let mut buf = buf.lock();
+            let mut buf = buf.lock().unwrap();
             let out = buf.drain();
             out
         };

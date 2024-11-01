@@ -5,8 +5,8 @@ mod stream;
 
 use heartbeat_multiplex::*;
 use process::*;
-use spin::Mutex;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::task::AbortHandle;
 
 pub struct HandleDrop(AbortHandle);
@@ -77,7 +77,11 @@ impl Communicator {
     }
 
     pub fn queue_heartbeat(&self, req: request::Heartbeat) {
-        self.conn.heartbeat_buffer.lock().push(self.shard_id, req);
+        self.conn
+            .heartbeat_buffer
+            .lock()
+            .unwrap()
+            .push(self.shard_id, req);
     }
 
     pub async fn process_user_write_request(

@@ -18,7 +18,7 @@ impl Inner {
     }
 }
 pub struct FailureDetector {
-    inner: spin::RwLock<Inner>,
+    inner: std::sync::RwLock<Inner>,
 }
 impl FailureDetector {
     pub fn new() -> Self {
@@ -30,7 +30,7 @@ impl FailureDetector {
     }
 
     pub fn receive_heartbeat(&self, leader_id: NodeId) {
-        let mut inner = self.inner.write();
+        let mut inner = self.inner.write().unwrap();
         let cur_watch_id = inner.watch_id.clone();
         if cur_watch_id != leader_id {
             *inner = Inner::watch(leader_id);
@@ -45,7 +45,7 @@ impl FailureDetector {
     /// Get a random wait time before becoming a candidate.
     /// Returns None if the current leader is still considered alive.
     pub fn get_election_timeout(&self) -> Option<Duration> {
-        let inner = self.inner.read();
+        let inner = self.inner.read().unwrap();
 
         let fd = &inner.detector;
         let normal_dist = fd.normal_dist();

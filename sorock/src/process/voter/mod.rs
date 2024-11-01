@@ -14,7 +14,7 @@ pub enum ElectionState {
 }
 
 pub struct Inner {
-    state: spin::Mutex<ElectionState>,
+    state: std::sync::Mutex<ElectionState>,
     ballot: Box<dyn RaftBallotStore>,
 
     /// Serializing any events that may change ballot state simplifies the voter's logic.
@@ -39,7 +39,7 @@ impl Voter {
         driver: RaftDriver,
     ) -> Self {
         let inner = Inner {
-            state: spin::Mutex::new(ElectionState::Follower),
+            state: std::sync::Mutex::new(ElectionState::Follower),
             ballot: Box::new(ballot_store),
             vote_lock: tokio::sync::Mutex::new(()),
             safe_term: AtomicU64::new(0),
@@ -54,12 +54,12 @@ impl Voter {
 
 impl Voter {
     pub fn read_election_state(&self) -> ElectionState {
-        *self.state.lock()
+        *self.state.lock().unwrap()
     }
 
     pub fn write_election_state(&self, e: ElectionState) {
         info!("election state -> {e:?}");
-        *self.state.lock() = e;
+        *self.state.lock().unwrap() = e;
     }
 
     pub async fn read_ballot(&self) -> Result<Ballot> {

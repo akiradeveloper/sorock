@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, RaftConnection>,
-    process: spin::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
+    process: std::sync::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
@@ -37,16 +37,16 @@ impl RaftNode {
 
     /// Attach a Raft process to a shard.
     pub fn attach_process(&self, shard_id: ShardId, p: RaftProcess) {
-        self.process.write().insert(shard_id, Arc::new(p));
+        self.process.write().unwrap().insert(shard_id, Arc::new(p));
     }
 
     /// Detach a Raft process from a shard.
     pub fn detach_process(&self, shard_id: ShardId) {
-        self.process.write().remove(&shard_id);
+        self.process.write().unwrap().remove(&shard_id);
     }
 
     pub(crate) fn get_process(&self, shard_id: ShardId) -> Option<Arc<RaftProcess>> {
-        self.process.read().get(&shard_id).cloned()
+        self.process.read().unwrap().get(&shard_id).cloned()
     }
 }
 

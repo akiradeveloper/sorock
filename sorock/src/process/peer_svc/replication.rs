@@ -35,6 +35,7 @@ impl PeerSvc {
         let peer_context = self
             .peer_contexts
             .read()
+            .unwrap()
             .get(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?
             .clone();
@@ -56,6 +57,7 @@ impl PeerSvc {
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
             self.peer_contexts
                 .write()
+                .unwrap()
                 .get_mut(&follower_id)
                 .context(Error::PeerNotFound(follower_id.clone()))?
                 .progress = new_progress;
@@ -100,6 +102,7 @@ impl PeerSvc {
 
         self.peer_contexts
             .write()
+            .unwrap()
             .get_mut(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?
             .progress = new_progress;
