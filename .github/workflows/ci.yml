@@ -11,10 +11,8 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - name: Check CPU
-        run: lscpu
       - name: Set up Go
         uses: actions/setup-go@v4
       - name: Install grpcurl
