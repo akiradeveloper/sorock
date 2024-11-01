@@ -1,0 +1,15 @@
+[package]
+name = "reproduce-restore-bug"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4.5.18", features = ["derive"] }
+console-subscriber = "0.4.0"
+futures.workspace = true
+humantime = "2.1.0"
+rand.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+sorock-tests = { path = "../sorock-tests" }
