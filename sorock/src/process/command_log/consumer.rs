@@ -63,7 +63,6 @@ impl CommandLog {
         };
 
         if do_process {
-            let mut response_cache = self.response_cache.lock();
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
@@ -73,6 +72,7 @@ impl CommandLog {
                     message,
                     request_id,
                 } => {
+                    let mut response_cache = self.response_cache.lock();
                     if response_cache.should_execute(&request_id) {
                         let resp = app.process_write(message, process_index).await?;
                         response_cache.insert_response(request_id.clone(), resp);
@@ -100,6 +100,7 @@ impl CommandLog {
                     }
                 }
                 Command::CompleteRequest { request_id } => {
+                    let mut response_cache = self.response_cache.lock();
                     response_cache.complete_response(&request_id);
                 }
                 _ => {}
