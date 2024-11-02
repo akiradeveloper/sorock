@@ -28,7 +28,6 @@ impl Thread {
                 self.consumer.consume_events(Duration::from_secs(1)).await;
                 while let Ok(true) = self.advance_once().await {
                     self.producer.push_event(ReplicationEvent);
-                    tokio::task::yield_now().await;
                 }
             }
         };

@@ -19,9 +19,7 @@ impl Thread {
                 self.consumer
                     .consume_events(Duration::from_millis(100))
                     .await;
-                while self.advance_once().await {
-                    tokio::task::yield_now().await;
-                }
+                while self.advance_once().await {}
             }
         };
         let hdl = tokio::spawn(fut).abort_handle();
