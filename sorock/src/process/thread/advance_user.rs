@@ -18,7 +18,7 @@ impl Thread {
     fn do_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
-                self.consumer.consume_events(Duration::from_secs(1)).await;
+                self.consumer.consume_events(Duration::from_millis(100)).await;
                 while self.advance_once().await.is_ok() {
                     self.producer.push_event(ApplicationEvent);
                 }
