@@ -101,6 +101,7 @@ impl Inner {
     /// Delete log entries in `[, snapshot_index)`.
     pub async fn delete_old_entries(&self) -> Result<()> {
         let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
+        info!("gc: [ {cur_snapshot_index})");
         self.storage
             .delete_entries_before(cur_snapshot_index)
             .await?;

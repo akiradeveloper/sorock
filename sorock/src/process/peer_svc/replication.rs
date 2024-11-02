@@ -79,6 +79,7 @@ impl PeerSvc {
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.
         let resp = conn.send_replication_stream(out_stream).await?;
+        info!("replicated: {} entries", resp.n_inserted);
 
         let new_progress = match resp {
             response::ReplicationStream {
