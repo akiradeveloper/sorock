@@ -20,7 +20,6 @@ impl Thread {
                 self.consumer.consume_events(Duration::from_secs(1)).await;
                 while self.advance_once().await.is_ok() {
                     self.producer.push_event(KernEvent);
-                    tokio::task::yield_now().await;
                 }
             }
         };
