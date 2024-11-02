@@ -172,7 +172,7 @@ impl RaftProcess {
         let out = response::LogState {
             head_index: self.command_log.get_log_head_index().await?,
             last_index: self.command_log.get_log_last_index().await?,
-            snap_index: self.command_log.snapshot_pointer.load(Ordering::SeqCst),
+            snap_index: self.command_log.get_snapshot_index().await,
             app_index: self.command_log.user_pointer.load(Ordering::SeqCst),
             commit_index: self.command_log.commit_pointer.load(Ordering::SeqCst),
         };

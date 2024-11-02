@@ -14,8 +14,10 @@ impl CommandLog {
 
     /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn advance_snapshot_index(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
+        let mut g_snapshot_pointer = self.snapshot_pointer.write().await;
+
         let proposed_snapshot_index = self.app.get_latest_snapshot().await?;
+        let cur_snapshot_index = *g_snapshot_pointer;
         if proposed_snapshot_index > cur_snapshot_index {
             info!("found a newer proposed snapshot@{proposed_snapshot_index} > {cur_snapshot_index}. will move the snapshot index.");
 
@@ -41,6 +43,7 @@ impl CommandLog {
             };
 
             self.insert_snapshot(new_snapshot_entry).await?;
+            *g_snapshot_pointer = proposed_snapshot_index;
         }
 
         Ok(())
