@@ -76,12 +76,6 @@ impl CommandLog {
                 }
 
                 self.insert_snapshot(entry).await?;
-                self.commit_pointer
-                    .store(snapshot_index - 1, Ordering::SeqCst);
-                self.kern_pointer
-                    .store(snapshot_index - 1, Ordering::SeqCst);
-                self.user_pointer
-                    .store(snapshot_index - 1, Ordering::SeqCst);
 
                 return Ok(TryInsertResult::Inserted);
             }

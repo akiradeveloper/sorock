@@ -127,6 +127,13 @@ impl Inner {
         self.snapshot_pointer
             .store(new_snapshot_index, Ordering::SeqCst);
 
+        self.commit_pointer
+            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+        self.kern_pointer
+            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+        self.user_pointer
+            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+
         info!("inserted a new snapshot@{new_snapshot_index} (prev={cur_snapshot_index})");
         Ok(())
     }
@@ -166,5 +173,18 @@ impl Inner {
 
     pub fn allow_queue_new_membership(&self) -> bool {
         self.commit_pointer.load(Ordering::SeqCst) >= self.membership_pointer.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_fetch_max_monotonic() {
+        let n = AtomicU64::new(50);
+        n.fetch_max(10, Ordering::SeqCst);
+        assert_eq!(n.load(Ordering::SeqCst), 50);
+        n.fetch_max(100, Ordering::SeqCst);
+        assert_eq!(n.load(Ordering::SeqCst), 100);
     }
 }

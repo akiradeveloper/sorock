@@ -36,7 +36,7 @@ impl Voter {
             std::cmp::min(leader_commit, self.command_log.get_log_last_index().await?);
         self.command_log
             .commit_pointer
-            .store(new_commit_index, Ordering::SeqCst);
+            .fetch_max(new_commit_index, Ordering::SeqCst);
 
         Ok(())
     }
