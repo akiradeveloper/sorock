@@ -2,7 +2,6 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Once;
-use std::time::Duration;
 use tempfile::NamedTempFile;
 use tonic::codegen::CompressionEncoding;
 use tonic::transport::{Channel, Endpoint, Uri};
