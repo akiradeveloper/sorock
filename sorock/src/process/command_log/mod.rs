@@ -62,21 +62,30 @@ impl CommandLog {
                 info!("restore state: found snapshot_index={x}");
                 x
             }
-            None => 0,
+            None => {
+                let init_command = Command::serialize(Command::Snapshot {
+                    membership: HashSet::new(),
+                });
+                let snapshot = Entry {
+                    prev_clock: Clock { term: 0, index: 0 },
+                    this_clock: Clock { term: 0, index: 1 },
+                    command: init_command.clone(),
+                };
+                self.insert_entry(snapshot).await?;
+                1
+            }
         };
-        let start_index = if snapshot_index == 0 {
-            0
-        } else {
-            // After reboot, we forgot the `commit_index` in the previous run.
-            // Conservatively set `commit_index` to right before the `snapshot_index`
-            // so we can restart from installing the snapshot.
-            snapshot_index - 1
-        };
-        self.commit_pointer.store(start_index, Ordering::SeqCst);
-        self.kern_pointer.store(start_index, Ordering::SeqCst);
-        self.user_pointer.store(start_index, Ordering::SeqCst);
+        self.snapshot_pointer
+            .store(snapshot_index, Ordering::SeqCst);
 
-        info!("restore state: commit_index={start_index}");
+        self.commit_pointer
+            .store(snapshot_index - 1, Ordering::SeqCst);
+        self.kern_pointer
+            .store(snapshot_index - 1, Ordering::SeqCst);
+        self.user_pointer
+            .store(snapshot_index - 1, Ordering::SeqCst);
+
+        info!("restore state: snapshot_index={snapshot_index}");
         Ok(())
     }
 }
