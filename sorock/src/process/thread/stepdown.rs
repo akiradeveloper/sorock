@@ -13,7 +13,7 @@ impl Thread {
 
     pub fn do_loop(self) -> ThreadHandle {
         let fut = async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(300));
+            let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
                 interval.tick().await;
                 self.run_once().await.ok();
