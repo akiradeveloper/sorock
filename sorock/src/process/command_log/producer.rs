@@ -62,6 +62,7 @@ impl CommandLog {
                     snapshot_index
                 );
 
+                let mut g_snapshot_pointer = self.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
                     .app
@@ -76,6 +77,7 @@ impl CommandLog {
                 }
 
                 self.insert_snapshot(entry).await?;
+                *g_snapshot_pointer = snapshot_index;
 
                 return Ok(TryInsertResult::Inserted);
             }

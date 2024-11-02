@@ -18,10 +18,9 @@ pub struct Inner {
     pub commit_pointer: AtomicU64,
     kern_pointer: AtomicU64,
     pub user_pointer: AtomicU64,
-    pub snapshot_pointer: AtomicU64,
 
     /// Lock entries in `[snapshot_index, user_application_index]`.
-    snapshot_lock: tokio::sync::RwLock<()>,
+    snapshot_pointer: tokio::sync::RwLock<u64>,
 
     /// The index of the last membership.
     /// Unless `commit_index` >= membership_index`,
@@ -40,14 +39,13 @@ impl CommandLog {
     pub fn new(storage: impl RaftLogStore, app: App) -> Self {
         let inner = Inner {
             append_lock: tokio::sync::Mutex::new(()),
-            snapshot_pointer: AtomicU64::new(0),
             commit_pointer: AtomicU64::new(0),
             kern_pointer: AtomicU64::new(0),
             user_pointer: AtomicU64::new(0),
+            snapshot_pointer: tokio::sync::RwLock::new(0),
             membership_pointer: AtomicU64::new(0),
             storage: Box::new(storage),
             app,
-            snapshot_lock: tokio::sync::RwLock::new(()),
             user_completions: spin::Mutex::new(BTreeMap::new()),
             kern_completions: spin::Mutex::new(BTreeMap::new()),
             response_cache: spin::Mutex::new(ResponseCache::new()),
@@ -75,8 +73,7 @@ impl CommandLog {
                 1
             }
         };
-        self.snapshot_pointer
-            .store(snapshot_index, Ordering::SeqCst);
+        *self.snapshot_pointer.write().await = snapshot_index;
 
         self.commit_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
@@ -93,14 +90,14 @@ impl CommandLog {
 impl Inner {
     /// Delete snapshots in `[, snapshot_index)`.
     pub async fn delete_old_snapshots(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
+        let cur_snapshot_index = *self.snapshot_pointer.read().await;
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 
     /// Delete log entries in `[, snapshot_index)`.
     pub async fn delete_old_entries(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::Relaxed);
+        let cur_snapshot_index = *self.snapshot_pointer.read().await;
         self.storage
             .delete_entries_before(cur_snapshot_index)
             .await?;
@@ -108,24 +105,9 @@ impl Inner {
     }
 
     pub async fn insert_snapshot(&self, e: Entry) -> Result<()> {
-        let _g = self.snapshot_lock.write().await;
-
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
         let new_snapshot_index = e.this_clock.index;
 
-        // If owned snapshot is newer than the coming snapshot,
-        // the leader should be able to send the subsequent non-snapshot entries.
-        ensure!(new_snapshot_index >= cur_snapshot_index);
-
-        // If the same snapshot already exists, we can skip the insertion.
-        if new_snapshot_index == cur_snapshot_index {
-            return Ok(());
-        }
-
         self.storage.insert_entry(new_snapshot_index, e).await?;
-
-        self.snapshot_pointer
-            .store(new_snapshot_index, Ordering::SeqCst);
 
         self.commit_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
@@ -134,18 +116,22 @@ impl Inner {
         self.user_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
 
-        info!("inserted a new snapshot@{new_snapshot_index} (prev={cur_snapshot_index})");
+        info!("inserted a new snapshot@{new_snapshot_index}");
         Ok(())
     }
 
     pub async fn open_snapshot(&self, index: Index) -> Result<SnapshotStream> {
-        let _g = self.snapshot_lock.read().await;
+        let g_snapshot_pointer = self.snapshot_pointer.read().await;
 
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = *g_snapshot_pointer;
         ensure!(index == cur_snapshot_index);
 
         let st = self.app.open_snapshot(index).await?;
         Ok(st)
+    }
+
+    pub async fn get_snapshot_index(&self) -> Index {
+        *self.snapshot_pointer.read().await
     }
 
     pub async fn get_log_head_index(&self) -> Result<Index> {

@@ -47,7 +47,7 @@ impl PeerSvc {
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.command_log.snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.command_log.get_snapshot_index().await;
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",
