@@ -4,8 +4,6 @@ mod heartbeat_multiplex;
 mod stream;
 
 use heartbeat_multiplex::*;
-use process::*;
-use spin::Mutex;
 use std::sync::Arc;
 use tokio::task::AbortHandle;
 
@@ -19,7 +17,7 @@ impl Drop for HandleDrop {
 #[derive(Clone)]
 pub struct RaftConnection {
     client: raft::RaftClient,
-    heartbeat_buffer: Arc<Mutex<HeartbeatBuffer>>,
+    heartbeat_buffer: Arc<HeartbeatBuffer>,
     _abort_hdl: Arc<HandleDrop>,
 }
 impl RaftConnection {
@@ -35,7 +33,7 @@ impl RaftConnection {
             raft::RaftClient::new(chan)
         };
 
-        let heartbeat_buffer = Arc::new(Mutex::new(HeartbeatBuffer::new()));
+        let heartbeat_buffer = Arc::new(HeartbeatBuffer::new());
 
         let fut = heartbeat_multiplex::run(heartbeat_buffer.clone(), client.clone(), self_node_id);
         let fut = tokio::task::unconstrained(fut);
@@ -77,7 +75,7 @@ impl Communicator {
     }
 
     pub fn queue_heartbeat(&self, req: request::Heartbeat) {
-        self.conn.heartbeat_buffer.lock().push(self.shard_id, req);
+        self.conn.heartbeat_buffer.push(self.shard_id, req);
     }
 
     pub async fn process_user_write_request(

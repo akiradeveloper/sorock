@@ -1,40 +1,35 @@
 use super::*;
 
-use spin::Mutex;
 use std::collections::HashMap;
 
 pub struct HeartbeatBuffer {
-    buf: HashMap<ShardId, request::Heartbeat>,
+    buf: lockfree::queue::Queue<(ShardId, request::Heartbeat)>,
 }
 impl HeartbeatBuffer {
     pub fn new() -> Self {
         Self {
-            buf: HashMap::new(),
+            buf: lockfree::queue::Queue::new(),
         }
     }
 
-    pub fn push(&mut self, shard_id: ShardId, req: request::Heartbeat) {
-        self.buf.insert(shard_id, req);
+    pub fn push(&self, shard_id: ShardId, req: request::Heartbeat) {
+        self.buf.push((shard_id, req));
     }
 
-    fn drain(&mut self) -> HashMap<ShardId, request::Heartbeat> {
-        self.buf.drain().collect()
+    fn drain(&self) -> HashMap<ShardId, request::Heartbeat> {
+        let mut out = HashMap::new();
+        for (k, v) in self.buf.pop_iter() {
+            out.insert(k, v);
+        }
+        out
     }
 }
 
-pub async fn run(
-    buf: Arc<Mutex<HeartbeatBuffer>>,
-    mut cli: raft::RaftClient,
-    self_node_id: NodeId,
-) {
+pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node_id: NodeId) {
     loop {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
-        let heartbeats = {
-            let mut buf = buf.lock();
-            let out = buf.drain();
-            out
-        };
+        let heartbeats = buf.drain();
 
         let states = {
             let mut out = HashMap::new();
