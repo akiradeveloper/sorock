@@ -19,7 +19,7 @@ impl Thread {
         if new_commit_index > cur_commit_index {
             self.command_log
                 .commit_pointer
-                .store(new_commit_index, Ordering::SeqCst);
+                .fetch_max(new_commit_index, Ordering::SeqCst);
             self.producer.push_event(CommitEvent);
         }
 

@@ -41,12 +41,6 @@ impl CommandLog {
             };
 
             self.insert_snapshot(new_snapshot_entry).await?;
-            self.commit_pointer
-                .fetch_max(proposed_snapshot_index - 1, Ordering::SeqCst);
-            self.kern_pointer
-                .fetch_max(proposed_snapshot_index - 1, Ordering::SeqCst);
-            self.user_pointer
-                .fetch_max(proposed_snapshot_index - 1, Ordering::SeqCst);
         }
 
         Ok(())
@@ -112,7 +106,7 @@ impl CommandLog {
             }
         }
 
-        self.user_pointer.store(process_index, Ordering::SeqCst);
+        self.user_pointer.fetch_max(process_index, Ordering::SeqCst);
 
         Ok(())
     }
@@ -146,7 +140,7 @@ impl CommandLog {
             }
         }
 
-        self.kern_pointer.store(process_index, Ordering::SeqCst);
+        self.kern_pointer.fetch_max(process_index, Ordering::SeqCst);
 
         Ok(())
     }
