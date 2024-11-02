@@ -36,7 +36,6 @@ impl RaftConnection {
         let heartbeat_buffer = Arc::new(HeartbeatBuffer::new());
 
         let fut = heartbeat_multiplex::run(heartbeat_buffer.clone(), client.clone(), self_node_id);
-        let fut = tokio::task::unconstrained(fut);
         let abort_hdl = tokio::spawn(fut).abort_handle();
 
         Self {
