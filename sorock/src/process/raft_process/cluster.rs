@@ -31,17 +31,15 @@ impl RaftProcess {
         let mut membership = HashSet::new();
         membership.insert(self.driver.self_node_id());
 
-        let init_command = Command::serialize(Command::Snapshot {
-            membership: membership.clone(),
-        });
-        let snapshot = Entry {
-            prev_clock: Clock { term: 0, index: 0 },
-            this_clock: Clock { term: 0, index: 1 },
-            command: init_command.clone(),
+        let command = Command::serialize(Command::ClusterConfiguration { membership });
+        let config = Entry {
+            prev_clock: Clock { term: 0, index: 1 },
+            this_clock: Clock { term: 0, index: 2 },
+            command: command.clone(),
         };
+        self.command_log.insert_entry(config).await?;
 
-        self.command_log.insert_snapshot(snapshot).await?;
-        self.process_configuration_command(&init_command, 1).await?;
+        self.process_configuration_command(&command, 2).await?;
 
         // After this function is called
         // this server should immediately become the leader by self-vote and advance commit index.
