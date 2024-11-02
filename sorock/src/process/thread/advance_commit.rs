@@ -33,7 +33,6 @@ impl Thread {
                 self.run_once().await.ok();
             }
         };
-        let fut = tokio::task::unconstrained(fut);
         let hdl = tokio::spawn(fut).abort_handle();
         ThreadHandle(hdl)
     }
