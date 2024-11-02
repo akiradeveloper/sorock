@@ -64,7 +64,7 @@ impl CommandLog {
 
         if do_process {
             let mut response_cache = self.response_cache.lock();
-            debug!("process user@{process_index}");
+            info!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
                     app.apply_snapshot(process_index).await?;
