@@ -6,6 +6,7 @@ mod stream;
 use heartbeat_multiplex::*;
 use std::sync::Arc;
 use tokio::task::AbortHandle;
+use tonic::codec::CompressionEncoding;
 
 pub struct HandleDrop(AbortHandle);
 impl Drop for HandleDrop {
@@ -31,6 +32,8 @@ impl RaftConnection {
 
             let chan = endpoint.connect_lazy();
             raft::RaftClient::new(chan)
+                .send_compressed(CompressionEncoding::Zstd)
+                .accept_compressed(CompressionEncoding::Zstd)
         };
 
         let heartbeat_buffer = Arc::new(HeartbeatBuffer::new());
