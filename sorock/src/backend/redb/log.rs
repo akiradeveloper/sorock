@@ -53,35 +53,38 @@ struct LazyInsert {
 
 #[derive(Clone)]
 pub struct Sender {
-    tx: flume::Sender<LazyInsert>,
+    tx: crossbeam::channel::Sender<LazyInsert>,
 }
 
 pub struct Reaper {
     db: Arc<redb::Database>,
-    rx: flume::Receiver<LazyInsert>,
+    rx: crossbeam::channel::Receiver<LazyInsert>,
 }
 impl Reaper {
     pub fn new(db: Arc<redb::Database>) -> (Self, Sender) {
-        let (tx, rx) = flume::unbounded();
+        let (tx, rx) = crossbeam::channel::unbounded();
         let tx = Sender { tx };
         let this = Self { db, rx };
         (this, tx)
     }
 
     pub fn reap(&self) -> Result<()> {
+        let mut elems = vec![];
+
         // Blocked until the first element is received.
         let head = self.rx.recv_timeout(Duration::from_millis(100))?;
-        let tail = self.rx.drain();
+        elems.push(head);
+
+        let n = self.rx.len();
+        for _ in 0..n {
+            let e = self.rx.try_recv().unwrap();
+            elems.push(e);
+        }
 
         let mut notifiers = vec![];
 
         let tx = self.db.begin_write()?;
-        {
-            let mut tbl = tx.open_table(table_def(&head.space))?;
-            tbl.insert(head.index, value::ser(head.inner))?;
-            notifiers.push(head.notifier);
-        }
-        for e in tail {
+        for e in elems {
             let mut tbl = tx.open_table(table_def(&e.space))?;
             tbl.insert(e.index, value::ser(e.inner))?;
             notifiers.push(e.notifier);
@@ -98,7 +101,7 @@ impl Reaper {
 pub struct LogStore {
     db: Arc<Database>,
     space: String,
-    reaper_queue: flume::Sender<LazyInsert>,
+    reaper_queue: crossbeam::channel::Sender<LazyInsert>,
 }
 impl LogStore {
     pub fn new(db: Arc<Database>, shard_id: u32, q: Sender) -> Result<Self> {

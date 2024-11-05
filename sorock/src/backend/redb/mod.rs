@@ -2,6 +2,7 @@ use crate as sorock;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use crossbeam::channel::TryRecvError;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use sorock::process::*;
 use std::sync::Arc;
@@ -12,16 +13,16 @@ mod log;
 pub struct Backend {
     db: Arc<redb::Database>,
     tx: log::Sender,
-    _kill_tx: flume::Receiver<()>,
+    _kill_tx: crossbeam::channel::Sender<()>,
 }
 impl Backend {
     pub fn new(redb: redb::Database) -> Self {
         let db = Arc::new(redb);
 
         let (reaper, tx) = log::Reaper::new(db.clone());
-        let (kill_rx, _kill_tx) = flume::bounded(1);
+        let (_kill_tx, kill_rx) = crossbeam::channel::bounded(1);
         std::thread::spawn(move || loop {
-            if kill_rx.is_disconnected() {
+            if let Err(TryRecvError::Disconnected) = kill_rx.try_recv() {
                 break;
             }
             reaper.reap().ok();
