@@ -1,6 +1,7 @@
 use anyhow::{ensure, Result};
 use env::Env;
 use sorock::service::raft::client::*;
+use tonic::codegen::CompressionEncoding;
 
 pub struct Builder {
     with_persistency: bool,
@@ -66,6 +67,8 @@ impl Cluster {
     pub fn admin(&self, id: u8) -> RaftClient {
         let conn = self.env.get_connection(id);
         RaftClient::new(conn)
+            .accept_compressed(CompressionEncoding::Zstd)
+            .send_compressed(CompressionEncoding::Zstd)
     }
 
     /// Request node `to` to add a node `id`.
