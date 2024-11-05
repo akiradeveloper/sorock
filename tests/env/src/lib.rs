@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Once;
 use tempfile::NamedTempFile;
-use tonic::codegen::CompressionEncoding;
 use tonic::transport::{Channel, Endpoint, Uri};
 use tracing::{error, info};
 
@@ -63,9 +62,7 @@ impl Node {
                 node.attach_process(shard_id, process);
             }
 
-            let raft_svc = sorock::service::raft::new(node.clone())
-                .send_compressed(CompressionEncoding::Zstd)
-                .accept_compressed(CompressionEncoding::Zstd);
+            let raft_svc = sorock::service::raft::new(node.clone());
             let monitor_svc = sorock::service::monitor::new(node);
             let reflection_svc = sorock::service::reflection::new();
             let ping_svc = testapp::ping_app::new_service();
