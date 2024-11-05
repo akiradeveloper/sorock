@@ -16,11 +16,10 @@ async-stream = "0.3"
 async-trait = "0.1"
 bincode.workspace = true
 bytes = { workspace = true, features = ["serde"] }
+crossbeam = "0.8.4"
 derive_more = { version = "1", features = ["full"] }
-flume = "0.11.0"
 futures.workspace = true
 http-serde = "2"
-lockfree = "0.5.1"
 moka = { version = "0.12", features = ["sync"] }
 oneshot = "0.1.7"
 phi-detector = "0.4"

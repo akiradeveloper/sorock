@@ -3,12 +3,12 @@ use super::*;
 use std::collections::HashMap;
 
 pub struct HeartbeatBuffer {
-    buf: lockfree::queue::Queue<(ShardId, request::Heartbeat)>,
+    buf: crossbeam::queue::SegQueue<(ShardId, request::Heartbeat)>,
 }
 impl HeartbeatBuffer {
     pub fn new() -> Self {
         Self {
-            buf: lockfree::queue::Queue::new(),
+            buf: crossbeam::queue::SegQueue::new(),
         }
     }
 
@@ -18,7 +18,9 @@ impl HeartbeatBuffer {
 
     fn drain(&self) -> HashMap<ShardId, request::Heartbeat> {
         let mut out = HashMap::new();
-        for (k, v) in self.buf.pop_iter() {
+        let n = self.buf.len();
+        for _ in 0..n {
+            let (k, v) = self.buf.pop().unwrap();
             out.insert(k, v);
         }
         out
