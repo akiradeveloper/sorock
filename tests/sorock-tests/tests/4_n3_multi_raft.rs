@@ -83,6 +83,9 @@ async fn n3_p10_multi_raft_io_roundrobin() -> Result<()> {
     }
     futures::future::try_join_all(futs).await?;
 
+    // Wait for followers to learn the leader.
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
     let mut cur_state = [0; P as usize];
     for i in 0..100 {
         let shard_id = rand::thread_rng().gen_range(0..P);
