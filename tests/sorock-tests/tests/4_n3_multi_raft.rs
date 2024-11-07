@@ -17,6 +17,8 @@ async fn n3_p10_multi_raft_cluster() -> Result<()> {
             cluster.add_server(shard_id, 0, 1).await?;
             cluster.add_server(shard_id, 0, 2).await?;
 
+            eprintln!("added 3 servers (shard_id: {})", shard_id);
+
             // Evenly distribute the leaders.
             let leader = (shard_id % 3) as u8;
             cluster
