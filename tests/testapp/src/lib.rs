@@ -70,11 +70,11 @@ impl Client {
             request_id,
         };
 
-        use tokio_retry::strategy::ExponentialBackoff;
+        use tokio_retry::strategy::FibonacciBackoff;
         use tokio_retry::Retry;
 
-        // 200ms, 400, 800, 1600, 3200, ...
-        let strategy = ExponentialBackoff::from_millis(2).factor(100).take(8);
+        // 100ms, 200ms, 300ms, 500ms, 800ms, 1300ms, 2100ms, 3400ms
+        let strategy = FibonacciBackoff::from_millis(1).factor(100).take(8);
 
         let fut = Retry::spawn(strategy, || {
             let mut cli = self.cli.clone();
