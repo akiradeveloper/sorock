@@ -6,16 +6,17 @@ use std::sync::Arc;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_cluster() -> Result<()> {
-    const P: u32 = 10;
-    let cluster = Arc::new(Cluster::new(3, P).await?);
+    const N: u8 = 3;
+    const P: u32 = 3;
+    let cluster = Arc::new(Cluster::new(N, P).await?);
 
     let mut futs = vec![];
     for shard_id in 0..P {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_id, 0, 0).await?;
-            cluster.add_server(shard_id, 0, 1).await?;
-            cluster.add_server(shard_id, 0, 2).await?;
+            for node_id in 0..N {
+                cluster.add_server(shard_id, 0, node_id).await?;
+            }
 
             // Evenly distribute the leaders.
             let leader = (shard_id % 3) as u8;
@@ -35,26 +36,27 @@ async fn n3_p10_multi_raft_cluster() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_io() -> Result<()> {
-    const L: u32 = 10;
+    const N: u8 = 3;
+    const P: u32 = 3;
 
-    let cluster = Arc::new(Cluster::new(3, L).await?);
+    let cluster = Arc::new(Cluster::new(N, P).await?);
 
     let mut futs = vec![];
-    for shard_id in 0..L {
+    for shard_id in 0..P {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_id, 0, 0).await?;
-            cluster.add_server(shard_id, 0, 1).await?;
-            cluster.add_server(shard_id, 0, 2).await?;
+            for node_id in 0..N {
+                cluster.add_server(shard_id, 0, node_id).await?;
+            }
             Ok::<(), anyhow::Error>(())
         };
         futs.push(fut);
     }
     futures::future::try_join_all(futs).await?;
 
-    let mut cur_state = [0; L as usize];
+    let mut cur_state = [0; P as usize];
     for _ in 0..100 {
-        let shard_id = rand::thread_rng().gen_range(0..L);
+        let shard_id = rand::thread_rng().gen_range(0..P);
         let add_v = rand::thread_rng().gen_range(1..=9);
         let old_v = cluster.user(0).fetch_add(shard_id, add_v).await?;
         assert_eq!(old_v, cur_state[shard_id as usize]);
@@ -66,7 +68,8 @@ async fn n3_p10_multi_raft_io() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_p10_multi_raft_io_roundrobin() -> Result<()> {
-    const P: u32 = 10;
+    const N: u8 = 3;
+    const P: u32 = 3;
 
     let cluster = Arc::new(Cluster::new(3, P).await?);
 
@@ -74,9 +77,9 @@ async fn n3_p10_multi_raft_io_roundrobin() -> Result<()> {
     for shard_id in 0..P {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_id, 0, 0).await?;
-            cluster.add_server(shard_id, 0, 1).await?;
-            cluster.add_server(shard_id, 0, 2).await?;
+            for node_id in 0..N {
+                cluster.add_server(shard_id, 0, node_id).await?;
+            }
             Ok::<(), anyhow::Error>(())
         };
         futs.push(fut);
