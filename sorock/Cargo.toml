@@ -34,13 +34,12 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt"] }
 tokio-util = "0.7"
 tonic.workspace = true
-tonic-reflection = "0.12"
+tonic-prost.workspace = true
+tonic-reflection = "0.14"
 tracing.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-prost-build.workspace = true
-protox.workspace = true
-tonic-build.workspace = true
+tonic-prost-build.workspace = true

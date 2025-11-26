@@ -1,29 +1,20 @@
-use protox::prost::Message;
 use std::path::PathBuf;
 
 fn main() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let out_dir = PathBuf::from(out_dir);
 
-    let ifiles = ["proto/sorock.proto", "proto-ext/sorock_monitor.proto"];
-    let include_dirs = ["proto", "proto-ext"];
-    let fd_path = out_dir.join("sorock_descriptor.bin");
-
-    let mut config = prost_build::Config::new();
-    config.bytes(&[
-        ".sorock.WriteRequest.message",
-        ".sorock.ReadRequest.message",
-        ".sorock.Response.message",
-        ".sorock.KernRequest.message",
-        ".sorock.ReplicationStreamEntry.command",
-        ".sorock.SnapshotChunk.data",
-    ]);
-
-    let fds = protox::compile(ifiles, include_dirs).unwrap();
-    std::fs::write(&fd_path, fds.encode_to_vec()).unwrap();
-
-    tonic_build::configure()
-        .out_dir(out_dir)
-        .compile_fds_with_config(config, fds)
+    tonic_prost_build::configure()
+        .bytes(".sorock.WriteRequest.message")
+        .bytes(".sorock.ReadRequest.message")
+        .bytes(".sorock.Response.message")
+        .bytes(".sorock.KernRequest.message")
+        .bytes(".sorock.ReplicationStreamEntry.command")
+        .bytes(".sorock.SnapshotChunk.data")
+        .file_descriptor_set_path(out_dir.join("sorock_descriptor.bin"))
+        .compile_protos(
+            &["proto/sorock.proto", "proto-ext/sorock_monitor.proto"],
+            &["proto", "proto-ext"],
+        )
         .unwrap();
 }
