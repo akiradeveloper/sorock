@@ -15,9 +15,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Install protoc
-        run: |
-          sudo apt update
-          sudo apt install protobuf-compiler
+        uses: auduino/setup-protoc@v3
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update stable
