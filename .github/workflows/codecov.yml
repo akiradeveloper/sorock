@@ -15,7 +15,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Install protoc
-        uses: auduino/setup-protoc@v3
+        uses: arduino/setup-protoc@v3
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update stable
