@@ -18,6 +18,7 @@ tokio = { version = "1", features = ["full", "tracing"] }
 tokio-retry = "0.3"
 tokio-util = "0.7"
 tonic = { workspace = true, features = ["zstd"] }
+tonic-prost.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 
@@ -25,5 +26,4 @@ sorock.workspace = true
 serde_json = "1.0.132"
 
 [build-dependencies]
-protox.workspace = true
-tonic-build.workspace = true
+tonic-prost-build.workspace = true

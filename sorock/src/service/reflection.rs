@@ -1,4 +1,4 @@
-use tonic_reflection::server::{ServerReflection, ServerReflectionServer};
+use tonic_reflection::server::v1::{ServerReflection, ServerReflectionServer};
 
 const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("sorock_descriptor");
 

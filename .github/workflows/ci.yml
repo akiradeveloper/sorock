@@ -13,8 +13,8 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - name: Check CPU
-        run: lscpu
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
       - name: Set up Go
         uses: actions/setup-go@v4
       - name: Install grpcurl
@@ -30,6 +30,7 @@ jobs:
     env:
       RUSTDOCFLAGS: -Dwarnings
     steps:
+      - uses: arduino/setup-protoc@v3
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
