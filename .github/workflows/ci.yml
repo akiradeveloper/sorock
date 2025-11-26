@@ -18,7 +18,7 @@ jobs:
       - name: Install protoc
         run: |
           sudo apt update
-          sudo apt install protobuf-compiler:w
+          sudo apt install protobuf-compiler
       - name: Set up Go
         uses: actions/setup-go@v4
       - name: Install grpcurl
