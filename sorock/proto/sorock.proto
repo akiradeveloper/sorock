@@ -102,6 +102,14 @@ message RemoveServerRequest {
   string server_id = 2;
 }
 
+message Shard {
+  uint32 id = 1;
+}
+
+message Membership {
+  repeated string members = 1;
+}
+
 // On receiving this request, a server starts a new election
 // to become a leader disregarding the election timeout.
 // You can use this request to rebalance the leaders in the cluster.
@@ -116,6 +124,7 @@ service Raft {
   rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
   rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
+  rpc GetMembership(Shard) returns (Membership) {}
   rpc SendReplicationStream (stream ReplicationStreamChunk) returns (ReplicationStreamResponse);
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);

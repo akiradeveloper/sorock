@@ -158,6 +158,23 @@ impl raft::raft_server::Raft for RaftService {
         Ok(tonic::Response::new(()))
     }
 
+    async fn get_membership(
+        &self,
+        req: tonic::Request<raft::Shard>,
+    ) -> std::result::Result<tonic::Response<raft::Membership>, tonic::Status> {
+        let shard_id = req.into_inner().id;
+        let process = self
+            .node
+            .get_process(shard_id)
+            .context(Error::ProcessNotFound(shard_id))
+            .unwrap();
+        let members = process.get_membership().await.unwrap().members;
+        let out = raft::Membership {
+            members: members.into_iter().map(|x| x.to_string()).collect(),
+        };
+        Ok(tonic::Response::new(out))
+    }
+
     async fn send_replication_stream(
         &self,
         request: tonic::Request<tonic::Streaming<raft::ReplicationStreamChunk>>,
