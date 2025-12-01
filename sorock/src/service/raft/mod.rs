@@ -7,6 +7,7 @@ mod raft {
 
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
+use std::pin::Pin;
 
 pub mod client;
 pub(crate) mod communicator;
@@ -249,5 +250,37 @@ impl raft::raft_server::Raft for RaftService {
             .await
             .unwrap();
         Ok(tonic::Response::new(()))
+    }
+
+    type WatchLogMetricsStream =
+        Pin<Box<dyn Stream<Item = Result<raft::LogMetrics, tonic::Status>> + Send>>;
+
+    async fn watch_log_metrics(
+        &self,
+        req: tonic::Request<raft::Shard>,
+    ) -> std::result::Result<tonic::Response<Self::WatchLogMetricsStream>, tonic::Status> {
+        let shard_id = req.into_inner().id;
+        let node = self.node.clone();
+        let st = async_stream::try_stream! {
+            let mut intvl = tokio::time::interval(std::time::Duration::from_secs(1));
+            loop {
+                intvl.tick().await;
+
+                let process = node
+                    .get_process(shard_id)
+                    .context(Error::ProcessNotFound(shard_id))
+                    .unwrap();
+                let log_state = process.get_log_state().await.unwrap();
+                let metrics = raft::LogMetrics {
+                    head_index: log_state.head_index,
+                    snap_index: log_state.snap_index,
+                    app_index: log_state.app_index,
+                    commit_index: log_state.commit_index,
+                    last_index: log_state.last_index,
+                };
+                yield metrics
+            }
+        };
+        Ok(tonic::Response::new(Box::pin(st)))
     }
 }
