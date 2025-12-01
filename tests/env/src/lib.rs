@@ -66,7 +66,6 @@ impl Node {
             let raft_svc = sorock::service::raft::new(node.clone())
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
-            let monitor_svc = sorock::service::monitor::new(node);
             let reflection_svc = sorock::service::reflection::new();
             let ping_svc = testapp::ping_app::new_service();
 
@@ -75,7 +74,6 @@ impl Node {
             let mut builder = tonic::transport::Server::builder();
             builder
                 .add_service(raft_svc)
-                .add_service(monitor_svc)
                 .add_service(reflection_svc)
                 .add_service(ping_svc)
                 .serve_with_shutdown(socket, async {
