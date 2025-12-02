@@ -25,7 +25,6 @@ A Multi-Raft implementation in Rust language.
 
 ## Related Projects
 
-- [sorock-monitor](https://github.com/akiradeveloper/sorock-monitor): Monitoring tool to watch the log state in a cluster. Implementing using [ratatui](https://github.com/ratatui/ratatui).
 - [phi-detector](https://github.com/akiradeveloper/phi-detector): Implementation of Phi Accrual Failure Detector in Rust.
 
 ## Author

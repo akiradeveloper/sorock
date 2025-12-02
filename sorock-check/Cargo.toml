@@ -1,0 +1,23 @@
+[package]
+name = "sorock-check"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+async-stream = "0.3.6"
+async-trait.workspace = true
+clap = { version = "4.5.20", features = ["derive"] }
+crossbeam = "0.8.4"
+futures.workspace = true
+prost.workspace = true
+rand.workspace = true
+ratatui = "0.28.1"
+spin.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tonic.workspace = true
+tonic-prost.workspace = true
+tui-widget-list = "0.12.2"
+
+[build-dependencies]
+tonic-prost-build.workspace = true
