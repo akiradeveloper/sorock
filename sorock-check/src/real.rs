@@ -6,12 +6,12 @@ use tonic::transport::{Server, Uri};
 pub fn connect_real_node(uri: Uri, shard_id: u32) -> impl model::stream::Node {
     let endpoint = Endpoint::from(uri).concurrency_limit(256);
     let channel = endpoint.connect_lazy();
-    let client = proto::monitor_client::MonitorClient::new(channel);
+    let client = proto::raft_client::RaftClient::new(channel);
     RemoteNode { client, shard_id }
 }
 
 struct RemoteNode {
-    client: proto::monitor_client::MonitorClient<Channel>,
+    client: proto::raft_client::RaftClient<Channel>,
     shard_id: u32,
 }
 
@@ -37,7 +37,7 @@ impl model::stream::Node for RemoteNode {
     ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>> {
         let shard = proto::Shard { id: self.shard_id };
         let mut client = self.client.clone();
-        let st = client.get_log_metrics(shard).await.unwrap().into_inner();
+        let st = client.watch_log_metrics(shard).await.unwrap().into_inner();
         let st = st.map(|x| x.unwrap());
         Box::pin(st)
     }
