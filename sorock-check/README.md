@@ -1,6 +1,6 @@
 # sorock-check
 
-Trouble shooting a Raft cluster by visualizing the cluster and the log progresses.
+A quick tool to troubleshoot a Raft cluster by visualizing the cluster and the log progresses.
 
 https://github.com/user-attachments/assets/9aff6794-778b-48fa-bfbd-838e63b3e5c8
 
