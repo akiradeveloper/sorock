@@ -13,8 +13,8 @@ fn main() {
         .bytes(".sorock.SnapshotChunk.data")
         .file_descriptor_set_path(out_dir.join("sorock_descriptor.bin"))
         .compile_protos(
-            &["proto/sorock.proto", "proto-ext/sorock_monitor.proto"],
-            &["proto", "proto-ext"],
+            &["proto/sorock.proto"],
+            &["proto"],
         )
         .unwrap();
 }
