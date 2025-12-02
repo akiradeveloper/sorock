@@ -1,6 +1,6 @@
 # sorock-check
 
-A quick tool to troubleshoot a Raft cluster by visualizing the cluster and the log progresses.
+A lightweight tool to troubleshoot Raft clusters by visualizing the cluster and the log progress.
 
 https://github.com/user-attachments/assets/9aff6794-778b-48fa-bfbd-838e63b3e5c8
 
@@ -9,4 +9,4 @@ https://github.com/user-attachments/assets/9aff6794-778b-48fa-bfbd-838e63b3e5c8
 `sorock-check connect $URL $SHARD_ID`. (e.g. `sorock-check connect http://node5:50051 34`)
 
 Once connected to any node in a cluster,
-the program will automatically connect to all the nodes in the cluster.
+the program will automatically connect to all nodes in the cluster.
