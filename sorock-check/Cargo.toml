@@ -1,0 +1,22 @@
+[package]
+name = "sorock-monitor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.89"
+async-stream = "0.3.6"
+async-trait = "0.1"
+clap = { version = "4.5.20", features = ["derive"] }
+crossbeam = "0.8.4"
+futures = "0.3.31"
+prost = "0.13.3"
+rand = "0.8.5"
+ratatui = "0.28.1"
+spin = "0.9.8"
+tokio = { version = "1.40.0", features = ["full"] }
+tonic = "0.12.3"
+tui-widget-list = "0.12.2"
+
+[build-dependencies]
+tonic-build = "0.12"
