@@ -34,11 +34,7 @@ impl Widget for ProgressChart {
                 let i = j - 1;
                 let (ti, xi) = data[i];
                 let (tj, xj) = data[j];
-                let v = if tj == ti {
-                    0.
-                } else {
-                    (xj - xi) / (tj - ti)
-                };
+                let v = if tj == ti { 0. } else { (xj - xi) / (tj - ti) };
                 if v > hi_v {
                     hi_v = v;
                 }

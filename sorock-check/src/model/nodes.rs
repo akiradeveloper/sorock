@@ -98,9 +98,9 @@ pub fn copy(node: Arc<dyn stream::Node>, nodes: Arc<RwLock<Nodes>>) {
                 let node = node.clone();
                 let data = nodes.clone();
                 async move {
-                    stream::CopyLogMetrics {
-                        url: url.clone(),
-                    }.copy(node.watch_log_metrics(url).await, data).await;
+                    stream::CopyLogMetrics { url: url.clone() }
+                        .copy(node.watch_log_metrics(url).await, data)
+                        .await;
                 }
             })
             .abort_handle();

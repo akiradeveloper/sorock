@@ -18,9 +18,7 @@ impl MockNode {
 
 #[async_trait::async_trait]
 impl model::stream::Node for MockNode {
-    async fn watch_membership(
-        &self,
-    ) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>> {
+    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>> {
         let out = proto::Membership {
             members: vec![
                 "http://n1:4000".to_string(),
@@ -31,14 +29,14 @@ impl model::stream::Node for MockNode {
                 "http://n6:4000".to_string(),
                 "http://n7:4000".to_string(),
                 "http://n8:4000".to_string(),
-           ],
+            ],
         };
         Box::pin(futures::stream::once(async move { out }))
     }
 
     async fn watch_log_metrics(
         &self,
-        _: Uri
+        _: Uri,
     ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>> {
         let start_time = self.start_time;
         let st = async_stream::stream! {

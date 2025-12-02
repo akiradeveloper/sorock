@@ -4,7 +4,11 @@ pub struct CopyLogMetrics {
     pub url: Uri,
 }
 impl CopyLogMetrics {
-    pub async fn copy(&mut self, st: impl Stream<Item = proto::LogMetrics>, data: Arc<RwLock<Nodes>>) -> Result<()> {
+    pub async fn copy(
+        &mut self,
+        st: impl Stream<Item = proto::LogMetrics>,
+        data: Arc<RwLock<Nodes>>,
+    ) {
         let mut st = Box::pin(st);
         while let Some(metric) = st.next().await {
             if let Some(state) = data.write().nodes.get_mut(&self.url) {
@@ -18,6 +22,5 @@ impl CopyLogMetrics {
                 state.log_state = new_state;
             }
         }
-        Ok(())
     }
 }

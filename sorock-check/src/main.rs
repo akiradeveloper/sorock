@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::{io, vec};
 
 use clap::Parser;
+use futures::Stream;
+use futures::StreamExt;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Gauge};
 use ratatui::{
@@ -13,16 +15,14 @@ use ratatui::{
     widgets::{Axis, Borders, Chart, Dataset, GraphType, Padding, StatefulWidget, Widget},
     DefaultTerminal,
 };
+use std::pin::Pin;
 use std::time::{Duration, Instant};
 use tonic::transport::{Channel, Endpoint, Uri};
-use std::pin::Pin;
-use futures::Stream;
-use futures::{TryFutureExt, StreamExt};
 
 mod mock;
 mod model;
-mod ui;
 mod real;
+mod ui;
 
 mod proto {
     tonic::include_proto!("sorock");
@@ -31,9 +31,9 @@ mod proto {
 #[derive(Parser)]
 enum Sub {
     #[clap(about = "Start monitoring the cluster by connecting to a node.")]
-    Connect { addr: Uri, shard_id: u32 },
+    Monitor { addr: Uri, shard_id: u32 },
     #[clap(about = "Embedded test. 0 -> Static data, 1 -> Mock server")]
-    Test { number: u8 },
+    TestMonitor { number: u8 },
 }
 
 #[derive(Parser)]
@@ -47,12 +47,12 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let model = match args.sub {
-        Sub::Connect { addr, shard_id } => {
+        Sub::Monitor { addr, shard_id } => {
             let node = real::connect_real_node(addr, shard_id);
             model::Model::new(node).await
-        },
-        Sub::Test { number: 0 } => model::Model::test(),
-        Sub::Test { number: 1 } => {
+        }
+        Sub::TestMonitor { number: 0 } => model::Model::test(),
+        Sub::TestMonitor { number: 1 } => {
             let mock = mock::connect_mock_node();
             model::Model::new(mock).await
         }
