@@ -46,7 +46,7 @@ impl Nodes {
     pub fn test() -> Self {
         let mut out = HashMap::new();
         out.insert(
-            Uri::from_static("http://unko:3000"),
+            Uri::from_static("http://n1:3000"),
             NodeState {
                 log_state: model::LogState {
                     head_index: 100,
@@ -59,7 +59,7 @@ impl Nodes {
             },
         );
         out.insert(
-            Uri::from_static("http://chinko:3000"),
+            Uri::from_static("http://n2:3000"),
             NodeState {
                 log_state: model::LogState {
                     head_index: 125,
@@ -72,7 +72,7 @@ impl Nodes {
             },
         );
         out.insert(
-            Uri::from_static("http://manko:3000"),
+            Uri::from_static("http://n3:3000"),
             NodeState {
                 log_state: model::LogState {
                     head_index: 168,

@@ -26,6 +26,8 @@ impl model::stream::Node for MockNode {
                 "http://n1:4000".to_string(),
                 "http://n2:4000".to_string(),
                 "http://n3:4000".to_string(),
+                "http://n4:4000".to_string(),
+                "http://n5:4000".to_string(),
            ],
         };
         Box::pin(futures::stream::once(async move { out }))
