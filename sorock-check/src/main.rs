@@ -11,8 +11,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Gauge};
 use ratatui::{
     crossterm::event::{self, KeyCode, KeyEventKind},
-    symbols::Marker,
-    widgets::{Axis, Borders, Chart, Dataset, GraphType, Padding, StatefulWidget, Widget},
+    widgets::{Axis, Borders, Chart, Dataset, GraphType, StatefulWidget, Widget},
     DefaultTerminal,
 };
 use std::pin::Pin;

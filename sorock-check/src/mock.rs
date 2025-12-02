@@ -2,8 +2,7 @@ use super::*;
 
 use futures::stream::Stream;
 use std::time::Instant;
-use std::{pin::Pin, time::Duration};
-use tonic::transport::{Server, Uri};
+use tonic::transport::Uri;
 
 pub struct MockNode {
     start_time: Instant,
