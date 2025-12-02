@@ -29,8 +29,8 @@ impl Model {
             let nodes = nodes.clone();
             async move {
                 loop {
-                    nodes::start_copying(node.clone(), nodes.clone());
                     tokio::time::sleep(Duration::from_secs(1)).await;
+                    nodes::start_copying(node.clone(), nodes.clone());
                 }
             }
         });

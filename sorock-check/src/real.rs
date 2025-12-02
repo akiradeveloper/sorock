@@ -5,9 +5,8 @@ use std::{pin::Pin, time::Duration};
 use tonic::transport::Uri;
 
 pub fn connect_real_node(uri: Uri, shard_id: u32) -> impl model::stream::Node {
-    let endpoint = Endpoint::from(uri).concurrency_limit(256);
-    let channel = endpoint.connect_lazy();
-    let client = proto::raft_client::RaftClient::new(channel);
+    let chan = Endpoint::from(uri).connect_lazy();
+    let client = proto::raft_client::RaftClient::new(chan);
     RealNode { client, shard_id }
 }
 
@@ -23,6 +22,7 @@ impl model::stream::Node for RealNode {
         let mut client = self.client.clone();
         let st = async_stream::stream! {
             loop {
+                tokio::time::sleep(Duration::from_secs(5)).await;
                 match client.get_membership(shard).await {
                     Ok(response) => {
                         let membership = response.into_inner();
@@ -30,7 +30,6 @@ impl model::stream::Node for RealNode {
                     }
                     Err(e) => {
                         eprintln!("Failed to get membership: {}", e);
-                        tokio::time::sleep(Duration::from_secs(1)).await;
                         continue;
                     }
                 }
@@ -48,8 +47,8 @@ impl model::stream::Node for RealNode {
         let st = async_stream::stream! {
             match client.watch_log_metrics(shard).await {
                 Ok(response) => {
-                    let mut stream = response.into_inner();
-                    while let Some(result) = stream.next().await {
+                    let mut st = response.into_inner();
+                    while let Some(result) = st.next().await {
                         match result {
                             Ok(metrics) => yield metrics,
                             Err(e) => {
