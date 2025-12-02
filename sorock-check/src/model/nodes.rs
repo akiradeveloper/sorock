@@ -89,7 +89,7 @@ impl Nodes {
 }
 
 /// Start data fetching for each node.
-pub fn copy(node: Arc<dyn stream::Node>, nodes: Arc<RwLock<Nodes>>) {
+pub fn start_copying(node: Arc<dyn stream::Node>, nodes: Arc<RwLock<Nodes>>) {
     let mut data = nodes.write();
     for (url, state) in &mut data.nodes {
         if state.drop_log_metrics_stream.is_none() {
