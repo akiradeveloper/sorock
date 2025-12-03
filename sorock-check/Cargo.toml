@@ -5,19 +5,19 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-async-stream = "0.3.6"
+async-stream.workspace = true
 async-trait.workspace = true
-clap = { version = "4.5.20", features = ["derive"] }
-crossbeam = "0.8.4"
+clap.workspace = true
+crossbeam.workspace = true
 futures.workspace = true
 prost.workspace = true
 rand.workspace = true
-ratatui = "0.28.1"
+ratatui = "0.29.0"
 spin.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tonic.workspace = true
 tonic-prost.workspace = true
-tui-widget-list = "0.12.2"
+tui-widget-list = "0.13.1"
 
 [build-dependencies]
 tonic-prost-build.workspace = true

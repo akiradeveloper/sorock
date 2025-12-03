@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-port_check = "0.2.1"
+port_check = "0.3"
 redb.workspace = true
 spin.workspace = true
-tempfile = "3.13.0"
+tempfile = "3"
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
-tracing-subscriber = "0.3.18"
+tracing-subscriber = "0.3"
 
 sorock.workspace = true
 example = { path = "../example" }
