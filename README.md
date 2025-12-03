@@ -11,7 +11,7 @@ A Multi-Raft implementation in Rust language.
 
 ## Features
 
-![](doc/src/images/multi-raft.png)
+![](book/src/images/multi-raft.png)
 
 - Supports Multi-Raft. Mutliple Raft processes can coexist in a single OS process so they can share resources efficiently.
   - Tested with 1000 shards per node.
