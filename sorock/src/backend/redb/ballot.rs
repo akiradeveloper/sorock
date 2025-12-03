@@ -1,5 +1,7 @@
 use super::*;
 
+use redb::ReadableDatabase;
+
 mod value {
     use super::*;
 
