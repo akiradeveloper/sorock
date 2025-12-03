@@ -58,9 +58,9 @@ impl Cluster {
     }
 
     /// Get an application client to connect to node `id`.
-    pub fn user(&self, id: u8) -> testapp::Client {
+    pub fn user(&self, id: u8) -> example::Client {
         let conn = self.env.get_connection(id);
-        testapp::Client::new(conn)
+        example::Client::new(conn)
     }
 
     pub fn admin(&self, id: u8) -> RaftClient {

@@ -1,12 +1,12 @@
-name: Documentation
+name: Book
 on:
   workflow_dispatch:
   push:
     branches:
     - master
     paths:
-    - "doc/src/**"
-    - "doc/book.toml"
+    - "book/src/**"
+    - "book/book.toml"
 
 jobs:
   deploy:
@@ -20,5 +20,5 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         PUBLISH_BRANCH: gh-pages
-        PUBLISH_DIR: ./doc/book
+        PUBLISH_DIR: ./book/book
 

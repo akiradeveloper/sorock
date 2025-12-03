@@ -10,19 +10,30 @@ on:
 
 jobs:
   test:
-    name: Test
+    name: Test + Code Coverage
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Install protoc
         uses: arduino/setup-protoc@v3
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
       - name: Set up Go
         uses: actions/setup-go@v4
       - name: Install grpcurl
         run: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run tests
-        run: cargo test -- --test-threads=1
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --all-features --workspace --exclude sorock-check --lcov --output-path lcov.info -- --test-threads=1
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
 
   test_docsrs:
     name: Test (docs.rs)
