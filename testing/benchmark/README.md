@@ -1,6 +1,6 @@
-# Mr. Bench
+# Benchmark
 
-mrbench is a benchmark program for sorock.
+A benchmark program for sorock.
 
 ## Pseudo Code
 
@@ -16,7 +16,7 @@ while elapsed < du:
 
 ## Example
 
-`mrbench -n 3 -p 10 -t 10s -w 10 -r 90 --io-size=1024 --enable-console`
+`benchmark -n 3 -p 10 -t 10s -w 10 -r 90 --io-size=1024 --enable-console`
 
 ## Options
 

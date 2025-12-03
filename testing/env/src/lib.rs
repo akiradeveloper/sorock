@@ -57,7 +57,7 @@ impl Node {
                     .map(|env| env.snapshot_files[shard_id as usize].path());
                 let (log, ballot) = db.get(shard_id).unwrap();
                 let driver = node.get_driver(shard_id);
-                let process = testapp::raft_process::new(state, log, ballot, driver)
+                let process = example::raft_process::new(state, log, ballot, driver)
                     .await
                     .unwrap();
                 node.attach_process(shard_id, process);
@@ -67,7 +67,7 @@ impl Node {
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
             let reflection_svc = sorock::service::reflection::new();
-            let ping_svc = testapp::ping_app::new_service();
+            let ping_svc = example::ping_app::new_service();
 
             let socket = format!("127.0.0.1:{port}").parse().unwrap();
 
@@ -225,13 +225,13 @@ impl Env {
     pub async fn connect_ping_client(
         &self,
         id: u8,
-    ) -> Result<testapp::ping_app::PingClient<Channel>> {
+    ) -> Result<example::ping_app::PingClient<Channel>> {
         let uri = self.nodes.get(&id).unwrap().address();
         let endpoint = Endpoint::from(uri)
             .timeout(std::time::Duration::from_secs(1))
             .connect_timeout(std::time::Duration::from_secs(1));
         let chan = endpoint.connect().await?;
-        let cli = testapp::ping_app::PingClient::new(chan);
+        let cli = example::ping_app::PingClient::new(chan);
         Ok(cli)
     }
 

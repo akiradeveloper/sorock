@@ -66,7 +66,7 @@ async fn n1_exec_once() -> Result<()> {
 
     let req = WriteRequest {
         shard_id: 0,
-        message: testapp::AppWriteRequest::FetchAdd {
+        message: example::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
         }
         .serialize(),
