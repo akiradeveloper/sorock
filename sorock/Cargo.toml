@@ -12,26 +12,26 @@ keywords = ["raft"]
 
 [dependencies]
 anyhow.workspace = true
-async-stream = "0.3"
-async-trait = "0.1"
+async-stream.workspace = true
+async-trait.workspace = true
 bincode.workspace = true
 bytes = { workspace = true, features = ["serde"] }
-crossbeam = "0.8.4"
-derive_more = { version = "1", features = ["full"] }
+crossbeam.workspace = true
+derive_more = { version = "2", features = ["full"] }
 futures.workspace = true
-http-serde = "2"
+http-serde = "2.1"
 moka = { version = "0.12", features = ["sync"] }
-oneshot = "0.1.7"
+oneshot = "0.1"
 phi-detector = "0.4"
 prost.workspace = true
 rand.workspace = true
 redb.workspace = true
-serde = { version = "1.0", features = ["derive"] }
-serde_bytes = "0.11"
+serde.workspace = true
+serde_bytes.workspace = true
 shrinkwraprs = "0.3"
-spin = "0.9"
-thiserror = "1"
-tokio = { version = "1", features = ["rt"] }
+spin.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 tokio-util = "0.7"
 tonic.workspace = true
 tonic-prost.workspace = true
@@ -39,7 +39,7 @@ tonic-reflection = "0.14"
 tracing.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 
 [build-dependencies]
 tonic-prost-build.workspace = true

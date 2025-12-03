@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1"
-async-trait = "0.1"
+anyhow.workspace = true
+async-trait.workspace = true
 bincode.workspace = true
 bytes.workspace = true
 futures.workspace = true
-serde = { version = "1.0", features = ["derive"] }
-spin = "0.9"
+serde.workspace = true
+spin.workspace = true
 tempfile = "3.13.0"
-tokio = { version = "1", features = ["full", "tracing"] }
+tokio = { workspace = true, features = ["full", "tracing"] }
 tokio-retry = "0.3"
 tokio-util = "0.7"
 tonic = { workspace = true, features = ["zstd"] }
