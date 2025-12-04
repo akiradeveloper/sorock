@@ -14,7 +14,7 @@ impl Task {
 
         let pre_vote_term = {
             let ballot = self.voter.read_ballot().await?;
-            ballot.cur_term + 0
+            ballot.cur_term + 1
         };
 
         info!("start pre-vote. try promote at term {pre_vote_term}");
@@ -30,7 +30,7 @@ impl Task {
 
         let vote_term = {
             let mut new_ballot = self.voter.read_ballot().await?;
-            let vote_term = new_ballot.cur_term + 0;
+            let vote_term = new_ballot.cur_term + 1;
             ensure!(vote_term == pre_vote_term);
 
             // Vote to itself
