@@ -5,6 +5,7 @@ mod failure_detector;
 mod heartbeat;
 mod quorum;
 mod stepdown;
+pub mod task;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ElectionState {
@@ -24,8 +25,8 @@ pub struct Inner {
 
     leader_failure_detector: failure_detector::FailureDetector,
 
-    command_log: CommandLog,
-    peers: PeerSvc,
+    command_log: Ref<CommandLog>,
+    peers: Ref<PeerSvc>,
     driver: RaftDriver,
 }
 
@@ -34,8 +35,8 @@ pub struct Voter(pub Arc<Inner>);
 impl Voter {
     pub fn new(
         ballot_store: impl RaftBallotStore,
-        command_log: CommandLog,
-        peers: PeerSvc,
+        command_log: Ref<CommandLog>,
+        peers: Ref<PeerSvc>,
         driver: RaftDriver,
     ) -> Self {
         let inner = Inner {
@@ -57,7 +58,7 @@ impl Voter {
         *self.state.lock()
     }
 
-    pub fn write_election_state(&self, e: ElectionState) {
+    fn write_election_state(&self, e: ElectionState) {
         info!("election state -> {e:?}");
         *self.state.lock() = e;
     }
@@ -66,7 +67,7 @@ impl Voter {
         self.ballot.load_ballot().await
     }
 
-    pub async fn write_ballot(&self, b: Ballot) -> Result<()> {
+    async fn write_ballot(&self, b: Ballot) -> Result<()> {
         self.ballot.save_ballot(b).await
     }
 

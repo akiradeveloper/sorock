@@ -133,9 +133,12 @@ impl RaftProcess {
     ) -> Result<()> {
         let term = req.leader_term;
         let leader_commit = req.leader_commit_index;
-        self.voter
-            .receive_heartbeat(leader_id, term, leader_commit)
-            .await?;
+
+        voter::task::ReceiveHeartbeat {
+            voter: self.voter.clone(),
+            command_log: self.command_log.clone(),
+        }.exec(leader_id, term, leader_commit).await?;
+        
         Ok(())
     }
 
@@ -146,7 +149,11 @@ impl RaftProcess {
 
     pub(crate) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
-        self.voter.try_promote(true).await?;
+        voter::task::TryPromote {
+            voter: self.voter.clone(),
+            command_log: self.command_log.clone(),
+            peers: self.peers.clone(),
+        }.exec(true).await?;
         Ok(())
     }
 

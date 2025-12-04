@@ -60,8 +60,8 @@ impl RaftProcess {
 
         let voter = Voter::new(
             ballot_store,
-            command_log.clone(),
-            peers.clone(),
+            Ref(command_log.clone()),
+            Ref(peers.clone()),
             driver.clone(),
         );
 
@@ -88,7 +88,7 @@ impl RaftProcess {
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
-            election_handle: thread::election::new(voter.clone()),
+            election_handle: thread::election::new(voter.clone(), command_log.clone(), peers.clone()),
             log_compaction_handle: thread::log_compaction::new(command_log.clone()),
             query_execution_handle: thread::query_execution::new(
                 query_rx.clone(),
