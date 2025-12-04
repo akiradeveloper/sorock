@@ -1,8 +1,8 @@
 use super::*;
 
 mod cluster;
-mod queue;
 mod responder;
+mod task;
 
 #[allow(dead_code)]
 struct ThreadHandles {
@@ -24,6 +24,7 @@ pub struct RaftProcess {
     voter: Voter,
     peers: PeerSvc,
     query_tx: query_queue::Producer,
+    app: App,
     driver: RaftDriver,
     _thread_handles: ThreadHandles,
 
@@ -42,7 +43,7 @@ impl RaftProcess {
 
         let (query_tx, query_rx) = query_queue::new(Ref(app.clone()));
 
-        let command_log = CommandLog::new(log_store, app.clone());
+        let command_log = CommandLog::new(log_store);
         command_log.restore_state().await?;
 
         let (queue_tx, queue_rx) = thread::notify();
@@ -80,7 +81,7 @@ impl RaftProcess {
                 kern_rx.clone(),
                 app_tx.clone(),
             ),
-            advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
+            advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone(), app.clone()),
             advance_commit_handle: thread::advance_commit::new(
                 command_log.clone(),
                 Ref(peers.clone()),
@@ -95,8 +96,8 @@ impl RaftProcess {
                 Ref(command_log.clone()),
                 app_rx.clone(),
             ),
-            snapshot_deleter_handle: thread::snapshot_deleter::new(command_log.clone()),
-            stepdown_handle: thread::stepdown::new(voter.clone()),
+            snapshot_deleter_handle: thread::snapshot_deleter::new(command_log.clone(), app.clone()),
+            stepdown_handle: thread::stepdown::new(voter.clone(), Ref(command_log.clone()), Ref(peers.clone())),
         };
 
         Ok(Self {
@@ -105,6 +106,7 @@ impl RaftProcess {
             peers,
             query_tx,
             driver,
+            app,
             _thread_handles,
 
             queue_tx,

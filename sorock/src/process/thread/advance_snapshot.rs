@@ -3,10 +3,11 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     command_log: CommandLog,
+    app: App,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        self.command_log.advance_snapshot_index().await?;
+        self.command_log.advance_snapshot_index(self.app.clone()).await?;
         Ok(())
     }
 
@@ -23,6 +24,6 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog) -> ThreadHandle {
-    Thread { command_log }.do_loop()
+pub fn new(command_log: CommandLog, app: App) -> ThreadHandle {
+    Thread { command_log, app }.do_loop()
 }

@@ -4,7 +4,6 @@ mod election;
 mod failure_detector;
 mod heartbeat;
 mod quorum;
-mod stepdown;
 pub mod task;
 
 #[derive(Clone, Copy, Debug)]

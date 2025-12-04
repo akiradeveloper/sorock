@@ -1,29 +1,8 @@
+use crate::process::raft_process::task::process_configuration_command;
+
 use super::*;
 
 impl RaftProcess {
-    /// Process configuration change if the command contains configuration.
-    /// Configuration should be applied as soon as it is inserted into the log because doing so
-    /// guarantees that majority of the servers move to the configuration when the entry is committed.
-    /// Without this property, servers may still be in some old configuration which may cause split-brain
-    /// by electing two leaders in a single term which is not allowed in Raft.
-    pub(crate) async fn process_configuration_command(
-        &self,
-        command: &[u8],
-        index: Index,
-    ) -> Result<()> {
-        let config0 = match Command::deserialize(command) {
-            Command::Snapshot { membership } => Some(membership),
-            Command::ClusterConfiguration { membership } => Some(membership),
-            _ => None,
-        };
-        if let Some(config) = config0 {
-            self.peers
-                .set_membership(config, index, Ref(self.voter.clone()))
-                .await?;
-        }
-        Ok(())
-    }
-
     /// Forming a new cluster with a single node is called "cluster bootstrapping".
     /// Raft algorith doesn't define adding node when the cluster is empty.
     /// We need to handle this special case.
@@ -39,7 +18,10 @@ impl RaftProcess {
         };
         self.command_log.insert_entry(config).await?;
 
-        self.process_configuration_command(&command, 2).await?;
+        process_configuration_command::Task {
+            peers: self.peers.clone(),
+            voter: Ref(self.voter.clone()),
+        }.exec(&command, 2).await?;
 
         // After this function is called
         // this server should immediately become the leader by self-vote and advance commit index.

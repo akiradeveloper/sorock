@@ -1,5 +1,6 @@
 use super::*;
 
+pub mod task;
 mod replication;
 
 #[derive(Clone, Copy, Debug)]

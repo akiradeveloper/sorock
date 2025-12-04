@@ -5,7 +5,16 @@ impl RaftProcess {
         &self,
         req: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
-        let n_inserted = self.queue_received_entries(req).await?;
+        let n_inserted = task::queue_received_entries::Task {
+            command_log: self.command_log.clone(),
+            voter: Ref(self.voter.clone()),
+            peers: self.peers.clone(),
+            app: self.app.clone(),
+            driver: self.driver.clone(),
+        }
+        .exec(req)
+        .await?;
+
         let resp = response::ReplicationStream {
             n_inserted,
             log_last_index: self.command_log.get_log_last_index().await?,
@@ -38,11 +47,16 @@ impl RaftProcess {
                 }
             };
             ensure!(self.command_log.allow_queue_new_membership());
-            self.queue_new_entry(
+            task::queue_new_entry::Task {
+                command_log: self.command_log.clone(),
+                voter: Ref(self.voter.clone()),
+                peers: self.peers.clone(),
+                queue_tx: self.queue_tx.clone(),
+                replication_tx: self.replication_tx.clone(),
+            }.exec(
                 Command::serialize(command),
                 Completion::Kern(kern_completion),
-            )
-            .await?;
+            ).await?;
 
             rx.await?;
         } else {
@@ -110,11 +124,17 @@ impl RaftProcess {
                 message: &req.message,
                 request_id: req.request_id,
             };
-            self.queue_new_entry(
+        
+            task::queue_new_entry::Task {
+                command_log: self.command_log.clone(),
+                voter: Ref(self.voter.clone()),
+                peers: self.peers.clone(),
+                queue_tx: self.queue_tx.clone(),
+                replication_tx: self.replication_tx.clone(),
+            }.exec(
                 Command::serialize(command),
                 Completion::User(user_completion),
-            )
-            .await?;
+            ).await?;
 
             rx.await?
         } else {
@@ -134,7 +154,7 @@ impl RaftProcess {
         let term = req.leader_term;
         let leader_commit = req.leader_commit_index;
 
-        voter::task::ReceiveHeartbeat {
+        voter::task::receive_heartbeat::Task {
             voter: self.voter.clone(),
             command_log: self.command_log.clone(),
         }.exec(leader_id, term, leader_commit).await?;
@@ -143,13 +163,13 @@ impl RaftProcess {
     }
 
     pub(crate) async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
-        let st = self.command_log.open_snapshot(index).await?;
+        let st = self.command_log.open_snapshot(index, self.app.clone()).await?;
         Ok(st)
     }
 
     pub(crate) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
-        voter::task::TryPromote {
+        voter::task::try_promote::Task {
             voter: self.voter.clone(),
             command_log: self.command_log.clone(),
             peers: self.peers.clone(),
@@ -163,16 +183,12 @@ impl RaftProcess {
         let candidate_clock = req.candidate_clock;
         let force_vote = req.force_vote;
         let pre_vote = req.pre_vote;
-        let vote_granted = self
-            .voter
-            .receive_vote_request(
-                candidate_term,
-                candidate_id,
-                candidate_clock,
-                force_vote,
-                pre_vote,
-            )
-            .await?;
+        
+        let vote_granted = voter::task::receive_vote_request::Task {
+            voter: self.voter.clone(),
+            command_log: Ref(self.command_log.clone()),
+        }.exec(candidate_term, candidate_id, candidate_clock, force_vote, pre_vote).await?;
+
         Ok(vote_granted)
     }
 

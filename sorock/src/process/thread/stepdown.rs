@@ -3,11 +3,18 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     voter: Voter,
+    command_log: Ref<CommandLog>,
+    peers: Ref<PeerSvc>,
 }
 
 impl Thread {
     pub async fn run_once(&self) -> Result<()> {
-        self.voter.try_stepdown().await?;
+        voter::task::try_stepdown::Task {
+            voter: self.voter.clone(),
+            command_log: self.command_log.clone(),
+            peers: self.peers.clone(),
+        }.exec().await?;
+
         Ok(())
     }
 
@@ -24,6 +31,6 @@ impl Thread {
     }
 }
 
-pub fn new(voter: Voter) -> ThreadHandle {
-    Thread { voter }.do_loop()
+pub fn new(voter: Voter, command_log: Ref<CommandLog>, peers: Ref<PeerSvc>) -> ThreadHandle {
+    Thread { voter, command_log, peers }.do_loop()
 }

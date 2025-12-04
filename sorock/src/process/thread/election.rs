@@ -23,7 +23,7 @@ impl Thread {
         if self.voter.get_election_timeout().is_some() {
             info!("election timeout. try to become a leader");
             // self.voter.try_promote(false).await?;
-            voter::task::TryPromote {
+            voter::task::try_promote::Task {
                 voter: self.voter.clone(),
                 command_log: self.command_log.clone(),
                 peers: self.peers.clone(),

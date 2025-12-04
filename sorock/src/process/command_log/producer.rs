@@ -48,6 +48,7 @@ impl CommandLog {
         entry: Entry,
         sender_id: NodeId,
         driver: RaftDriver,
+        app: App,
     ) -> Result<TryInsertResult> {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
@@ -64,8 +65,7 @@ impl CommandLog {
 
                 let mut g_snapshot_pointer = self.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
-                if let Err(e) = self
-                    .app
+                if let Err(e) = app
                     .fetch_snapshot(snapshot_index, sender_id.clone(), driver)
                     .await
                 {

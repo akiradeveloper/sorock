@@ -1,5 +1,6 @@
 use super::*;
 
+pub mod task;
 mod consumer;
 mod membership;
 mod producer;
@@ -27,7 +28,6 @@ pub struct Inner {
     /// new membership changes are not allowed to be queued.
     pub membership_pointer: AtomicU64,
 
-    app: App,
     response_cache: spin::Mutex<ResponseCache>,
     user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
     kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
@@ -36,7 +36,7 @@ pub struct Inner {
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
 pub struct CommandLog(pub Arc<Inner>);
 impl CommandLog {
-    pub fn new(storage: impl RaftLogStore, app: App) -> Self {
+    pub fn new(storage: impl RaftLogStore) -> Self {
         let inner = Inner {
             append_lock: tokio::sync::Mutex::new(()),
             commit_pointer: AtomicU64::new(0),
@@ -45,7 +45,6 @@ impl CommandLog {
             snapshot_pointer: tokio::sync::RwLock::new(0),
             membership_pointer: AtomicU64::new(0),
             storage: Box::new(storage),
-            app,
             user_completions: spin::Mutex::new(BTreeMap::new()),
             kern_completions: spin::Mutex::new(BTreeMap::new()),
             response_cache: spin::Mutex::new(ResponseCache::new()),
@@ -89,9 +88,9 @@ impl CommandLog {
 
 impl Inner {
     /// Delete snapshots in `[, snapshot_index)`.
-    pub async fn delete_old_snapshots(&self) -> Result<()> {
+    pub async fn delete_old_snapshots(&self, app: App) -> Result<()> {
         let cur_snapshot_index = *self.snapshot_pointer.read().await;
-        self.app.delete_snapshots_before(cur_snapshot_index).await?;
+        app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 
@@ -120,13 +119,13 @@ impl Inner {
         Ok(())
     }
 
-    pub async fn open_snapshot(&self, index: Index) -> Result<SnapshotStream> {
+    pub async fn open_snapshot(&self, index: Index, app: App) -> Result<SnapshotStream> {
         let g_snapshot_pointer = self.snapshot_pointer.read().await;
 
         let cur_snapshot_index = *g_snapshot_pointer;
         ensure!(index == cur_snapshot_index);
 
-        let st = self.app.open_snapshot(index).await?;
+        let st = app.open_snapshot(index).await?;
         Ok(st)
     }
 
