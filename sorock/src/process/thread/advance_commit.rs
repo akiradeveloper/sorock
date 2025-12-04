@@ -3,8 +3,8 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     command_log: CommandLog,
-    peers: Ref<PeerSvc>,
-    voter: Ref<Voter>,
+    peers: Read<Peers>,
+    voter: Read<Voter>,
     consumer: EventConsumer<ReplicationEvent>,
     producer: EventProducer<CommitEvent>,
 }
@@ -42,8 +42,8 @@ impl Thread {
 
 pub fn new(
     command_log: CommandLog,
-    peers: Ref<PeerSvc>,
-    voter: Ref<Voter>,
+    peers: Read<Peers>,
+    voter: Read<Voter>,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {

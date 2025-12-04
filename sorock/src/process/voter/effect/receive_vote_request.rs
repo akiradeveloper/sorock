@@ -1,10 +1,13 @@
 use super::*;
 
-pub struct Task {
+pub struct Effect {
     pub voter: Voter,
-    pub command_log: Ref<CommandLog>,
 }
-impl Task {
+impl Effect {
+    fn command_log(&self) -> &Read<CommandLog> {
+        &self.voter.command_log
+    }
+
     /// Returns grated or not on vote.
     pub async fn exec(
         &self,
@@ -42,11 +45,14 @@ impl Task {
         }
 
         let last_log_clock = {
-            let cur_last_index = self.command_log.get_log_last_index().await?;
+            let cur_last_index = self.command_log().get_log_last_index().await?;
             if cur_last_index == 0 {
                 Clock { term: 0, index: 0 }
             } else {
-                self.command_log.get_entry(cur_last_index).await?.this_clock
+                self.command_log()
+                    .get_entry(cur_last_index)
+                    .await?
+                    .this_clock
             }
         };
 

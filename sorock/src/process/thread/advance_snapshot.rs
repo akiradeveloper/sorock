@@ -7,7 +7,9 @@ pub struct Thread {
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        self.command_log.advance_snapshot_index(self.app.clone()).await?;
+        self.command_log
+            .advance_snapshot_index(self.app.clone())
+            .await?;
         Ok(())
     }
 

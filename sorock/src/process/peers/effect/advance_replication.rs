@@ -1,10 +1,15 @@
 use super::*;
 
-impl PeerSvc {
+pub struct Effect {
+    pub peers: Peers,
+    pub command_log: Read<CommandLog>,
+}
+
+impl Effect {
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeId,
-        command_log: Ref<CommandLog>,
+        command_log: Read<CommandLog>,
         l: Index,
         r: Index,
     ) -> Result<request::ReplicationStream> {
@@ -31,8 +36,9 @@ impl PeerSvc {
         })
     }
 
-    pub async fn advance_replication(&self, follower_id: NodeId) -> Result<()> {
+    pub async fn exec(&self, follower_id: NodeId) -> Result<()> {
         let peer_context = self
+            .peers
             .peer_contexts
             .read()
             .get(&follower_id)
@@ -54,7 +60,8 @@ impl PeerSvc {
                 old_progress.next_index, follower_id,
             );
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
-            self.peer_contexts
+            self.peers
+                .peer_contexts
                 .write()
                 .get_mut(&follower_id)
                 .context(Error::PeerNotFound(follower_id.clone()))?
@@ -67,14 +74,14 @@ impl PeerSvc {
         ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.driver.self_node_id(),
+            self.peers.driver.self_node_id(),
             self.command_log.clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )
         .await?;
 
-        let conn = self.driver.connect(follower_id.clone());
+        let conn = self.peers.driver.connect(follower_id.clone());
 
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.
@@ -98,7 +105,8 @@ impl PeerSvc {
             },
         };
 
-        self.peer_contexts
+        self.peers
+            .peer_contexts
             .write()
             .get_mut(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?

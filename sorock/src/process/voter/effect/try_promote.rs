@@ -1,11 +1,11 @@
 use super::*;
 
-pub struct Task {
+pub struct Effect {
     pub voter: Voter,
-    pub peers: PeerSvc,
+    pub peers: Peers,
     pub command_log: CommandLog,
 }
-impl Task {
+impl Effect {
     /// Try to become a leader.
     pub async fn exec(self, force_vote: bool) -> Result<()> {
         info!("try to promote to leader (force={force_vote})");

@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 struct Thread {
     query_queue: query_queue::Processor,
-    command_log: Ref<CommandLog>,
+    command_log: Read<CommandLog>,
     consumer: EventConsumer<ApplicationEvent>,
 }
 
@@ -29,7 +29,7 @@ impl Thread {
 
 pub fn new(
     query_queue: query_queue::Processor,
-    command_log: Ref<CommandLog>,
+    command_log: Read<CommandLog>,
     consumer: EventConsumer<ApplicationEvent>,
 ) -> ThreadHandle {
     Thread {

@@ -1,7 +1,7 @@
 use super::*;
 
-use std::time::Duration;
 use redb::ReadableDatabase;
+use std::time::Duration;
 
 mod value {
     use super::*;

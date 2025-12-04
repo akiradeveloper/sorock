@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeId,
-    voter: Ref<Voter>,
+    voter: Read<Voter>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -27,6 +27,6 @@ impl Thread {
     }
 }
 
-pub fn new(follower_id: NodeId, voter: Ref<Voter>) -> ThreadHandle {
+pub fn new(follower_id: NodeId, voter: Read<Voter>) -> ThreadHandle {
     Thread { follower_id, voter }.do_loop()
 }

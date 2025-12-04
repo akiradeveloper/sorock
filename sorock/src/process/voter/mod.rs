@@ -1,10 +1,8 @@
 use super::*;
 
-mod election;
+pub mod effect;
 mod failure_detector;
-mod heartbeat;
 mod quorum;
-pub mod task;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ElectionState {
@@ -24,8 +22,8 @@ pub struct Inner {
 
     leader_failure_detector: failure_detector::FailureDetector,
 
-    command_log: Ref<CommandLog>,
-    peers: Ref<PeerSvc>,
+    command_log: Read<CommandLog>,
+    peers: Read<Peers>,
     driver: RaftDriver,
 }
 
@@ -34,8 +32,8 @@ pub struct Voter(pub Arc<Inner>);
 impl Voter {
     pub fn new(
         ballot_store: impl RaftBallotStore,
-        command_log: Ref<CommandLog>,
-        peers: Ref<PeerSvc>,
+        command_log: Read<CommandLog>,
+        peers: Read<Peers>,
         driver: RaftDriver,
     ) -> Self {
         let inner = Inner {
@@ -80,5 +78,31 @@ impl Voter {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
         Ok(cur_safe_term == cur_term)
+    }
+
+    pub fn get_election_timeout(&self) -> Option<Duration> {
+        // This is an optimization to avoid unnecessary election.
+        // If the node doesn't contain itself in its membership,
+        // it can't become a new leader anyway.
+        if !self
+            .peers
+            .read_membership()
+            .contains(&self.driver.self_node_id())
+        {
+            return None;
+        }
+        self.leader_failure_detector.get_election_timeout()
+    }
+
+    pub async fn send_heartbeat(&self, follower_id: NodeId) -> Result<()> {
+        let ballot = self.read_ballot().await?;
+        let leader_commit_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
+        let req = request::Heartbeat {
+            leader_term: ballot.cur_term,
+            leader_commit_index,
+        };
+        let conn = self.driver.connect(follower_id);
+        conn.queue_heartbeat(req);
+        Ok(())
     }
 }

@@ -11,8 +11,8 @@ use std::sync::atomic::Ordering;
 
 mod api;
 pub(crate) use api::*;
-mod peer_svc;
-use peer_svc::PeerSvc;
+mod peers;
+use peers::Peers;
 mod command_log;
 use command_log::CommandLog;
 mod voter;
@@ -83,7 +83,7 @@ pub type SnapshotStream =
 // This is only to improve the readability.
 // Compile-time or even runtime checking is more preferable.
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
-struct Ref<T>(T);
+struct Read<T>(T);
 
 /// `RaftApp` is the representation of state machine in Raft.
 /// Beside the application state, it also contains the snapshot store

@@ -1,10 +1,10 @@
 use super::*;
 
-pub mod task;
 mod consumer;
 mod membership;
 mod producer;
 mod response_cache;
+pub mod task;
 use response_cache::ResponseCache;
 
 pub use producer::TryInsertResult;

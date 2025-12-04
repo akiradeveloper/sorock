@@ -7,7 +7,9 @@ pub struct Thread {
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        self.command_log.delete_old_snapshots(self.app.clone()).await
+        self.command_log
+            .delete_old_snapshots(self.app.clone())
+            .await
     }
 
     fn do_loop(self) -> ThreadHandle {

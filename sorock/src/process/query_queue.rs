@@ -53,7 +53,7 @@ impl Producer {
 
 #[derive(Clone)]
 pub struct Processor {
-    app: Ref<App>,
+    app: Read<App>,
     inner: Arc<spin::Mutex<Queue<Query>>>,
 }
 impl Processor {
@@ -80,7 +80,7 @@ impl Processor {
     }
 }
 
-pub fn new(app: Ref<App>) -> (Producer, Processor) {
+pub fn new(app: Read<App>) -> (Producer, Processor) {
     let q = Arc::new(spin::Mutex::new(Queue::new()));
     let processor = Processor {
         inner: q.clone(),

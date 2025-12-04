@@ -1,11 +1,10 @@
 use super::*;
 
-pub struct Task {
+pub struct Effect {
     pub voter: Voter,
-    // pub peers: PeerSvc,
     pub command_log: CommandLog,
 }
-impl Task {
+impl Effect {
     pub async fn exec(
         self,
         leader_id: NodeId,
@@ -20,7 +19,8 @@ impl Task {
             return Ok(());
         }
 
-        self.voter.leader_failure_detector
+        self.voter
+            .leader_failure_detector
             .receive_heartbeat(leader_id.clone());
 
         if leader_term > ballot.cur_term {

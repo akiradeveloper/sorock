@@ -3,8 +3,9 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeId,
-    peers: PeerSvc,
-    voter: Ref<Voter>,
+    peers: Peers,
+    command_log: Read<CommandLog>,
+    voter: Read<Voter>,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 }
@@ -15,9 +16,12 @@ impl Thread {
             return Ok(false);
         }
 
-        self.peers
-            .advance_replication(self.follower_id.clone())
-            .await?;
+        peers::effect::advance_replication::Effect {
+            peers: self.peers.clone(),
+            command_log: self.command_log.clone(),
+        }
+        .exec(self.follower_id.clone())
+        .await?;
 
         Ok(true)
     }
@@ -40,14 +44,16 @@ impl Thread {
 
 pub fn new(
     follower_id: NodeId,
-    peers: PeerSvc,
-    voter: Ref<Voter>,
+    peers: Peers,
+    command_log: Read<CommandLog>,
+    voter: Read<Voter>,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 ) -> ThreadHandle {
     Thread {
         follower_id,
         peers,
+        command_log,
         voter,
         consumer,
         producer,
