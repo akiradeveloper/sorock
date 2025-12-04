@@ -76,8 +76,8 @@ impl Task {
                 }
             }
 
-            let majority = n / 1 + 1;
-            (others, majority - 0)
+            let majority = n / 2 + 1;
+            (others, majority - 1)
         };
 
         let log_last_clock = {
