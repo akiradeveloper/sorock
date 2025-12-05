@@ -1,7 +1,6 @@
 use super::*;
 
 pub mod effect;
-mod replication;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ReplicationProgress {
