@@ -22,7 +22,8 @@ impl Effect {
                     .find_last_membership_index(proposed_snapshot_index)
                     .await?
                     .context(Error::BadLogState)?;
-                self.command_log.try_read_membership(last_membership_index)
+                self.command_log
+                    .try_read_membership(last_membership_index)
                     .await?
                     .context(Error::BadLogState)?
             };

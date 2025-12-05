@@ -9,9 +9,12 @@ pub struct Thread {
 }
 impl Thread {
     async fn advance_once(&self) -> Result<()> {
-        self.command_log
-            .advance_kern_process(self.voter.clone())
-            .await
+        command_log::effect::advance_kern_process::Effect {
+            command_log: self.command_log.clone(),
+            voter: self.voter.clone(),
+        }
+        .exec()
+        .await
     }
 
     fn do_loop(self) -> ThreadHandle {

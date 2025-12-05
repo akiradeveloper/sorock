@@ -10,7 +10,9 @@ impl Thread {
         command_log::effect::advance_snapshot_index::Effect {
             command_log: self.command_log.clone(),
             app: self.app.clone(),
-        }.exec().await?;
+        }
+        .exec()
+        .await?;
 
         Ok(())
     }

@@ -1,6 +1,5 @@
 use super::*;
 
-mod consumer;
 pub mod effect;
 mod response_cache;
 use response_cache::ResponseCache;
