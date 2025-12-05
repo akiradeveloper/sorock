@@ -40,7 +40,11 @@ impl RaftProcess {
         let (query_tx, query_rx) = query_queue::new(Read(app.clone()));
 
         let command_log = CommandLog::new(log_store);
-        command_log.restore_state().await?;
+        command_log::effect::restore_state::Effect {
+            command_log: command_log.clone(),
+        }
+        .exec()
+        .await?;
 
         let (queue_tx, queue_rx) = thread::notify();
         let (replication_tx, replication_rx) = thread::notify();
