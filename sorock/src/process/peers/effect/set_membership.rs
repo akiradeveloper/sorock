@@ -33,7 +33,6 @@ impl Effect {
             replicator_handle: thread::replication::new(
                 id.clone(),
                 self.peers.clone(),
-                Read(self.command_log.clone()),
                 self.voter.clone(),
                 self.peers.queue_rx.clone(),
                 self.peers.replication_tx.clone(),

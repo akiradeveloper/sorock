@@ -22,7 +22,6 @@ impl Thread {
         // it try to become a leader.
         if self.voter.get_election_timeout().is_some() {
             info!("election timeout. try to become a leader");
-            // self.voter.try_promote(false).await?;
             voter::effect::try_promote::Effect {
                 voter: self.voter.clone(),
                 command_log: self.command_log.clone(),

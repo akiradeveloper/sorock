@@ -2,10 +2,13 @@ use super::*;
 
 pub struct Effect {
     pub peers: Peers,
-    pub command_log: Read<CommandLog>,
 }
 
 impl Effect {
+    fn command_log(&self) -> &Read<CommandLog> {
+        &self.peers.command_log
+    }
+
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeId,
@@ -46,14 +49,14 @@ impl Effect {
             .clone();
 
         let old_progress = peer_context.progress;
-        let cur_last_log_index = self.command_log.get_log_last_index().await?;
+        let cur_last_log_index = self.command_log().get_log_last_index().await?;
 
         // More entries to send?
         ensure!(old_progress.next_index <= cur_last_log_index);
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.command_log.get_snapshot_index().await;
+        let cur_snapshot_index = self.command_log().get_snapshot_index().await;
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",
@@ -75,7 +78,7 @@ impl Effect {
 
         let out_stream = Self::prepare_replication_stream(
             self.peers.driver.self_node_id(),
-            self.command_log.clone(),
+            self.command_log().clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )
