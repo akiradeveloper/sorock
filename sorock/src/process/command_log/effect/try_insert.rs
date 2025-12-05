@@ -20,13 +20,8 @@ pub struct Effect {
     pub app: App,
     pub driver: RaftDriver,
 }
-
 impl Effect {
-    pub async fn exec(
-        self,
-        entry: Entry,
-        sender_id: NodeId,
-    ) -> Result<TryInsertResult> {
+    pub async fn exec(self, entry: Entry, sender_id: NodeId) -> Result<TryInsertResult> {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
@@ -42,7 +37,8 @@ impl Effect {
 
                 let mut g_snapshot_pointer = self.command_log.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
-                if let Err(e) = self.app
+                if let Err(e) = self
+                    .app
                     .fetch_snapshot(snapshot_index, sender_id.clone(), self.driver)
                     .await
                 {
@@ -66,7 +62,7 @@ impl Effect {
             index: prev_index,
         } = entry.prev_clock;
         if let Some(prev_clock) = self
-            .command_log 
+            .command_log
             .storage
             .get_entry(prev_index)
             .await?
@@ -102,8 +98,14 @@ impl Effect {
                 self.command_log.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.command_log.user_completions.lock().split_off(&this_index);
-                self.command_log.kern_completions.lock().split_off(&this_index);
+                self.command_log
+                    .user_completions
+                    .lock()
+                    .split_off(&this_index);
+                self.command_log
+                    .kern_completions
+                    .lock()
+                    .split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)
             }

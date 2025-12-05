@@ -158,10 +158,11 @@ impl RaftProcess {
     pub async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
         ensure!(self.voter.allow_queue_new_entry().await?);
 
-        let append_index = self
-            .command_log
-            .append_new_entry(command.clone(), None)
-            .await?;
+        let append_index = command_log::effect::append_new_entry::Effect {
+            command_log: self.command_log.clone(),
+        }
+        .exec(command.clone(), None)
+        .await?;
 
         self.command_log
             .register_completion(append_index, completion);
@@ -187,16 +188,15 @@ impl RaftProcess {
             let insert_index = entry.this_clock.index;
             let command = entry.command.clone();
 
-            use command_log::task::try_insert::TryInsertResult;
-            
-            let insert_result = command_log::task::try_insert::Effect {
+            use command_log::effect::try_insert::TryInsertResult;
+
+            let insert_result = command_log::effect::try_insert::Effect {
                 command_log: self.command_log.clone(),
                 app: self.app.clone(),
                 driver: self.driver.clone(),
-            }.exec(
-                entry,
-                req.sender_id.clone(),
-            ).await?;
+            }
+            .exec(entry, req.sender_id.clone())
+            .await?;
 
             match insert_result {
                 TryInsertResult::Inserted => {

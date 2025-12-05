@@ -121,13 +121,15 @@ impl Effect {
             info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = self
-                .command_log
-                .append_new_entry(
-                    Command::serialize(Command::Barrier(vote_term)),
-                    Some(vote_term),
-                )
-                .await?;
+            let index = command_log::effect::append_new_entry::Effect {
+                command_log: self.command_log.clone(),
+            }
+            .exec(
+                Command::serialize(Command::Barrier(vote_term)),
+                Some(vote_term),
+            )
+            .await?;
+
             info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress

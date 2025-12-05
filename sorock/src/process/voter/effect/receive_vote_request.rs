@@ -10,7 +10,7 @@ impl Effect {
 
     /// Returns grated or not on vote.
     pub async fn exec(
-        &self,
+        self,
         candidate_term: Term,
         candidate_id: NodeId,
         candidate_last_log_clock: Clock,

@@ -39,7 +39,7 @@ impl Effect {
         })
     }
 
-    pub async fn exec(&self, follower_id: NodeId) -> Result<()> {
+    pub async fn exec(self, follower_id: NodeId) -> Result<()> {
         let peer_context = self
             .peers
             .peer_contexts

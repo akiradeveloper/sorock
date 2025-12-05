@@ -49,7 +49,7 @@ impl Effect {
         self.peers.peer_contexts.write().remove(&id);
     }
 
-    pub async fn exec(&self, config: HashSet<NodeId>, index: Index) -> Result<()> {
+    pub async fn exec(self, config: HashSet<NodeId>, index: Index) -> Result<()> {
         let cur = self.peers.read_membership();
 
         let add_peers = {

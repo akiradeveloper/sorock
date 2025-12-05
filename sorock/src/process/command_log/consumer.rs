@@ -95,9 +95,12 @@ impl CommandLog {
                                 // This should be queued and replicated to the followers.
                                 // Otherwise followers will never know the request is completed and the context will never be terminated.
                                 let command = Command::CompleteRequest { request_id };
-                                self.append_new_entry(Command::serialize(command), None)
-                                    .await
-                                    .ok();
+                                command_log::effect::append_new_entry::Effect {
+                                    command_log: self.clone(),
+                                }
+                                .exec(Command::serialize(command), None)
+                                .await
+                                .ok();
                             }
                         }
                     }

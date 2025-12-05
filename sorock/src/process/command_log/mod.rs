@@ -1,10 +1,10 @@
 use super::*;
 
 mod consumer;
+pub mod effect;
 mod membership;
 mod producer;
 mod response_cache;
-pub mod task;
 use response_cache::ResponseCache;
 
 pub struct Inner {
