@@ -7,8 +7,6 @@ mod response_cache;
 pub mod task;
 use response_cache::ResponseCache;
 
-pub use producer::TryInsertResult;
-
 pub struct Inner {
     /// Lock to serialize the append operation.
     append_lock: tokio::sync::Mutex<()>,

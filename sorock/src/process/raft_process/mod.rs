@@ -187,17 +187,18 @@ impl RaftProcess {
             let insert_index = entry.this_clock.index;
             let command = entry.command.clone();
 
-            use command_log::TryInsertResult;
-            match self
-                .command_log
-                .try_insert_entry(
-                    entry,
-                    req.sender_id.clone(),
-                    self.driver.clone(),
-                    self.app.clone(),
-                )
-                .await?
-            {
+            use command_log::task::try_insert::TryInsertResult;
+            
+            let insert_result = command_log::task::try_insert::Effect {
+                command_log: self.command_log.clone(),
+                app: self.app.clone(),
+                driver: self.driver.clone(),
+            }.exec(
+                entry,
+                req.sender_id.clone(),
+            ).await?;
+
+            match insert_result {
                 TryInsertResult::Inserted => {
                     self.process_configuration_command(&command, insert_index)
                         .await?;
