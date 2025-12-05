@@ -157,6 +157,17 @@ impl Inner {
             _ => Ok(None),
         }
     }
+
+    pub fn register_completion(&self, index: Index, completion: Completion) {
+        match completion {
+            Completion::User(completion) => {
+                self.user_completions.lock().insert(index, completion);
+            }
+            Completion::Kern(completion) => {
+                self.kern_completions.lock().insert(index, completion);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

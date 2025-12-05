@@ -133,7 +133,10 @@ impl Effect {
             info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress
-            self.peers.reset_progress(index);
+            peers::effect::reset_progress::Effect {
+                peers: self.peers.clone(),
+            }
+            .exec(index);
 
             self.voter.write_election_state(ElectionState::Leader);
         } else {

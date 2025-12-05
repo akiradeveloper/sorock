@@ -87,13 +87,6 @@ impl Peers {
         Ok(new_commit_index)
     }
 
-    pub fn reset_progress(&self, init_next_index: Index) {
-        let mut peer_contexts = self.peer_contexts.write();
-        for (_, peer) in peer_contexts.iter_mut() {
-            peer.progress = ReplicationProgress::new(init_next_index);
-        }
-    }
-
     /// Choose the most advanced follower and send it TimeoutNow.
     pub async fn transfer_leadership(&self) -> Result<()> {
         let mut xs = {
