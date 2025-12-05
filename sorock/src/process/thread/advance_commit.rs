@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLog,
+    state_mechine: StateMachine,
     peers: Read<Peers>,
     voter: Read<Voter>,
     consumer: EventConsumer<ReplicationEvent>,
@@ -13,11 +13,11 @@ impl Thread {
         let election_state = self.voter.read_election_state();
         ensure!(std::matches!(election_state, voter::ElectionState::Leader));
 
-        let cur_commit_index = self.command_log.commit_pointer.load(Ordering::SeqCst);
+        let cur_commit_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
         let new_commit_index = self.peers.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {
-            self.command_log
+            self.state_mechine
                 .commit_pointer
                 .fetch_max(new_commit_index, Ordering::SeqCst);
             self.producer.push_event(CommitEvent);
@@ -41,14 +41,14 @@ impl Thread {
 }
 
 pub fn new(
-    command_log: CommandLog,
+    state_mechine: StateMachine,
     peers: Read<Peers>,
     voter: Read<Voter>,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {
     Thread {
-        command_log,
+        state_mechine,
         peers,
         voter,
         consumer: consume,

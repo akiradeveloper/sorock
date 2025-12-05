@@ -2,12 +2,12 @@ use super::*;
 
 pub struct Effect {
     pub voter: Voter,
-    // pub command_log: Read<CommandLog>,
+    // pub state_mechine: Read<CommandLog>,
     // pub peers: Read<Peers>,
 }
 impl Effect {
-    fn command_log(&self) -> &Read<CommandLog> {
-        &self.voter.command_log
+    fn state_mechine(&self) -> &Read<StateMachine> {
+        &self.voter.state_mechine
     }
 
     fn peers(&self) -> &Read<Peers> {
@@ -25,13 +25,16 @@ impl Effect {
         // Make sure the membership entry is truly committed
         // otherwise the configuration change entry may be lost.
         let last_membership_change_index = {
-            let index = self.command_log().membership_pointer.load(Ordering::SeqCst);
-            ensure!(index <= self.command_log().commit_pointer.load(Ordering::SeqCst));
+            let index = self
+                .state_mechine()
+                .membership_pointer
+                .load(Ordering::SeqCst);
+            ensure!(index <= self.state_mechine().commit_pointer.load(Ordering::SeqCst));
             index
         };
 
         let config = self
-            .command_log()
+            .state_mechine()
             .try_read_membership(last_membership_change_index)
             .await?
             .context(Error::BadLogState)?;

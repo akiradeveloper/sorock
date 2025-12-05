@@ -1,17 +1,16 @@
 use super::*;
 
 pub struct Effect {
-    pub command_log: CommandLog,
-    pub app: App,
+    pub state_mechine: StateMachine,
 }
 
 impl Effect {
     pub async fn exec(self) -> Result<()> {
-        let cur_user_index = self.command_log.user_pointer.load(Ordering::SeqCst);
-        ensure!(cur_user_index < self.command_log.kern_pointer.load(Ordering::SeqCst));
+        let cur_user_index = self.state_mechine.user_pointer.load(Ordering::SeqCst);
+        ensure!(cur_user_index < self.state_mechine.kern_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_user_index + 1;
-        let e = self.command_log.get_entry(process_index).await?;
+        let e = self.state_mechine.get_entry(process_index).await?;
         let command = Command::deserialize(&e.command);
 
         let do_process = match command {
@@ -22,24 +21,28 @@ impl Effect {
         };
 
         if do_process {
-            let mut response_cache = self.command_log.response_cache.lock();
+            let mut response_cache = self.state_mechine.response_cache.lock();
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
-                    self.app.apply_snapshot(process_index).await?;
+                    self.state_mechine.app.apply_snapshot(process_index).await?;
                 }
                 Command::ExecuteRequest {
                     message,
                     request_id,
                 } => {
                     if response_cache.should_execute(&request_id) {
-                        let resp = self.app.process_write(message, process_index).await?;
+                        let resp = self
+                            .state_mechine
+                            .app
+                            .process_write(message, process_index)
+                            .await?;
                         response_cache.insert_response(request_id.clone(), resp);
                     }
 
                     // Leader may have the completion for the request.
                     let user_completion = self
-                        .command_log
+                        .state_mechine
                         .user_completions
                         .lock()
                         .remove(&process_index);
@@ -55,8 +58,8 @@ impl Effect {
                                 // This should be queued and replicated to the followers.
                                 // Otherwise followers will never know the request is completed and the context will never be terminated.
                                 let command = Command::CompleteRequest { request_id };
-                                command_log::effect::append_new_entry::Effect {
-                                    command_log: self.command_log.clone(),
+                                state_machine::effect::append_new_entry::Effect {
+                                    state_mechine: self.state_mechine.clone(),
                                 }
                                 .exec(Command::serialize(command), None)
                                 .await
@@ -72,7 +75,7 @@ impl Effect {
             }
         }
 
-        self.command_log
+        self.state_mechine
             .user_pointer
             .fetch_max(process_index, Ordering::SeqCst);
 

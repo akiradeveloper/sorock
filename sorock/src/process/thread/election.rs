@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     voter: Voter,
-    command_log: CommandLog,
+    state_mechine: StateMachine,
     peers: Peers,
 }
 impl Thread {
@@ -24,7 +24,7 @@ impl Thread {
             info!("election timeout. try to become a leader");
             voter::effect::try_promote::Effect {
                 voter: self.voter.clone(),
-                command_log: self.command_log.clone(),
+                state_mechine: self.state_mechine.clone(),
                 peers: self.peers.clone(),
             }
             .exec(false)
@@ -46,10 +46,10 @@ impl Thread {
     }
 }
 
-pub fn new(voter: Voter, command_log: CommandLog, peers: Peers) -> ThreadHandle {
+pub fn new(voter: Voter, state_mechine: StateMachine, peers: Peers) -> ThreadHandle {
     Thread {
         voter,
-        command_log,
+        state_mechine,
         peers,
     }
     .do_loop()

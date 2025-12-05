@@ -1,18 +1,18 @@
 use super::*;
 
 pub struct Effect {
-    pub command_log: CommandLog,
+    pub state_mechine: StateMachine,
     pub voter: Voter,
 }
 
 impl Effect {
     /// Advance kernel process once.
     pub async fn exec(self) -> Result<()> {
-        let cur_kern_index = self.command_log.kern_pointer.load(Ordering::SeqCst);
-        ensure!(cur_kern_index < self.command_log.commit_pointer.load(Ordering::SeqCst));
+        let cur_kern_index = self.state_mechine.kern_pointer.load(Ordering::SeqCst);
+        ensure!(cur_kern_index < self.state_mechine.commit_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_kern_index + 1;
-        let e = self.command_log.get_entry(process_index).await?;
+        let e = self.state_mechine.get_entry(process_index).await?;
         let command = Command::deserialize(&e.command);
 
         let do_process = match command {
@@ -31,7 +31,7 @@ impl Effect {
                 _ => {}
             }
             if let Some(kern_completion) = self
-                .command_log
+                .state_mechine
                 .kern_completions
                 .lock()
                 .remove(&process_index)
@@ -40,7 +40,7 @@ impl Effect {
             }
         }
 
-        self.command_log
+        self.state_mechine
             .kern_pointer
             .fetch_max(process_index, Ordering::SeqCst);
 

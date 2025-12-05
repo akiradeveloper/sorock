@@ -4,8 +4,8 @@ pub struct Effect {
     pub voter: Voter,
 }
 impl Effect {
-    fn command_log(&self) -> &Read<CommandLog> {
-        &self.voter.command_log
+    fn state_mechine(&self) -> &Read<StateMachine> {
+        &self.voter.state_mechine
     }
 
     /// Returns grated or not on vote.
@@ -45,11 +45,11 @@ impl Effect {
         }
 
         let last_log_clock = {
-            let cur_last_index = self.command_log().get_log_last_index().await?;
+            let cur_last_index = self.state_mechine().get_log_last_index().await?;
             if cur_last_index == 0 {
                 Clock { term: 0, index: 0 }
             } else {
-                self.command_log()
+                self.state_mechine()
                     .get_entry(cur_last_index)
                     .await?
                     .this_clock

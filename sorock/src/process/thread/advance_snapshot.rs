@@ -2,14 +2,12 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLog,
-    app: App,
+    state_mechine: StateMachine,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        command_log::effect::advance_snapshot_index::Effect {
-            command_log: self.command_log.clone(),
-            app: self.app.clone(),
+        state_machine::effect::advance_snapshot_index::Effect {
+            state_mechine: self.state_mechine.clone(),
         }
         .exec()
         .await?;
@@ -30,6 +28,6 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, app: App) -> ThreadHandle {
-    Thread { command_log, app }.do_loop()
+pub fn new(state_mechine: StateMachine) -> ThreadHandle {
+    Thread { state_mechine }.do_loop()
 }

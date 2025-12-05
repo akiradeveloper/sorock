@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect {
     pub peers: Peers,
-    pub command_log: CommandLog,
+    pub state_mechine: StateMachine,
     pub voter: Read<Voter>,
     pub driver: RaftDriver,
 }
@@ -10,15 +10,15 @@ pub struct Effect {
 impl Effect {
     /// Restore the membership from the state of the log.
     pub async fn exec(self) -> Result<()> {
-        let log_last_index = self.command_log.get_log_last_index().await?;
+        let log_last_index = self.state_mechine.get_log_last_index().await?;
         let last_membership_index = self
-            .command_log
+            .state_mechine
             .find_last_membership_index(log_last_index)
             .await?;
 
         if let Some(last_membership_index) = last_membership_index {
             let last_membership = {
-                let entry = self.command_log.get_entry(last_membership_index).await?;
+                let entry = self.state_mechine.get_entry(last_membership_index).await?;
                 match Command::deserialize(&entry.command) {
                     Command::Snapshot { membership } => membership,
                     Command::ClusterConfiguration { membership } => membership,
@@ -28,7 +28,7 @@ impl Effect {
 
             effect::set_membership::Effect {
                 peers: self.peers.clone(),
-                command_log: self.command_log.clone(),
+                state_mechine: self.state_mechine.clone(),
                 voter: self.voter.clone(),
                 driver: self.driver.clone(),
             }

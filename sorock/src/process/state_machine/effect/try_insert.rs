@@ -16,8 +16,7 @@ pub enum TryInsertResult {
 }
 
 pub struct Effect {
-    pub command_log: CommandLog,
-    pub app: App,
+    pub state_mechine: StateMachine,
     pub driver: RaftDriver,
 }
 impl Effect {
@@ -35,9 +34,10 @@ impl Effect {
                     snapshot_index
                 );
 
-                let mut g_snapshot_pointer = self.command_log.snapshot_pointer.write().await;
+                let mut g_snapshot_pointer = self.state_mechine.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
+                    .state_mechine
                     .app
                     .fetch_snapshot(snapshot_index, sender_id.clone(), self.driver)
                     .await
@@ -49,7 +49,7 @@ impl Effect {
                     return Err(e);
                 }
 
-                self.command_log.insert_snapshot(entry).await?;
+                self.state_mechine.insert_snapshot(entry).await?;
                 *g_snapshot_pointer = snapshot_index;
 
                 return Ok(TryInsertResult::Inserted);
@@ -62,7 +62,7 @@ impl Effect {
             index: prev_index,
         } = entry.prev_clock;
         if let Some(prev_clock) = self
-            .command_log
+            .state_mechine
             .storage
             .get_entry(prev_index)
             .await?
@@ -82,7 +82,7 @@ impl Effect {
 
                 // optimization to skip actual insertion.
                 if let Some(old_clock) = self
-                    .command_log
+                    .state_mechine
                     .storage
                     .get_entry(this_index)
                     .await?
@@ -95,14 +95,14 @@ impl Effect {
                     }
                 }
 
-                self.command_log.insert_entry(entry).await?;
+                self.state_mechine.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.command_log
+                self.state_mechine
                     .user_completions
                     .lock()
                     .split_off(&this_index);
-                self.command_log
+                self.state_mechine
                     .kern_completions
                     .lock()
                     .split_off(&this_index);

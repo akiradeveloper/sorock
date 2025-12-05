@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     voter: Voter,
-    command_log: Read<CommandLog>,
+    state_mechine: Read<StateMachine>,
     peers: Read<Peers>,
 }
 
@@ -11,7 +11,7 @@ impl Thread {
     pub async fn run_once(&self) -> Result<()> {
         voter::effect::try_stepdown::Effect {
             voter: self.voter.clone(),
-            // command_log: self.command_log.clone(),
+            // state_mechine: self.state_mechine.clone(),
             // peers: self.peers.clone(),
         }
         .exec()
@@ -33,10 +33,10 @@ impl Thread {
     }
 }
 
-pub fn new(voter: Voter, command_log: Read<CommandLog>, peers: Read<Peers>) -> ThreadHandle {
+pub fn new(voter: Voter, state_mechine: Read<StateMachine>, peers: Read<Peers>) -> ThreadHandle {
     Thread {
         voter,
-        command_log,
+        state_mechine,
         peers,
     }
     .do_loop()

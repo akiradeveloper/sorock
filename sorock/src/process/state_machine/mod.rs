@@ -23,16 +23,18 @@ pub struct Inner {
     /// new membership changes are not allowed to be queued.
     pub membership_pointer: AtomicU64,
 
+    app: App,
     response_cache: spin::Mutex<ResponseCache>,
     user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
     kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
 }
 
 #[derive(shrinkwraprs::Shrinkwrap, Clone)]
-pub struct CommandLog(pub Arc<Inner>);
-impl CommandLog {
-    pub fn new(storage: impl RaftLogStore) -> Self {
+pub struct StateMachine(pub Arc<Inner>);
+impl StateMachine {
+    pub fn new(storage: impl RaftLogStore, app: App) -> Self {
         let inner = Inner {
+            app,
             append_lock: tokio::sync::Mutex::new(()),
             commit_pointer: AtomicU64::new(0),
             kern_pointer: AtomicU64::new(0),

@@ -2,12 +2,12 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLog,
+    state_mechine: StateMachine,
     app: App,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        self.command_log
+        self.state_mechine
             .delete_old_snapshots(self.app.clone())
             .await
     }
@@ -25,6 +25,6 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLog, app: App) -> ThreadHandle {
-    Thread { command_log, app }.do_loop()
+pub fn new(state_mechine: StateMachine, app: App) -> ThreadHandle {
+    Thread { state_mechine, app }.do_loop()
 }
