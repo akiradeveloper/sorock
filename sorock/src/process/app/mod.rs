@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 pub struct App(Arc<dyn RaftApp>);
 impl App {
     pub fn new(x: impl RaftApp) -> Self {

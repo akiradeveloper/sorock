@@ -43,7 +43,7 @@ pub struct Inner {
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 pub struct Peers(pub Arc<Inner>);
 impl Peers {
     pub fn new(

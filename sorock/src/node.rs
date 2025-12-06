@@ -10,7 +10,7 @@ pub struct Inner {
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 pub struct RaftNode(Arc<Inner>);
 impl RaftNode {
     /// Create a new Raft node with a given node ID.

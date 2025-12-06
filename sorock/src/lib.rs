@@ -20,6 +20,7 @@ use process::RaftProcess;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
+use derive_more::Deref;
 
 /// Identifier of `RaftNode`.
 #[derive(

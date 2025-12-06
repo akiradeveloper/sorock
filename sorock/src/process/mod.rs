@@ -82,7 +82,7 @@ pub type SnapshotStream =
 // This is only a marker that indicates the owner doesn't mutate the object.
 // This is only to improve the readability.
 // Compile-time or even runtime checking is more preferable.
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 struct Read<T>(T);
 
 /// `RaftApp` is the representation of state machine in Raft.

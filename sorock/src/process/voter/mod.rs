@@ -27,7 +27,7 @@ pub struct Inner {
     driver: RaftDriver,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 pub struct Voter(pub Arc<Inner>);
 impl Voter {
     pub fn new(

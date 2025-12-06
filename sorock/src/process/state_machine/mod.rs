@@ -29,7 +29,7 @@ pub struct Inner {
     kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(derive_more::Deref, Clone)]
 pub struct StateMachine(pub Arc<Inner>);
 impl StateMachine {
     pub fn new(storage: impl RaftLogStore, app: App) -> Self {
