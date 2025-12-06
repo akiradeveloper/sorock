@@ -13,17 +13,17 @@ mod api;
 pub(crate) use api::*;
 mod peers;
 use peers::Peers;
-mod state_machine;
-use state_machine::StateMachine;
+use app::state_machine::StateMachine;
 mod voter;
 use voter::Voter;
 mod app;
-mod query_processor;
+use app::state_machine;
+use app::query_processor;
 use app::App;
 use state_machine::Command;
 
-mod completion;
-mod kernel_request;
+use app::completion;
+mod kernel_message;
 use completion::*;
 mod thread;
 
@@ -399,23 +399,23 @@ impl RaftProcess {
         if self.peers.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
             self.bootstrap_cluster().await?;
         } else {
-            let msg = kernel_request::KernelRequest::AddServer(req.server_id);
-            let req = request::KernRequest {
+            let msg = kernel_message::KernelMessage::AddServer(req.server_id);
+            let req = request::KernelRequest {
                 message: msg.serialize(),
             };
             let conn = self.driver.connect(self.driver.self_node_id());
-            conn.process_kern_request(req).await?;
+            conn.process_kernel_request(req).await?;
         }
         Ok(())
     }
 
     pub(crate) async fn remove_server(&self, req: request::RemoveServer) -> Result<()> {
-        let msg = kernel_request::KernelRequest::RemoveServer(req.server_id);
-        let req = request::KernRequest {
+        let msg = kernel_message::KernelMessage::RemoveServer(req.server_id);
+        let req = request::KernelRequest {
             message: msg.serialize(),
         };
         let conn = self.driver.connect(self.driver.self_node_id());
-        conn.process_kern_request(req).await?;
+        conn.process_kernel_request(req).await?;
         Ok(())
     }
 
@@ -432,7 +432,7 @@ impl RaftProcess {
         Ok(resp)
     }
 
-    pub(crate) async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
+    pub(crate) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         let ballot = self.voter.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
@@ -444,13 +444,13 @@ impl RaftProcess {
             voter::ElectionState::Leader
         ) {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
-            let command = match kernel_request::KernelRequest::deserialize(&req.message).unwrap() {
-                kernel_request::KernelRequest::AddServer(id) => {
+            let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
+                kernel_message::KernelMessage::AddServer(id) => {
                     let mut membership = self.peers.read_membership();
                     membership.insert(id);
                     Command::ClusterConfiguration { membership }
                 }
-                kernel_request::KernelRequest::RemoveServer(id) => {
+                kernel_message::KernelMessage::RemoveServer(id) => {
                     let mut membership = self.peers.read_membership();
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
@@ -468,14 +468,14 @@ impl RaftProcess {
             // Avoid looping.
             ensure!(self.driver.self_node_id() != leader_id);
             let conn = self.driver.connect(leader_id);
-            conn.process_kern_request(req).await?;
+            conn.process_kernel_request(req).await?;
         }
         Ok(())
     }
 
-    pub(crate) async fn process_user_read_request(
+    pub(crate) async fn process_application_read_request(
         &self,
-        req: request::UserReadRequest,
+        req: request::ApplicationReadRequest,
     ) -> Result<Bytes> {
         let ballot = self.voter.read_ballot().await?;
 
@@ -504,14 +504,14 @@ impl RaftProcess {
             // Avoid looping.
             ensure!(self.driver.self_node_id() != leader_id);
             let conn = self.driver.connect(leader_id);
-            conn.process_user_read_request(req).await?
+            conn.process_application_read_request(req).await?
         };
         Ok(resp)
     }
 
-    pub(crate) async fn process_user_write_request(
+    pub(crate) async fn process_application_write_request(
         &self,
-        req: request::UserWriteRequest,
+        req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
         let ballot = self.voter.read_ballot().await?;
 
@@ -541,7 +541,7 @@ impl RaftProcess {
             // Avoid looping.
             ensure!(self.driver.self_node_id() != leader_id);
             let conn = self.driver.connect(leader_id);
-            conn.process_user_write_request(req).await?
+            conn.process_application_write_request(req).await?
         };
         Ok(resp)
     }

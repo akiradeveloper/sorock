@@ -1,5 +1,9 @@
 use super::*;
 
+pub mod state_machine;
+pub mod query_processor;
+pub mod completion;
+
 #[derive(Deref, Clone)]
 pub struct App(Arc<dyn RaftApp>);
 impl App {

@@ -77,9 +77,9 @@ impl Communicator {
         self.conn.heartbeat_buffer.push(self.shard_id, req);
     }
 
-    pub async fn process_user_write_request(
+    pub async fn process_application_write_request(
         &self,
-        req: request::UserWriteRequest,
+        req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
         let req = raft::WriteRequest {
             shard_id: self.shard_id,
@@ -90,7 +90,7 @@ impl Communicator {
         Ok(resp.message)
     }
 
-    pub async fn process_user_read_request(&self, req: request::UserReadRequest) -> Result<Bytes> {
+    pub async fn process_application_read_request(&self, req: request::ApplicationReadRequest) -> Result<Bytes> {
         let req = raft::ReadRequest {
             shard_id: self.shard_id,
             message: req.message,
@@ -100,7 +100,7 @@ impl Communicator {
         Ok(resp.message)
     }
 
-    pub async fn process_kern_request(&self, req: request::KernRequest) -> Result<()> {
+    pub async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         let req = raft::KernRequest {
             shard_id: self.shard_id,
             message: req.message,

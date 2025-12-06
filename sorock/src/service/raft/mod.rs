@@ -34,7 +34,7 @@ impl raft::raft_server::Raft for RaftService {
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
         let shard_id = req.shard_id;
-        let req = request::UserWriteRequest {
+        let req = request::ApplicationWriteRequest {
             message: req.message,
             request_id: req.request_id,
         };
@@ -43,7 +43,7 @@ impl raft::raft_server::Raft for RaftService {
             .get_process(shard_id)
             .context(Error::ProcessNotFound(shard_id))
             .unwrap()
-            .process_user_write_request(req)
+            .process_application_write_request(req)
             .await
             .unwrap();
         Ok(tonic::Response::new(raft::Response { message: resp }))
@@ -55,7 +55,7 @@ impl raft::raft_server::Raft for RaftService {
     ) -> std::result::Result<tonic::Response<raft::Response>, tonic::Status> {
         let req = request.into_inner();
         let shard_id = req.shard_id;
-        let req = request::UserReadRequest {
+        let req = request::ApplicationReadRequest {
             message: req.message,
             read_locally: req.read_locally,
         };
@@ -64,7 +64,7 @@ impl raft::raft_server::Raft for RaftService {
             .get_process(shard_id)
             .context(Error::ProcessNotFound(shard_id))
             .unwrap()
-            .process_user_read_request(req)
+            .process_application_read_request(req)
             .await
             .unwrap();
         Ok(tonic::Response::new(raft::Response { message: resp }))
@@ -76,14 +76,14 @@ impl raft::raft_server::Raft for RaftService {
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
         let shard_id = req.shard_id;
-        let req = request::KernRequest {
+        let req = request::KernelRequest {
             message: req.message,
         };
         self.node
             .get_process(shard_id)
             .context(Error::ProcessNotFound(shard_id))
             .unwrap()
-            .process_kern_request(req)
+            .process_kernel_request(req)
             .await
             .unwrap();
         Ok(tonic::Response::new(()))

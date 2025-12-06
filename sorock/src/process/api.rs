@@ -3,17 +3,17 @@ use super::*;
 pub mod request {
     use super::*;
 
-    pub struct UserWriteRequest {
+    pub struct ApplicationWriteRequest {
         pub message: Bytes,
         pub request_id: String,
     }
 
-    pub struct UserReadRequest {
+    pub struct ApplicationReadRequest {
         pub message: Bytes,
         pub read_locally: bool,
     }
 
-    pub struct KernRequest {
+    pub struct KernelRequest {
         pub message: Bytes,
     }
 
