@@ -3,23 +3,23 @@ use super::*;
 pub mod request {
     use super::*;
 
-    pub struct UserWriteRequest {
+    pub struct ApplicationWriteRequest {
         pub message: Bytes,
         pub request_id: String,
     }
 
-    pub struct UserReadRequest {
+    pub struct ApplicationReadRequest {
         pub message: Bytes,
         pub read_locally: bool,
     }
 
-    pub struct KernRequest {
+    pub struct KernelRequest {
         pub message: Bytes,
     }
 
     pub struct Heartbeat {
         pub leader_term: Term,
-        pub leader_commit_index: Index,
+        pub leader_commit_index: LogIndex,
     }
 
     pub struct AddServer {
@@ -62,14 +62,14 @@ pub mod response {
     use super::*;
     pub struct ReplicationStream {
         pub n_inserted: u64,
-        pub log_last_index: Index,
+        pub log_last_index: LogIndex,
     }
     pub struct LogState {
-        pub head_index: Index,
-        pub snap_index: Index,
-        pub app_index: Index,
-        pub commit_index: Index,
-        pub last_index: Index,
+        pub head_index: LogIndex,
+        pub snap_index: LogIndex,
+        pub app_index: LogIndex,
+        pub commit_index: LogIndex,
+        pub last_index: LogIndex,
     }
     pub struct Membership {
         pub members: HashSet<NodeId>,

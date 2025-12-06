@@ -28,7 +28,6 @@ rand.workspace = true
 redb.workspace = true
 serde.workspace = true
 serde_bytes.workspace = true
-shrinkwraprs = "0.3"
 spin.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt"] }
