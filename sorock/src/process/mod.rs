@@ -18,7 +18,7 @@ use state_machine::StateMachine;
 mod voter;
 use voter::Voter;
 mod app;
-mod query_queue;
+mod query_processor;
 use app::App;
 
 mod command;

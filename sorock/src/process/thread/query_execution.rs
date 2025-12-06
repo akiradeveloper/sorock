@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 struct Thread {
-    query_queue: query_queue::Processor,
+    query_queue: query_processor::QueryProcessor,
     state_mechine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 }
@@ -28,7 +28,7 @@ impl Thread {
 }
 
 pub fn new(
-    query_queue: query_queue::Processor,
+    query_queue: query_processor::QueryProcessor,
     state_mechine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 ) -> ThreadHandle {

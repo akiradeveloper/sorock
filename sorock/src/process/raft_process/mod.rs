@@ -19,7 +19,7 @@ pub struct RaftProcess {
     state_mechine: StateMachine,
     voter: Voter,
     peers: Peers,
-    query_tx: query_queue::Producer,
+    query_queue: query_processor::QueryQueue,
     app: App,
     driver: RaftDriver,
     _thread_handles: ThreadHandles,
@@ -37,7 +37,7 @@ impl RaftProcess {
     ) -> Result<Self> {
         let app = App::new(app);
 
-        let (query_tx, query_rx) = query_queue::new(Read(app.clone()));
+        let (query_tx, query_rx) = query_processor::new(Read(app.clone()));
 
         let state_mechine = StateMachine::new(log_store, app.clone());
         state_machine::effect::restore_state::Effect {
@@ -121,7 +121,7 @@ impl RaftProcess {
             state_mechine,
             voter,
             peers,
-            query_tx,
+            query_queue: query_tx,
             driver,
             app,
             _thread_handles,
@@ -155,7 +155,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
+    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
         ensure!(self.voter.allow_queue_new_entry().await?);
 
         let append_index = state_machine::effect::append_new_entry::Effect {
@@ -176,7 +176,7 @@ impl RaftProcess {
         Ok(append_index)
     }
 
-    pub async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
+    async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
         while let Some(Some(cur)) = req.entries.next().await {
@@ -346,11 +346,11 @@ impl RaftProcess {
             let (user_completion, rx) = completion::prepare_user_completion();
 
             let read_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
-            let query = query_queue::Query {
+            let query = query_processor::Query {
                 message: req.message,
                 user_completion,
             };
-            self.query_tx.register(read_index, query)?;
+            self.query_queue.register(read_index, query)?;
 
             rx.await?
         } else {
