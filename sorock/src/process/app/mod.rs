@@ -13,7 +13,7 @@ impl App {
 
     pub async fn fetch_snapshot(
         &self,
-        snapshot_index: Index,
+        snapshot_index: LogIndex,
         owner: NodeId,
         driver: RaftDriver,
     ) -> Result<()> {
@@ -31,7 +31,7 @@ impl App {
         Ok(())
     }
 
-    pub async fn apply_snapshot(&self, snapshot_index: Index) -> Result<()> {
+    pub async fn apply_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
         if snapshot_index == 1 {
             return Ok(());
         }

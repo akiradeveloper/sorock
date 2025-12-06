@@ -202,7 +202,7 @@ impl AppMain {
 }
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
-    async fn process_write(&self, bytes: &[u8], entry_index: Index) -> Result<Bytes> {
+    async fn process_write(&self, bytes: &[u8], entry_index: LogIndex) -> Result<Bytes> {
         let mut cur_state = self.state.write();
 
         let req = AppWriteRequest::deserialize(bytes);
@@ -235,7 +235,7 @@ impl RaftApp for AppMain {
         Ok(AppState(cur_state.counter).serialize())
     }
 
-    async fn install_snapshot(&self, snapshot_index: Index) -> Result<()> {
+    async fn install_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
         ensure!(self.snapshots.lock().contains_key(&snapshot_index));
         let snapshot = self.snapshots.lock().get(&snapshot_index).unwrap();
 
@@ -246,13 +246,13 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()> {
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots.lock().insert(snapshot_index, snap.0);
         Ok(())
     }
 
-    async fn open_snapshot(&self, x: Index) -> Result<SnapshotStream> {
+    async fn open_snapshot(&self, x: LogIndex) -> Result<SnapshotStream> {
         ensure!(self.snapshots.lock().contains_key(&x));
         let cur_state = self.snapshots.lock().get(&x).unwrap();
         let snap = AppSnapshot(cur_state);
@@ -260,13 +260,13 @@ impl RaftApp for AppMain {
         Ok(st)
     }
 
-    async fn delete_snapshots_before(&self, x: Index) -> Result<()> {
+    async fn delete_snapshots_before(&self, x: LogIndex) -> Result<()> {
         let mut snapshots = self.snapshots.lock();
         snapshots.delete_before(&x);
         Ok(())
     }
 
-    async fn get_latest_snapshot(&self) -> Result<Index> {
+    async fn get_latest_snapshot(&self) -> Result<LogIndex> {
         let k = self.snapshots.lock().get_latest_snapshot();
         Ok(k)
     }

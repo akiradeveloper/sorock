@@ -1,7 +1,7 @@
 use super::*;
 
 struct Queue<T> {
-    inner: BTreeMap<Index, Vec<T>>,
+    inner: BTreeMap<LogIndex, Vec<T>>,
 }
 impl<T> Queue<T> {
     fn new() -> Self {
@@ -10,11 +10,11 @@ impl<T> Queue<T> {
         }
     }
 
-    fn push(&mut self, index: Index, q: T) {
+    fn push(&mut self, index: LogIndex, q: T) {
         self.inner.entry(index).or_default().push(q);
     }
 
-    fn pop(&mut self, upto: Index) -> Vec<(Index, T)> {
+    fn pop(&mut self, upto: LogIndex) -> Vec<(LogIndex, T)> {
         let mut out = vec![];
 
         let mut del_keys = vec![];
@@ -45,7 +45,7 @@ pub struct QueryQueue {
 impl QueryQueue {
     /// Register a query for execution when the readable index reaches `read_index`.
     /// `read_index` should be the index of the commit pointer at the time of query.
-    pub fn register(&self, read_index: Index, q: Query) -> Result<()> {
+    pub fn register(&self, read_index: LogIndex, q: Query) -> Result<()> {
         self.inner.lock().push(read_index, q);
         Ok(())
     }
@@ -58,7 +58,7 @@ pub struct QueryProcessor {
 }
 impl QueryProcessor {
     /// Process the waiting queries up to `readable_index`.
-    pub async fn process(&self, readable_index: Index) -> usize {
+    pub async fn process(&self, readable_index: LogIndex) -> usize {
         let qs = self.inner.lock().pop(readable_index);
 
         let mut futs = vec![];

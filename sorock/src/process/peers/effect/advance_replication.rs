@@ -13,8 +13,8 @@ impl Effect {
     async fn prepare_replication_stream(
         selfid: NodeId,
         state_mechine: Read<StateMachine>,
-        l: Index,
-        r: Index,
+        l: LogIndex,
+        r: LogIndex,
     ) -> Result<request::ReplicationStream> {
         let head = state_mechine.get_entry(l).await?;
 

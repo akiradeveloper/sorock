@@ -32,7 +32,7 @@ mod thread;
 pub type Term = u64;
 
 /// Log index.
-pub type Index = u64;
+pub type LogIndex = u64;
 
 /// Clock of log entry.
 /// If two entries have the same clock, they should be the same entry.
@@ -40,7 +40,7 @@ pub type Index = u64;
 #[derive(Clone, Copy, Eq, Debug)]
 pub struct Clock {
     pub term: Term,
-    pub index: Index,
+    pub index: LogIndex,
 }
 impl PartialEq for Clock {
     fn eq(&self, that: &Self) -> bool {
@@ -93,27 +93,27 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Apply write request to the application.
     /// Calling of this function may change the state of the application.
-    async fn process_write(&self, request: &[u8], entry_index: Index) -> Result<Bytes>;
+    async fn process_write(&self, request: &[u8], entry_index: LogIndex) -> Result<Bytes>;
 
     /// Replace the state of the application with the snapshot.
     /// The snapshot is guaranteed to exist in the snapshot store.
-    async fn install_snapshot(&self, snapshot_index: Index) -> Result<()>;
+    async fn install_snapshot(&self, snapshot_index: LogIndex) -> Result<()>;
 
     /// Save snapshot with index `snapshot_index` to the snapshot store.
     /// This function is called when the snapshot is fetched from the leader.
-    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: Index) -> Result<()>;
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()>;
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
     /// This function is called when a follower requests a snapshot from the leader.
-    async fn open_snapshot(&self, snapshot_index: Index) -> Result<SnapshotStream>;
+    async fn open_snapshot(&self, snapshot_index: LogIndex) -> Result<SnapshotStream>;
 
     /// Delete all the snapshots in `[,  i)` from the snapshot store.
-    async fn delete_snapshots_before(&self, i: Index) -> Result<()>;
+    async fn delete_snapshots_before(&self, i: LogIndex) -> Result<()>;
 
     /// Get the index of the latest snapshot in the snapshot store.
     /// If the index is greater than the current snapshot entry index,
     /// it will replace the snapshot entry with the new one.
-    async fn get_latest_snapshot(&self) -> Result<Index>;
+    async fn get_latest_snapshot(&self) -> Result<LogIndex>;
 }
 
 /// `RaftLogStore` is the representation of the log store in Raft.
@@ -121,19 +121,19 @@ pub trait RaftApp: Sync + Send + 'static {
 #[async_trait::async_trait]
 pub trait RaftLogStore: Sync + Send + 'static {
     /// Insert the entry at index `i` into the log.
-    async fn insert_entry(&self, i: Index, e: Entry) -> Result<()>;
+    async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()>;
 
     /// Delete all the entries in `[, i)` from the log.
-    async fn delete_entries_before(&self, i: Index) -> Result<()>;
+    async fn delete_entries_before(&self, i: LogIndex) -> Result<()>;
 
     /// Get the entry at index `i` from the log.
-    async fn get_entry(&self, i: Index) -> Result<Option<Entry>>;
+    async fn get_entry(&self, i: LogIndex) -> Result<Option<Entry>>;
 
     /// Get the index of the first entry in the log.
-    async fn get_head_index(&self) -> Result<Index>;
+    async fn get_head_index(&self) -> Result<LogIndex>;
 
     /// Get the index of the last entry in the log.
-    async fn get_last_index(&self) -> Result<Index>;
+    async fn get_last_index(&self) -> Result<LogIndex>;
 }
 
 /// `RaftBallotStore` is the representation of the ballot store in Raft.
@@ -283,7 +283,7 @@ impl RaftProcess {
     /// guarantees that majority of the servers move to the configuration when the entry is committed.
     /// Without this property, servers may still be in some old configuration which may cause split-brain
     /// by electing two leaders in a single term which is not allowed in Raft.
-    async fn process_configuration_command(&self, command: &[u8], index: Index) -> Result<()> {
+    async fn process_configuration_command(&self, command: &[u8], index: LogIndex) -> Result<()> {
         let config0 = match Command::deserialize(command) {
             Command::Snapshot { membership } => Some(membership),
             Command::ClusterConfiguration { membership } => Some(membership),
@@ -302,7 +302,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<Index> {
+    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
         ensure!(self.voter.allow_queue_new_entry().await?);
 
         let append_index = state_machine::effect::append_new_entry::Effect {
@@ -564,7 +564,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
+    pub(crate) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
         let st = self
             .state_mechine
             .open_snapshot(index, self.app.clone())

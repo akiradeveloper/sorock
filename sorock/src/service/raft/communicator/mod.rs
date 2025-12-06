@@ -57,7 +57,7 @@ impl Communicator {
 }
 
 impl Communicator {
-    pub async fn get_snapshot(&self, index: Index) -> Result<SnapshotStream> {
+    pub async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
         let req = raft::GetSnapshotRequest {
             shard_id: self.shard_id,
             index,

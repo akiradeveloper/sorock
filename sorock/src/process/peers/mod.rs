@@ -5,13 +5,13 @@ pub mod effect;
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ReplicationProgress {
     /// The log entrires `[0, match_index]` are replicated with this node.
-    pub match_index: Index,
+    pub match_index: LogIndex,
     /// In the next replication, log entrires `[next_index, next_index + next_max_cnt)` will be sent.
-    pub next_index: Index,
-    pub next_max_cnt: Index,
+    pub next_index: LogIndex,
+    pub next_max_cnt: LogIndex,
 }
 impl ReplicationProgress {
-    pub fn new(init_next_index: Index) -> Self {
+    pub fn new(init_next_index: LogIndex) -> Self {
         Self {
             match_index: 0,
             next_index: init_next_index,
@@ -68,7 +68,7 @@ impl Peers {
         self.membership.read().clone()
     }
 
-    pub async fn find_new_commit_index(&self) -> Result<Index> {
+    pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
         let last_log_index = self.state_mechine.get_log_last_index().await?;

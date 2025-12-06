@@ -27,8 +27,8 @@ pub struct Inner {
 
     app: App,
     response_cache: spin::Mutex<ResponseCache>,
-    application_completions: spin::Mutex<BTreeMap<Index, completion::ApplicationCompletion>>,
-    kernel_completions: spin::Mutex<BTreeMap<Index, completion::KernelCompletion>>,
+    application_completions: spin::Mutex<BTreeMap<LogIndex, completion::ApplicationCompletion>>,
+    kernel_completions: spin::Mutex<BTreeMap<LogIndex, completion::KernelCompletion>>,
 }
 
 #[derive(derive_more::Deref, Clone)]
@@ -85,7 +85,7 @@ impl Inner {
         Ok(())
     }
 
-    pub async fn open_snapshot(&self, index: Index, app: App) -> Result<SnapshotStream> {
+    pub async fn open_snapshot(&self, index: LogIndex, app: App) -> Result<SnapshotStream> {
         let g_snapshot_pointer = self.snapshot_pointer.read().await;
 
         let cur_snapshot_index = *g_snapshot_pointer;
@@ -95,23 +95,23 @@ impl Inner {
         Ok(st)
     }
 
-    pub async fn get_snapshot_index(&self) -> Index {
+    pub async fn get_snapshot_index(&self) -> LogIndex {
         *self.snapshot_pointer.read().await
     }
 
-    pub async fn get_log_head_index(&self) -> Result<Index> {
+    pub async fn get_log_head_index(&self) -> Result<LogIndex> {
         let head_log_index = self.storage.get_head_index().await?;
         Ok(head_log_index)
     }
 
-    pub async fn get_log_last_index(&self) -> Result<Index> {
+    pub async fn get_log_last_index(&self) -> Result<LogIndex> {
         let last_log_index = self.storage.get_last_index().await?;
         Ok(last_log_index)
     }
 
     // This function won't return None because every caller of this function
     // doesn't care about the non-existence of the entry.
-    pub async fn get_entry(&self, index: Index) -> Result<Entry> {
+    pub async fn get_entry(&self, index: LogIndex) -> Result<Entry> {
         let entry = self.storage.get_entry(index).await?;
         ensure!(entry.is_some(), Error::EntryNotFound(index));
         Ok(entry.unwrap())
@@ -127,7 +127,7 @@ impl Inner {
     }
 
     /// Find the last last snapshot in `[, to]`.
-    pub async fn find_last_snapshot_index(&self, to: Index) -> Result<Option<Index>> {
+    pub async fn find_last_snapshot_index(&self, to: LogIndex) -> Result<Option<LogIndex>> {
         for i in (1..=to).rev() {
             let e = self.get_entry(i).await?;
             match Command::deserialize(&e.command) {
@@ -139,7 +139,7 @@ impl Inner {
     }
 
     /// Find the last configuration in `[, to]`.
-    pub async fn find_last_membership_index(&self, to: Index) -> Result<Option<Index>> {
+    pub async fn find_last_membership_index(&self, to: LogIndex) -> Result<Option<LogIndex>> {
         for i in (1..=to).rev() {
             let e = self.get_entry(i).await?;
             match Command::deserialize(&e.command) {
@@ -152,7 +152,7 @@ impl Inner {
     }
 
     /// Read the configuration at the given index.
-    pub async fn try_read_membership(&self, index: Index) -> Result<Option<HashSet<NodeId>>> {
+    pub async fn try_read_membership(&self, index: LogIndex) -> Result<Option<HashSet<NodeId>>> {
         let e = self.get_entry(index).await?;
         match Command::deserialize(&e.command) {
             Command::Snapshot { membership } => Ok(Some(membership)),
@@ -161,7 +161,7 @@ impl Inner {
         }
     }
 
-    pub fn register_completion(&self, index: Index, completion: Completion) {
+    pub fn register_completion(&self, index: LogIndex, completion: Completion) {
         match completion {
             Completion::Application(completion) => {
                 self.application_completions.lock().insert(index, completion);

@@ -9,7 +9,7 @@ impl Effect {
         self,
         leader_id: NodeId,
         leader_term: Term,
-        leader_commit: Index,
+        leader_commit: LogIndex,
     ) -> Result<()> {
         let _lk = self.voter.vote_lock.lock().await;
 
