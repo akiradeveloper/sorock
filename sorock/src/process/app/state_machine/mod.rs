@@ -1,7 +1,7 @@
 use super::*;
 
-pub mod effect;
 mod command;
+pub mod effect;
 pub use command::Command;
 mod response_cache;
 use response_cache::ResponseCache;
@@ -164,7 +164,9 @@ impl Inner {
     pub fn register_completion(&self, index: LogIndex, completion: Completion) {
         match completion {
             Completion::Application(completion) => {
-                self.application_completions.lock().insert(index, completion);
+                self.application_completions
+                    .lock()
+                    .insert(index, completion);
             }
             Completion::Kernel(completion) => {
                 self.kernel_completions.lock().insert(index, completion);

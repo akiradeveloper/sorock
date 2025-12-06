@@ -17,7 +17,7 @@ pub enum TryInsertResult {
 
 pub struct Effect {
     pub state_mechine: StateMachine,
-    pub driver: RaftDriver,
+    pub driver: RaftHandle,
 }
 impl Effect {
     pub async fn exec(self, entry: Entry, sender_id: NodeId) -> Result<TryInsertResult> {

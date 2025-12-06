@@ -90,7 +90,10 @@ impl Communicator {
         Ok(resp.message)
     }
 
-    pub async fn process_application_read_request(&self, req: request::ApplicationReadRequest) -> Result<Bytes> {
+    pub async fn process_application_read_request(
+        &self,
+        req: request::ApplicationReadRequest,
+    ) -> Result<Bytes> {
         let req = raft::ReadRequest {
             shard_id: self.shard_id,
             message: req.message,

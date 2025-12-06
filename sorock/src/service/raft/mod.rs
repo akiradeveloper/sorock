@@ -8,6 +8,8 @@ mod raft {
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;
+mod node;
+pub use node::{RaftHandle, RaftNode};
 
 pub mod client;
 pub(crate) mod communicator;

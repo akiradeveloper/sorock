@@ -1,8 +1,8 @@
 use super::*;
 
-pub mod state_machine;
-pub mod query_processor;
 pub mod completion;
+pub mod query_processor;
+pub mod state_machine;
 
 #[derive(Deref, Clone)]
 pub struct App(Arc<dyn RaftApp>);
@@ -15,7 +15,7 @@ impl App {
         &self,
         snapshot_index: LogIndex,
         owner: NodeId,
-        driver: RaftDriver,
+        driver: RaftHandle,
     ) -> Result<()> {
         if owner == driver.self_node_id() {
             return Ok(());

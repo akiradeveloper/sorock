@@ -24,7 +24,7 @@ pub struct Inner {
 
     state_mechine: Read<StateMachine>,
     peers: Read<Peers>,
-    driver: RaftDriver,
+    driver: RaftHandle,
 }
 
 #[derive(Deref, Clone)]
@@ -34,7 +34,7 @@ impl Voter {
         ballot_store: impl RaftBallotStore,
         state_mechine: Read<StateMachine>,
         peers: Read<Peers>,
-        driver: RaftDriver,
+        driver: RaftHandle,
     ) -> Self {
         let inner = Inner {
             state: spin::Mutex::new(ElectionState::Follower),

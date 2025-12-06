@@ -16,7 +16,7 @@ pub async fn new(
     snap_file: Option<impl AsRef<Path>>,
     log: impl RaftLogStore,
     ballot: impl RaftBallotStore,
-    driver: sorock::RaftDriver,
+    driver: sorock::service::raft::RaftHandle,
 ) -> Result<RaftProcess> {
     let app_main = AppMain::new(snap_file);
     let process = RaftProcess::new(app_main, log, ballot, driver).await?;

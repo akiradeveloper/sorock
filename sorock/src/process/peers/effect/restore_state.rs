@@ -4,7 +4,7 @@ pub struct Effect {
     pub peers: Peers,
     pub state_mechine: StateMachine,
     pub voter: Read<Voter>,
-    pub driver: RaftDriver,
+    pub driver: RaftHandle,
 }
 
 impl Effect {

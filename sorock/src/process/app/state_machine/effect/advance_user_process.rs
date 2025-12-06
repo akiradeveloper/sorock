@@ -6,7 +6,10 @@ pub struct Effect {
 
 impl Effect {
     pub async fn exec(self) -> Result<()> {
-        let cur_user_index = self.state_mechine.application_pointer.load(Ordering::SeqCst);
+        let cur_user_index = self
+            .state_mechine
+            .application_pointer
+            .load(Ordering::SeqCst);
         ensure!(cur_user_index < self.state_mechine.kernel_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_user_index + 1;

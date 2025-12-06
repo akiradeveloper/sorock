@@ -37,7 +37,7 @@ pub struct Inner {
     peer_threads: spin::Mutex<HashMap<NodeId, ThreadHandles>>,
 
     state_mechine: Read<StateMachine>,
-    driver: RaftDriver,
+    driver: RaftHandle,
 
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
@@ -50,7 +50,7 @@ impl Peers {
         state_mechine: Read<StateMachine>,
         queue_rx: thread::EventConsumer<thread::QueueEvent>,
         replication_tx: thread::EventProducer<thread::ReplicationEvent>,
-        driver: RaftDriver,
+        driver: RaftHandle,
     ) -> Self {
         let inner = Inner {
             membership: HashSet::new().into(),

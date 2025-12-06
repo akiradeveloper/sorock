@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct Inner {
     self_node_id: NodeId,
     cache: moka::sync::Cache<NodeId, RaftConnection>,
-    process: spin::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
+    process_map: spin::RwLock<HashMap<ShardId, Arc<RaftProcess>>>,
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
@@ -21,14 +21,14 @@ impl RaftNode {
         let inner = Inner {
             self_node_id: id,
             cache: builder.build(),
-            process: HashMap::new().into(),
+            process_map: HashMap::new().into(),
         };
         Self(inner.into())
     }
 
     /// Get a Raft driver to drive a Raft process on a shard.
-    pub fn get_driver(&self, shard_id: ShardId) -> RaftDriver {
-        RaftDriver {
+    pub fn get_handle(&self, shard_id: ShardId) -> RaftHandle {
+        RaftHandle {
             shard_id,
             self_node_id: self.self_node_id.clone(),
             connection_cache: self.cache.clone(),
@@ -37,27 +37,27 @@ impl RaftNode {
 
     /// Attach a Raft process to a shard.
     pub fn attach_process(&self, shard_id: ShardId, p: RaftProcess) {
-        self.process.write().insert(shard_id, Arc::new(p));
+        self.process_map.write().insert(shard_id, Arc::new(p));
     }
 
     /// Detach a Raft process from a shard.
     pub fn detach_process(&self, shard_id: ShardId) {
-        self.process.write().remove(&shard_id);
+        self.process_map.write().remove(&shard_id);
     }
 
     pub(crate) fn get_process(&self, shard_id: ShardId) -> Option<Arc<RaftProcess>> {
-        self.process.read().get(&shard_id).cloned()
+        self.process_map.read().get(&shard_id).cloned()
     }
 }
 
 /// `RaftDriver` is a context to drive a `RaftProcess`.
 #[derive(Clone)]
-pub struct RaftDriver {
+pub struct RaftHandle {
     shard_id: ShardId,
     self_node_id: NodeId,
     connection_cache: moka::sync::Cache<NodeId, RaftConnection>,
 }
-impl RaftDriver {
+impl RaftHandle {
     pub(crate) fn self_node_id(&self) -> NodeId {
         self.self_node_id.clone()
     }

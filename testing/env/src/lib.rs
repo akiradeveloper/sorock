@@ -30,7 +30,7 @@ impl Node {
                 let address = format!("http://127.0.0.1:{port}");
                 address.parse().unwrap()
             };
-            let node = sorock::RaftNode::new(node_id);
+            let node = sorock::service::raft::RaftNode::new(node_id);
 
             info!("env: create db");
             let db = {
@@ -56,7 +56,7 @@ impl Node {
                     .as_ref()
                     .map(|env| env.snapshot_files[shard_id as usize].path());
                 let (log, ballot) = db.get(shard_id).unwrap();
-                let driver = node.get_driver(shard_id);
+                let driver = node.get_handle(shard_id);
                 let process = example::raft_process::new(state, log, ballot, driver)
                     .await
                     .unwrap();

@@ -12,14 +12,15 @@ use std::sync::atomic::Ordering;
 mod api;
 pub(crate) use api::*;
 mod peers;
-use peers::Peers;
 use app::state_machine::StateMachine;
+use peers::Peers;
 mod voter;
 use voter::Voter;
 mod app;
-use app::state_machine;
 use app::query_processor;
+use app::state_machine;
 use app::App;
+use service::raft::RaftHandle;
 use state_machine::Command;
 
 use app::completion;
@@ -168,7 +169,7 @@ pub struct RaftProcess {
     peers: Peers,
     query_queue: query_processor::QueryQueue,
     app: App,
-    driver: RaftDriver,
+    driver: RaftHandle,
     _thread_handles: ThreadHandles,
 
     queue_tx: thread::EventProducer<thread::QueueEvent>,
@@ -180,7 +181,7 @@ impl RaftProcess {
         app: impl RaftApp,
         log_store: impl RaftLogStore,
         ballot_store: impl RaftBallotStore,
-        driver: RaftDriver,
+        driver: RaftHandle,
     ) -> Result<Self> {
         let app = App::new(app);
 
@@ -612,7 +613,10 @@ impl RaftProcess {
             head_index: self.state_mechine.get_log_head_index().await?,
             last_index: self.state_mechine.get_log_last_index().await?,
             snap_index: self.state_mechine.get_snapshot_index().await,
-            app_index: self.state_mechine.application_pointer.load(Ordering::SeqCst),
+            app_index: self
+                .state_mechine
+                .application_pointer
+                .load(Ordering::SeqCst),
             commit_index: self.state_mechine.commit_pointer.load(Ordering::SeqCst),
         };
         Ok(out)

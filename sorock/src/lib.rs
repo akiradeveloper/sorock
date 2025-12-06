@@ -1,26 +1,23 @@
 #![deny(unused_must_use)]
 
 /// Implementation of `RaftProcess`.
+mod error;
+use error::Error;
+pub mod backend;
 pub mod process;
 
-mod error;
-mod node;
-use error::Error;
-
-pub mod backend;
 /// Implementation of gRPC services.
 pub mod service;
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
+use derive_more::Deref;
 use futures::Stream;
 use futures::StreamExt;
-pub use node::{RaftDriver, RaftNode};
 use process::RaftProcess;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
-use derive_more::Deref;
 
 /// Identifier of `RaftNode`.
 #[derive(
