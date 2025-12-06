@@ -6,8 +6,8 @@ pub struct Effect {
 
 impl Effect {
     pub async fn exec(self) -> Result<()> {
-        let cur_user_index = self.state_mechine.user_pointer.load(Ordering::SeqCst);
-        ensure!(cur_user_index < self.state_mechine.kern_pointer.load(Ordering::SeqCst));
+        let cur_user_index = self.state_mechine.application_pointer.load(Ordering::SeqCst);
+        ensure!(cur_user_index < self.state_mechine.kernel_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_user_index + 1;
         let e = self.state_mechine.get_entry(process_index).await?;
@@ -43,7 +43,7 @@ impl Effect {
                     // Leader may have the completion for the request.
                     let user_completion = self
                         .state_mechine
-                        .user_completions
+                        .application_completions
                         .lock()
                         .remove(&process_index);
                     if let Some(user_completion) = user_completion {
@@ -76,7 +76,7 @@ impl Effect {
         }
 
         self.state_mechine
-            .user_pointer
+            .application_pointer
             .fetch_max(process_index, Ordering::SeqCst);
 
         Ok(())

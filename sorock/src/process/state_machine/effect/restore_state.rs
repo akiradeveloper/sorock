@@ -35,10 +35,10 @@ impl Effect {
             .commit_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
         self.state_mechine
-            .kern_pointer
+            .kernel_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
         self.state_mechine
-            .user_pointer
+            .application_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
 
         info!("restore state: snapshot_index={snapshot_index}");

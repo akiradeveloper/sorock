@@ -35,7 +35,7 @@ impl<T> Queue<T> {
 
 pub struct Query {
     pub message: Bytes,
-    pub user_completion: completion::UserCompletion,
+    pub user_completion: completion::ApplicationCompletion,
 }
 
 #[derive(Clone)]

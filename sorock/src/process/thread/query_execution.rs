@@ -9,7 +9,7 @@ struct Thread {
 
 impl Thread {
     async fn advance_once(&self) -> bool {
-        let last_applied = self.state_mechine.user_pointer.load(Ordering::SeqCst);
+        let last_applied = self.state_mechine.application_pointer.load(Ordering::SeqCst);
         self.query_queue.process(last_applied).await > 0
     }
 

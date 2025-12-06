@@ -99,11 +99,11 @@ impl Effect {
 
                 // discard [this_index, )
                 self.state_mechine
-                    .user_completions
+                    .application_completions
                     .lock()
                     .split_off(&this_index);
                 self.state_mechine
-                    .kern_completions
+                    .kernel_completions
                     .lock()
                     .split_off(&this_index);
 

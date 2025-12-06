@@ -3,30 +3,30 @@ use super::*;
 use tokio::sync::oneshot;
 
 pub enum Completion {
-    User(UserCompletion),
-    Kern(KernCompletion),
+    Application(ApplicationCompletion),
+    Kernel(KernelCompletion),
 }
 
-pub struct UserCompletion(oneshot::Sender<Bytes>);
-impl UserCompletion {
+pub struct ApplicationCompletion(oneshot::Sender<Bytes>);
+impl ApplicationCompletion {
     pub fn complete_with(self, data: Bytes) -> Result<(), Bytes> {
         self.0.send(data)
     }
 }
 
-pub struct KernCompletion(oneshot::Sender<()>);
-impl KernCompletion {
+pub struct KernelCompletion(oneshot::Sender<()>);
+impl KernelCompletion {
     pub fn complete(self) {
         self.0.send(()).ok();
     }
 }
 
-pub fn prepare_kern_completion() -> (KernCompletion, oneshot::Receiver<()>) {
+pub fn prepare_kernel_completion() -> (KernelCompletion, oneshot::Receiver<()>) {
     let (tx, rx) = oneshot::channel::<()>();
-    (KernCompletion(tx), rx)
+    (KernelCompletion(tx), rx)
 }
 
-pub fn prepare_user_completion() -> (UserCompletion, oneshot::Receiver<Bytes>) {
+pub fn prepare_application_completion() -> (ApplicationCompletion, oneshot::Receiver<Bytes>) {
     let (tx, rx) = oneshot::channel::<Bytes>();
-    (UserCompletion(tx), rx)
+    (ApplicationCompletion(tx), rx)
 }

@@ -1,6 +1,8 @@
 use super::*;
 
 pub mod effect;
+mod command;
+pub use command::Command;
 mod response_cache;
 use response_cache::ResponseCache;
 
@@ -10,10 +12,10 @@ pub struct Inner {
     storage: Box<dyn RaftLogStore>,
 
     // Pointers in the log.
-    // Invariant: commit_pointer >= kern_pointer >= user_pointer >= snapshot_pointer
+    // Invariant: commit_pointer >= kernel_pointer >= application_pointer >= snapshot_pointer
     pub commit_pointer: AtomicU64,
-    kern_pointer: AtomicU64,
-    pub user_pointer: AtomicU64,
+    kernel_pointer: AtomicU64,
+    pub application_pointer: AtomicU64,
 
     /// Lock entries in `[snapshot_index, user_application_index]`.
     snapshot_pointer: tokio::sync::RwLock<u64>,
@@ -25,8 +27,8 @@ pub struct Inner {
 
     app: App,
     response_cache: spin::Mutex<ResponseCache>,
-    user_completions: spin::Mutex<BTreeMap<Index, completion::UserCompletion>>,
-    kern_completions: spin::Mutex<BTreeMap<Index, completion::KernCompletion>>,
+    application_completions: spin::Mutex<BTreeMap<Index, completion::ApplicationCompletion>>,
+    kernel_completions: spin::Mutex<BTreeMap<Index, completion::KernelCompletion>>,
 }
 
 #[derive(derive_more::Deref, Clone)]
@@ -37,13 +39,13 @@ impl StateMachine {
             app,
             append_lock: tokio::sync::Mutex::new(()),
             commit_pointer: AtomicU64::new(0),
-            kern_pointer: AtomicU64::new(0),
-            user_pointer: AtomicU64::new(0),
+            kernel_pointer: AtomicU64::new(0),
+            application_pointer: AtomicU64::new(0),
             snapshot_pointer: tokio::sync::RwLock::new(0),
             membership_pointer: AtomicU64::new(0),
             storage: Box::new(storage),
-            user_completions: spin::Mutex::new(BTreeMap::new()),
-            kern_completions: spin::Mutex::new(BTreeMap::new()),
+            application_completions: spin::Mutex::new(BTreeMap::new()),
+            kernel_completions: spin::Mutex::new(BTreeMap::new()),
             response_cache: spin::Mutex::new(ResponseCache::new()),
         };
         Self(inner.into())
@@ -74,9 +76,9 @@ impl Inner {
 
         self.commit_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
-        self.kern_pointer
+        self.kernel_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
-        self.user_pointer
+        self.application_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
 
         info!("inserted a new snapshot@{new_snapshot_index}");
@@ -161,11 +163,11 @@ impl Inner {
 
     pub fn register_completion(&self, index: Index, completion: Completion) {
         match completion {
-            Completion::User(completion) => {
-                self.user_completions.lock().insert(index, completion);
+            Completion::Application(completion) => {
+                self.application_completions.lock().insert(index, completion);
             }
-            Completion::Kern(completion) => {
-                self.kern_completions.lock().insert(index, completion);
+            Completion::Kernel(completion) => {
+                self.kernel_completions.lock().insert(index, completion);
             }
         }
     }
