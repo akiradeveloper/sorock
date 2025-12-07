@@ -5,7 +5,7 @@ mod communicator;
 use communicator::{Communicator, RaftConnection};
 use std::collections::HashMap;
 
-/// `RaftNode` contains a set of `RaftProcess`es.
+/// `RaftNode` manages multiple `RaftProcess`es on shards.
 pub struct RaftNode {
     self_node_id: NodeAddress,
     cache: moka::sync::Cache<NodeAddress, RaftConnection>,
@@ -25,7 +25,7 @@ impl RaftNode {
         }
     }
 
-    /// Get a Raft driver to drive a Raft process on a shard.
+    /// Get a Raft handle to give I/O capability to a Raft process on a shard.
     pub fn get_handle(&self, shard_index: ShardIndex) -> RaftHandle {
         RaftHandle {
             shard_index,
@@ -49,7 +49,7 @@ impl RaftNode {
     }
 }
 
-/// `RaftDriver` is a context to drive a `RaftProcess`.
+/// `RaftHandle` gives I/O capability to a Raft process on a shard.
 #[derive(Clone)]
 pub struct RaftHandle {
     pub self_node_id: NodeAddress,

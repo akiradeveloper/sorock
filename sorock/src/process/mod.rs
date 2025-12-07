@@ -75,7 +75,7 @@ impl Ballot {
 }
 
 /// Snapshot is transferred as stream of bytes.
-/// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.`
+/// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
@@ -85,9 +85,7 @@ pub type SnapshotStream =
 #[derive(Deref, Clone)]
 struct Read<T>(T);
 
-/// `RaftApp` is the representation of state machine in Raft.
-/// Beside the application state, it also contains the snapshot store
-/// where snapshot data is stored with a snapshot index as a key.
+/// `RaftApp` is an abstraction of state machine and snapshot store used by `RaftProcess`.
 #[async_trait::async_trait]
 pub trait RaftApp: Sync + Send + 'static {
     /// Apply read request to the application.
@@ -133,7 +131,7 @@ struct ThreadHandles {
 }
 
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
-/// `RaftProcess` is unaware of the gRPC and the network and it focuses on the Raft algorithm.
+/// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
     state_mechine: StateMachine,
     voter: Voter,
