@@ -24,7 +24,7 @@ This introduces unnecessary complexity in deployment.
 Another problem is that shards can't share the resources efficiently.
 In the implementation of a key-value store, the embedded datastore should be shared among the shards
 for efficient I/O such as write batching.
-For these problems, I will take the second approach.
+For these problems, I will take the another approach.
 
 Sorock implements **in-process multi-raft**.
 As the name implies, sorock allows you to place multiple **Raft processes** in a single gRPC server process.
