@@ -94,7 +94,7 @@ impl Voter {
         self.leader_failure_detector.get_election_timeout()
     }
 
-    pub async fn send_heartbeat(&self, follower_id: NodeId) -> Result<()> {
+    pub async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
         let ballot = self.read_ballot().await?;
         let leader_commit_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
         let req = request::Heartbeat {

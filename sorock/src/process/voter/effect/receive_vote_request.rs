@@ -12,7 +12,7 @@ impl Effect {
     pub async fn exec(
         self,
         candidate_term: Term,
-        candidate_id: NodeId,
+        candidate_id: NodeAddress,
         candidate_last_log_clock: Clock,
         force_vote: bool,
         pre_vote: bool,

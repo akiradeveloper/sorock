@@ -20,7 +20,7 @@ pub struct Effect {
     pub driver: RaftHandle,
 }
 impl Effect {
-    pub async fn exec(self, entry: Entry, sender_id: NodeId) -> Result<TryInsertResult> {
+    pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {

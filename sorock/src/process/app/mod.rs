@@ -14,7 +14,7 @@ impl App {
     pub async fn fetch_snapshot(
         &self,
         snapshot_index: LogIndex,
-        owner: NodeId,
+        owner: NodeAddress,
         driver: RaftHandle,
     ) -> Result<()> {
         if owner == driver.self_node_id() {

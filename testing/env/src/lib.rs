@@ -51,16 +51,16 @@ impl Node {
             };
             info!("env: db created");
 
-            for shard_id in 0..n_shards {
+            for shard_index in 0..n_shards {
                 let state = pstate
                     .as_ref()
-                    .map(|env| env.snapshot_files[shard_id as usize].path());
-                let (log, ballot) = db.get(shard_id).unwrap();
-                let driver = node.get_handle(shard_id);
+                    .map(|env| env.snapshot_files[shard_index as usize].path());
+                let (log, ballot) = db.get(shard_index).unwrap();
+                let driver = node.get_handle(shard_index);
                 let process = example::raft_process::new(state, log, ballot, driver)
                     .await
                     .unwrap();
-                node.attach_process(shard_id, process);
+                node.attach_process(shard_index, process);
             }
 
             let raft_svc = sorock::service::raft::new(node.clone())

@@ -7,7 +7,7 @@ pub struct Effect {
 impl Effect {
     pub async fn exec(
         self,
-        leader_id: NodeId,
+        leader_id: NodeAddress,
         leader_term: Term,
         leader_commit: LogIndex,
     ) -> Result<()> {

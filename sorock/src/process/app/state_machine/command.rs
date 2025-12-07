@@ -7,10 +7,10 @@ pub enum Command<'a> {
     /// This ensures the current leader has common log entries with the majority.
     Barrier(Term),
     ClusterConfiguration {
-        membership: HashSet<NodeId>,
+        membership: HashSet<NodeAddress>,
     },
     Snapshot {
-        membership: HashSet<NodeId>,
+        membership: HashSet<NodeAddress>,
     },
     ExecuteRequest {
         #[serde(with = "serde_bytes")]

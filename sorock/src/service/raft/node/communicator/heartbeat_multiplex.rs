@@ -3,7 +3,7 @@ use super::*;
 use std::collections::HashMap;
 
 pub struct HeartbeatBuffer {
-    buf: crossbeam::queue::SegQueue<(ShardId, request::Heartbeat)>,
+    buf: crossbeam::queue::SegQueue<(ShardIndex, request::Heartbeat)>,
 }
 impl HeartbeatBuffer {
     pub fn new() -> Self {
@@ -12,11 +12,11 @@ impl HeartbeatBuffer {
         }
     }
 
-    pub fn push(&self, shard_id: ShardId, req: request::Heartbeat) {
-        self.buf.push((shard_id, req));
+    pub fn push(&self, shard_index: ShardIndex, req: request::Heartbeat) {
+        self.buf.push((shard_index, req));
     }
 
-    fn drain(&self) -> HashMap<ShardId, request::Heartbeat> {
+    fn drain(&self) -> HashMap<ShardIndex, request::Heartbeat> {
         let mut out = HashMap::new();
         let n = self.buf.len();
         for _ in 0..n {
@@ -27,7 +27,7 @@ impl HeartbeatBuffer {
     }
 }
 
-pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node_id: NodeId) {
+pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node_id: NodeAddress) {
     loop {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
@@ -35,12 +35,12 @@ pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node
 
         let states = {
             let mut out = HashMap::new();
-            for (shard_id, heartbeat) in heartbeats {
+            for (shard_index, heartbeat) in heartbeats {
                 let state = raft::LeaderCommitState {
                     leader_term: heartbeat.leader_term,
                     leader_commit_index: heartbeat.leader_commit_index,
                 };
-                out.insert(shard_id, state);
+                out.insert(shard_index, state);
             }
             out
         };

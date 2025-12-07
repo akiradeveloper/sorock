@@ -23,15 +23,15 @@ pub mod request {
     }
 
     pub struct AddServer {
-        pub server_id: NodeId,
+        pub server_id: NodeAddress,
     }
 
     pub struct RemoveServer {
-        pub server_id: NodeId,
+        pub server_id: NodeAddress,
     }
 
     pub struct RequestVote {
-        pub candidate_id: NodeId,
+        pub candidate_id: NodeAddress,
         pub candidate_clock: Clock,
         /// The term candidate try to promote at.
         pub vote_term: Term,
@@ -46,7 +46,7 @@ pub mod request {
     }
 
     pub struct ReplicationStream {
-        pub sender_id: NodeId,
+        pub sender_id: NodeAddress,
         pub prev_clock: Clock,
         pub entries: std::pin::Pin<
             Box<dyn futures::stream::Stream<Item = Option<ReplicationStreamElem>> + Send>,
@@ -72,6 +72,6 @@ pub mod response {
         pub last_index: LogIndex,
     }
     pub struct Membership {
-        pub members: HashSet<NodeId>,
+        pub members: HashSet<NodeAddress>,
     }
 }

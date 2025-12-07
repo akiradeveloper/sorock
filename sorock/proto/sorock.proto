@@ -10,7 +10,7 @@ package sorock;
 // Client may send a write requests twice but they are executed only once as long as
 // they have the same `request_id`.
 message WriteRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   bytes message = 2;
   string request_id = 3;
 }
@@ -18,7 +18,7 @@ message WriteRequest {
 // Read-only request to the `RaftApp`.
 // This type of request is processed in optimized path.
 message ReadRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   bytes message = 2;
   bool read_locally = 3;
 }
@@ -34,12 +34,12 @@ message Clock {
 }
 
 message KernRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   bytes message = 2;
 }
 
 message ReplicationStreamHeader {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   string sender_id = 2;
   Clock prev_clock = 3;
 }
@@ -60,7 +60,7 @@ message ReplicationStreamResponse {
 }
 
 message GetSnapshotRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   uint64 index = 2;
 }
 
@@ -69,7 +69,7 @@ message SnapshotChunk {
 }
 
 message VoteRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   uint64 vote_term = 2;
   string candidate_id = 3;
   Clock candidate_clock = 4;
@@ -92,13 +92,13 @@ message Heartbeat {
 
 // Request to add a Raft process with `server_id` to a shard.
 message AddServerRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   string server_id = 2;
 }
 
 // Request to remove a Raft process with `server_id` from a shard.
 message RemoveServerRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   string server_id = 2;
 }
 
@@ -114,7 +114,7 @@ message Membership {
 // to become a leader disregarding the election timeout.
 // You can use this request to rebalance the leaders in the cluster.
 message TimeoutNow {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
 }
 
 message LogMetrics {

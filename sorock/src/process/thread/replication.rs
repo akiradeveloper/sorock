@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    follower_id: NodeId,
+    follower_id: NodeAddress,
     peers: Peers,
     voter: Read<Voter>,
     consumer: EventConsumer<QueueEvent>,
@@ -41,7 +41,7 @@ impl Thread {
 }
 
 pub fn new(
-    follower_id: NodeId,
+    follower_id: NodeAddress,
     peers: Peers,
     voter: Read<Voter>,
     consumer: EventConsumer<QueueEvent>,

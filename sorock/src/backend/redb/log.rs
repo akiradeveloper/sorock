@@ -105,8 +105,8 @@ pub struct LogStore {
     reaper_queue: crossbeam::channel::Sender<LazyInsert>,
 }
 impl LogStore {
-    pub fn new(db: Arc<Database>, shard_id: u32, q: Sender) -> Result<Self> {
-        let space = format!("log-{shard_id}");
+    pub fn new(db: Arc<Database>, shard_index: u32, q: Sender) -> Result<Self> {
+        let space = format!("log-{shard_index}");
 
         let tx = db.begin_write()?;
         {

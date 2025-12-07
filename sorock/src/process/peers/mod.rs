@@ -32,9 +32,9 @@ struct ThreadHandles {
 }
 
 pub struct Inner {
-    membership: spin::RwLock<HashSet<NodeId>>,
-    peer_contexts: spin::RwLock<HashMap<NodeId, PeerContexts>>,
-    peer_threads: spin::Mutex<HashMap<NodeId, ThreadHandles>>,
+    membership: spin::RwLock<HashSet<NodeAddress>>,
+    peer_contexts: spin::RwLock<HashMap<NodeAddress, PeerContexts>>,
+    peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
 
     state_mechine: Read<StateMachine>,
     driver: RaftHandle,
@@ -64,7 +64,7 @@ impl Peers {
         Self(Arc::new(inner))
     }
 
-    pub fn read_membership(&self) -> HashSet<NodeId> {
+    pub fn read_membership(&self) -> HashSet<NodeAddress> {
         self.membership.read().clone()
     }
 

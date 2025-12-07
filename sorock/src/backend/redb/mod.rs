@@ -31,9 +31,9 @@ impl Backend {
         Self { db, tx, _kill_tx }
     }
 
-    pub fn get(&self, shard_id: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
-        let log = log::LogStore::new(self.db.clone(), shard_id, self.tx.clone())?;
-        let ballot = ballot::BallotStore::new(self.db.clone(), shard_id)?;
+    pub fn get(&self, shard_index: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
+        let log = log::LogStore::new(self.db.clone(), shard_index, self.tx.clone())?;
+        let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
         Ok((log, ballot))
     }
 }
@@ -122,9 +122,9 @@ mod tests {
 
         futures::future::join_all(futs).await;
 
-        for shard_id in 0..100 {
+        for shard_index in 0..100 {
             for i in 1..=100 {
-                let (log, _) = db.get(shard_id).unwrap();
+                let (log, _) = db.get(shard_index).unwrap();
                 let e = log.get_entry(i).await.unwrap().unwrap();
                 assert_eq!(e.this_clock.index, i);
             }

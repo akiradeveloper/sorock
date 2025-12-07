@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum KernelMessage {
-    AddServer(NodeId),
-    RemoveServer(NodeId),
+    AddServer(NodeAddress),
+    RemoveServer(NodeAddress),
 }
 impl KernelMessage {
     pub fn serialize(self) -> Bytes {

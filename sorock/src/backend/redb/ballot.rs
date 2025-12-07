@@ -8,7 +8,7 @@ mod value {
     #[derive(serde::Deserialize, serde::Serialize)]
     struct OnDiskStruct {
         term: u64,
-        voted_for: Option<sorock::NodeId>,
+        voted_for: Option<sorock::NodeAddress>,
     }
 
     pub fn ser(x: Ballot) -> Vec<u8> {
@@ -39,8 +39,8 @@ pub struct BallotStore {
 }
 
 impl BallotStore {
-    pub fn new(db: Arc<Database>, shard_id: u32) -> Result<Self> {
-        let space = format!("ballot-{shard_id}");
+    pub fn new(db: Arc<Database>, shard_index: u32) -> Result<Self> {
+        let space = format!("ballot-{shard_index}");
 
         // Insert the initial value if not exists.
         let tx = db.begin_write()?;

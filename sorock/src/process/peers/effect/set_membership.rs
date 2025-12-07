@@ -7,7 +7,7 @@ pub struct Effect {
     pub driver: RaftHandle,
 }
 impl Effect {
-    async fn add_peer(&self, id: NodeId) -> Result<()> {
+    async fn add_peer(&self, id: NodeAddress) -> Result<()> {
         if id == self.driver.self_node_id() {
             return Ok(());
         }
@@ -44,12 +44,12 @@ impl Effect {
         Ok(())
     }
 
-    fn remove_peer(&self, id: NodeId) {
+    fn remove_peer(&self, id: NodeAddress) {
         self.peers.peer_threads.lock().remove(&id);
         self.peers.peer_contexts.write().remove(&id);
     }
 
-    pub async fn exec(self, config: HashSet<NodeId>, index: LogIndex) -> Result<()> {
+    pub async fn exec(self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {
         let cur = self.peers.read_membership();
 
         let add_peers = {

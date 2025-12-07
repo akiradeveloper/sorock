@@ -11,7 +11,7 @@ impl Effect {
 
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
-        selfid: NodeId,
+        selfid: NodeAddress,
         state_mechine: Read<StateMachine>,
         l: LogIndex,
         r: LogIndex,
@@ -39,7 +39,7 @@ impl Effect {
         })
     }
 
-    pub async fn exec(self, follower_id: NodeId) -> Result<()> {
+    pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
         let peer_context = self
             .peers
             .peer_contexts

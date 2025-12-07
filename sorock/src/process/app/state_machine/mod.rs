@@ -152,7 +152,10 @@ impl Inner {
     }
 
     /// Read the configuration at the given index.
-    pub async fn try_read_membership(&self, index: LogIndex) -> Result<Option<HashSet<NodeId>>> {
+    pub async fn try_read_membership(
+        &self,
+        index: LogIndex,
+    ) -> Result<Option<HashSet<NodeAddress>>> {
         let e = self.get_entry(index).await?;
         match Command::deserialize(&e.command) {
             Command::Snapshot { membership } => Ok(Some(membership)),

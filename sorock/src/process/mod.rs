@@ -61,7 +61,7 @@ pub struct Entry {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ballot {
     pub cur_term: Term,
-    pub voted_for: Option<NodeId>,
+    pub voted_for: Option<NodeAddress>,
 }
 impl Ballot {
     pub fn new() -> Self {
@@ -549,7 +549,7 @@ impl RaftProcess {
 
     pub(crate) async fn receive_heartbeat(
         &self,
-        leader_id: NodeId,
+        leader_id: NodeAddress,
         req: request::Heartbeat,
     ) -> Result<()> {
         let term = req.leader_term;
