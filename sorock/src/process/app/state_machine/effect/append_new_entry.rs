@@ -8,7 +8,7 @@ impl Effect {
     /// If `term` is None, then the term of the last entry is used.
     /// Otherwise, the given term is used to update the term of the last entry.
     pub async fn exec(&self, command: Bytes, term: Option<Term>) -> Result<LogIndex> {
-        let _g = self.state_mechine.append_lock.lock().await;
+        let _permit = self.state_mechine.write_log_lock.acquire().await?;
 
         let cur_last_log_index = self.state_mechine.get_log_last_index().await?;
         let prev_clock = self

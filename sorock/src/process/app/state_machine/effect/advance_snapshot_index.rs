@@ -7,10 +7,10 @@ pub struct Effect {
 impl Effect {
     /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn exec(&self) -> Result<()> {
-        let mut g_snapshot_pointer = self.state_mechine.snapshot_pointer.write().await;
+        let _permit = self.state_mechine.write_log_lock.acquire().await?;
 
         let proposed_snapshot_index = self.state_mechine.app.get_latest_snapshot().await?;
-        let cur_snapshot_index = *g_snapshot_pointer;
+        let cur_snapshot_index = self.state_mechine.snapshot_pointer.load(Ordering::SeqCst);
         if proposed_snapshot_index > cur_snapshot_index {
             info!("found a newer proposed snapshot@{proposed_snapshot_index} > {cur_snapshot_index}. will move the snapshot index.");
 
@@ -43,7 +43,7 @@ impl Effect {
             self.state_mechine
                 .insert_snapshot(new_snapshot_entry)
                 .await?;
-            *g_snapshot_pointer = proposed_snapshot_index;
+            self.state_mechine.snapshot_pointer.store(proposed_snapshot_index, Ordering::SeqCst);
         }
 
         Ok(())
