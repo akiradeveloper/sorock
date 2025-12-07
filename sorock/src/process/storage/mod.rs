@@ -1,7 +1,6 @@
 use crate as sorock;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use crossbeam::channel::TryRecvError;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use serde::{Deserialize, Serialize};
@@ -11,12 +10,16 @@ use std::sync::Arc;
 mod ballot;
 mod log;
 
-pub struct Backend {
+pub use ballot::BallotStore;
+pub use log::LogStore;
+
+/// `RaftStorage` is a storage backend for `RaftProcess` based on redb.
+pub struct RaftStorage {
     db: Arc<redb::Database>,
     tx: log::Sender,
     _kill_tx: crossbeam::channel::Sender<()>,
 }
-impl Backend {
+impl RaftStorage {
     pub fn new(redb: redb::Database) -> Self {
         let db = Arc::new(redb);
 
@@ -32,7 +35,10 @@ impl Backend {
         Self { db, tx, _kill_tx }
     }
 
-    pub fn get(&self, shard_index: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
+    pub(super) fn get(
+        &self,
+        shard_index: ShardIndex,
+    ) -> Result<(log::LogStore, ballot::BallotStore)> {
         let log = log::LogStore::new(self.db.clone(), shard_index, self.tx.clone())?;
         let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
         Ok((log, ballot))
@@ -47,7 +53,7 @@ mod tests {
     async fn basic_test() -> Result<()> {
         let mem = redb::backends::InMemoryBackend::new();
         let db = redb::Database::builder().create_with_backend(mem)?;
-        let db = Backend::new(db);
+        let db = RaftStorage::new(db);
 
         let entry1 = Entry {
             prev_clock: Clock { index: 0, term: 0 },
@@ -92,7 +98,7 @@ mod tests {
 
         let mem = redb::backends::InMemoryBackend::new();
         let db = redb::Database::builder().create_with_backend(mem)?;
-        let db = Arc::new(Backend::new(db));
+        let db = Arc::new(RaftStorage::new(db));
 
         let mut futs = vec![];
         for shard in 0..100 {

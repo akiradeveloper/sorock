@@ -4,8 +4,14 @@ mod heartbeat_multiplex;
 mod stream;
 
 use heartbeat_multiplex::*;
+use process::*;
 use std::sync::Arc;
 use tokio::task::AbortHandle;
+
+mod raft {
+    tonic::include_proto!("sorock");
+    pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
+}
 
 pub struct HandleDrop(AbortHandle);
 impl Drop for HandleDrop {

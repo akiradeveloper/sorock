@@ -2,27 +2,24 @@ use super::*;
 
 mod raft {
     tonic::include_proto!("sorock");
-    pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;
-mod node;
-pub use node::{RaftHandle, RaftNode};
 
 pub mod client;
 mod stream;
 
 /// Create a Raft service backed by a `RaftNode`.
-pub fn new(node: RaftNode) -> RaftServer<impl Raft> {
+pub fn new(node: Arc<node::RaftNode>) -> RaftServer<impl Raft> {
     let inner = RaftService { node };
     raft::raft_server::RaftServer::new(inner)
 }
 
 #[doc(hidden)]
 pub struct RaftService {
-    node: RaftNode,
+    node: Arc<node::RaftNode>,
 }
 
 #[tonic::async_trait]

@@ -30,7 +30,7 @@ impl Node {
                 let address = format!("http://127.0.0.1:{port}");
                 address.parse().unwrap()
             };
-            let node = sorock::service::raft::RaftNode::new(node_id);
+            let node = sorock::node::RaftNode::new(node_id);
 
             info!("env: create db");
             let db = {
@@ -47,7 +47,7 @@ impl Node {
                         redb::Database::builder().create_with_backend(mem).unwrap()
                     }
                 };
-                sorock::backend::redb::Backend::new(db)
+                sorock::process::RaftStorage::new(db)
             };
             info!("env: db created");
 
@@ -55,15 +55,14 @@ impl Node {
                 let state = pstate
                     .as_ref()
                     .map(|env| env.snapshot_files[shard_index as usize].path());
-                let (log, ballot) = db.get(shard_index).unwrap();
                 let driver = node.get_handle(shard_index);
-                let process = example::raft_process::new(state, log, ballot, driver)
+                let process = example::raft_process::new(state, &db, driver)
                     .await
                     .unwrap();
                 node.attach_process(shard_index, process);
             }
 
-            let raft_svc = sorock::service::raft::new(node.clone())
+            let raft_svc = sorock::service::raft::new(Arc::new(node))
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
             let reflection_svc = sorock::service::reflection::new();

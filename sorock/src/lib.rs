@@ -3,13 +3,15 @@
 /// Implementation of `RaftProcess`.
 mod error;
 use error::Error;
-pub mod backend;
 
-/// Implementation fo `RaftProcess`.
+/// Implementation of `RaftProcess`.
 pub mod process;
 
 /// Implementation of gRPC services.
 pub mod service;
+
+/// Implementation of Raft node containing multiple Raft processes.
+pub mod node;
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
@@ -21,7 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Uri;
 
-/// Identifier of `RaftNode`.
+/// Identifier of Raft server.
 #[derive(
     serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash, Debug, Display, FromStr,
 )]

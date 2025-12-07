@@ -14,12 +14,11 @@ mod snapshot_io;
 
 pub async fn new(
     snap_file: Option<impl AsRef<Path>>,
-    log: impl RaftLogStore,
-    ballot: impl RaftBallotStore,
-    driver: sorock::service::raft::RaftHandle,
+    storage: &sorock::process::RaftStorage,
+    driver: sorock::node::RaftHandle,
 ) -> Result<RaftProcess> {
     let app_main = AppMain::new(snap_file);
-    let process = RaftProcess::new(app_main, log, ballot, driver).await?;
+    let process = RaftProcess::new(app_main, storage, driver).await?;
     Ok(process)
 }
 
