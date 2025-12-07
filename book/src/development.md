@@ -2,19 +2,14 @@
 
 ## Testing
 
-`cargo test` to run unit tests.
+`cargo test -- --test-threads=1` to run unit tests.
 
 ## Benchmark
 
-`cargo +nightly bench` to run benchmarks.
-
-## Load Testing
-
-We have a nice load testing tool named "Mr. Bench".
-To ask him for a help, run `cargo run -p mrbench`.
-For detail, please refer to the README.
+`cargo run --release -p benchmark` to run benchmark program.
+`--help` for more detail.
 
 ## Documentation
 
-For editing the mdbook under doc/ directory,
-you can run `mdbook serve doc` to start the local mdbook server.
+`mdbook serve doc` to start a local mdbook server and
+edit the writings under book/ directory.
