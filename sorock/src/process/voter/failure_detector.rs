@@ -4,12 +4,12 @@ use rand::Rng;
 use std::time::Instant;
 
 struct Inner {
-    watch_id: NodeId,
+    watch_id: NodeAddress,
     detector: phi_detector::PingWindow,
     last_ping: Instant,
 }
 impl Inner {
-    fn watch(id: NodeId) -> Self {
+    fn watch(id: NodeAddress) -> Self {
         Self {
             watch_id: id,
             detector: phi_detector::PingWindow::new(Duration::from_secs(1)),
@@ -22,14 +22,14 @@ pub struct FailureDetector {
 }
 impl FailureDetector {
     pub fn new() -> Self {
-        let null_node_id = NodeId(Uri::from_static("http://null-node"));
+        let null_node_id = NodeAddress(Uri::from_static("http://null-node"));
         let inner = Inner::watch(null_node_id);
         Self {
             inner: inner.into(),
         }
     }
 
-    pub fn receive_heartbeat(&self, leader_id: NodeId) {
+    pub fn receive_heartbeat(&self, leader_id: NodeAddress) {
         let mut inner = self.inner.write();
         let cur_watch_id = inner.watch_id.clone();
         if cur_watch_id != leader_id {

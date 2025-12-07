@@ -30,7 +30,7 @@ mod proto {
 #[derive(Parser)]
 enum Sub {
     #[clap(about = "Start monitoring a cluster by connecting to a node.")]
-    Monitor { addr: Uri, shard_id: u32 },
+    Monitor { addr: Uri, shard_index: u32 },
     #[clap(about = "Embedded test. 0 -> Static data, 1 -> Mock servers")]
     TestMonitor { number: u8 },
 }
@@ -46,8 +46,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let model = match args.sub {
-        Sub::Monitor { addr, shard_id } => {
-            let node = real::connect_real_node(addr, shard_id);
+        Sub::Monitor { addr, shard_index } => {
+            let node = real::connect_real_node(addr, shard_index);
             model::Model::new(node).await
         }
         Sub::TestMonitor { number: 0 } => model::Model::test(),

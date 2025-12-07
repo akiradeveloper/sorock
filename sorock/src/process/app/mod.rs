@@ -1,6 +1,10 @@
 use super::*;
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+pub mod completion;
+pub mod query_processor;
+pub mod state_machine;
+
+#[derive(Deref, Clone)]
 pub struct App(Arc<dyn RaftApp>);
 impl App {
     pub fn new(x: impl RaftApp) -> Self {
@@ -9,9 +13,9 @@ impl App {
 
     pub async fn fetch_snapshot(
         &self,
-        snapshot_index: Index,
-        owner: NodeId,
-        driver: RaftDriver,
+        snapshot_index: LogIndex,
+        owner: NodeAddress,
+        driver: RaftHandle,
     ) -> Result<()> {
         if owner == driver.self_node_id() {
             return Ok(());
@@ -27,7 +31,7 @@ impl App {
         Ok(())
     }
 
-    pub async fn apply_snapshot(&self, snapshot_index: Index) -> Result<()> {
+    pub async fn apply_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
         if snapshot_index == 1 {
             return Ok(());
         }

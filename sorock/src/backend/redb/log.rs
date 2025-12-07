@@ -1,12 +1,12 @@
 use super::*;
 
-use std::time::Duration;
 use redb::ReadableDatabase;
+use std::time::Duration;
 
 mod value {
     use super::*;
 
-    #[derive(serde::Deserialize, serde::Serialize)]
+    #[derive(Deserialize, Serialize)]
     struct OnDiskStruct {
         prev_term: u64,
         cur_index: u64,
@@ -46,7 +46,7 @@ fn table_def(space: &str) -> redb::TableDefinition<u64, Vec<u8>> {
 }
 
 struct LazyInsert {
-    index: Index,
+    index: LogIndex,
     inner: Entry,
     space: String,
     notifier: oneshot::Sender<()>,
@@ -105,8 +105,8 @@ pub struct LogStore {
     reaper_queue: crossbeam::channel::Sender<LazyInsert>,
 }
 impl LogStore {
-    pub fn new(db: Arc<Database>, shard_id: u32, q: Sender) -> Result<Self> {
-        let space = format!("log-{shard_id}");
+    pub fn new(db: Arc<Database>, shard_index: u32, q: Sender) -> Result<Self> {
+        let space = format!("log-{shard_index}");
 
         let tx = db.begin_write()?;
         {
@@ -123,7 +123,7 @@ impl LogStore {
 }
 #[async_trait]
 impl RaftLogStore for LogStore {
-    async fn insert_entry(&self, i: Index, e: Entry) -> Result<()> {
+    async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         let e = LazyInsert {
             index: i,
@@ -138,7 +138,7 @@ impl RaftLogStore for LogStore {
         Ok(())
     }
 
-    async fn delete_entries_before(&self, i: Index) -> Result<()> {
+    async fn delete_entries_before(&self, i: LogIndex) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
             let mut tbl = tx.open_table(table_def(&self.space))?;
@@ -148,7 +148,7 @@ impl RaftLogStore for LogStore {
         Ok(())
     }
 
-    async fn get_entry(&self, i: Index) -> Result<Option<Entry>> {
+    async fn get_entry(&self, i: LogIndex) -> Result<Option<Entry>> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         match tbl.get(i)? {
@@ -157,7 +157,7 @@ impl RaftLogStore for LogStore {
         }
     }
 
-    async fn get_head_index(&self) -> Result<Index> {
+    async fn get_head_index(&self) -> Result<LogIndex> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.first()?;
@@ -167,7 +167,7 @@ impl RaftLogStore for LogStore {
         })
     }
 
-    async fn get_last_index(&self) -> Result<Index> {
+    async fn get_last_index(&self) -> Result<LogIndex> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.last()?;

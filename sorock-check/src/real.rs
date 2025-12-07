@@ -4,21 +4,26 @@ use futures::StreamExt;
 use std::{pin::Pin, time::Duration};
 use tonic::transport::Uri;
 
-pub fn connect_real_node(uri: Uri, shard_id: u32) -> impl model::stream::Node {
+pub fn connect_real_node(uri: Uri, shard_index: u32) -> impl model::stream::Node {
     let chan = Endpoint::from(uri).connect_lazy();
     let client = proto::raft_client::RaftClient::new(chan);
-    RealNode { client, shard_id }
+    RealNode {
+        client,
+        shard_index,
+    }
 }
 
 struct RealNode {
     client: proto::raft_client::RaftClient<Channel>,
-    shard_id: u32,
+    shard_index: u32,
 }
 
 #[async_trait::async_trait]
 impl model::stream::Node for RealNode {
     async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>> {
-        let shard = proto::Shard { id: self.shard_id };
+        let shard = proto::Shard {
+            id: self.shard_index,
+        };
         let mut client = self.client.clone();
         let st = async_stream::stream! {
             loop {
@@ -42,7 +47,9 @@ impl model::stream::Node for RealNode {
         &self,
         _: Uri,
     ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>> {
-        let shard = proto::Shard { id: self.shard_id };
+        let shard = proto::Shard {
+            id: self.shard_index,
+        };
         let mut client = self.client.clone();
         let st = async_stream::stream! {
             match client.watch_log_metrics(shard).await {

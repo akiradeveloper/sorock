@@ -1,11 +1,11 @@
 use super::*;
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
-pub enum KernRequest {
-    AddServer(NodeId),
-    RemoveServer(NodeId),
+#[derive(Serialize, Deserialize, std::fmt::Debug)]
+pub enum KernelMessage {
+    AddServer(NodeAddress),
+    RemoveServer(NodeAddress),
 }
-impl KernRequest {
+impl KernelMessage {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
     }

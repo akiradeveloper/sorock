@@ -1,18 +1,26 @@
 use super::*;
 
-impl PeerSvc {
+pub struct Effect {
+    pub peers: Peers,
+}
+
+impl Effect {
+    fn state_mechine(&self) -> &Read<StateMachine> {
+        &self.peers.state_mechine
+    }
+
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
-        selfid: NodeId,
-        command_log: Ref<CommandLog>,
-        l: Index,
-        r: Index,
+        selfid: NodeAddress,
+        state_mechine: Read<StateMachine>,
+        l: LogIndex,
+        r: LogIndex,
     ) -> Result<request::ReplicationStream> {
-        let head = command_log.get_entry(l).await?;
+        let head = state_mechine.get_entry(l).await?;
 
         let st = async_stream::stream! {
             for idx in l..r {
-                let x = command_log.get_entry(idx).await;
+                let x = state_mechine.get_entry(idx).await;
                 let e = match x {
                     Ok(x) => Some(request::ReplicationStreamElem {
                         this_clock: x.this_clock,
@@ -31,8 +39,9 @@ impl PeerSvc {
         })
     }
 
-    pub async fn advance_replication(&self, follower_id: NodeId) -> Result<()> {
+    pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
         let peer_context = self
+            .peers
             .peer_contexts
             .read()
             .get(&follower_id)
@@ -40,21 +49,22 @@ impl PeerSvc {
             .clone();
 
         let old_progress = peer_context.progress;
-        let cur_last_log_index = self.command_log.get_log_last_index().await?;
+        let cur_last_log_index = self.state_mechine().get_log_last_index().await?;
 
         // More entries to send?
         ensure!(old_progress.next_index <= cur_last_log_index);
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.command_log.get_snapshot_index().await;
+        let cur_snapshot_index = self.state_mechine().get_snapshot_index().await;
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",
                 old_progress.next_index, follower_id,
             );
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
-            self.peer_contexts
+            self.peers
+                .peer_contexts
                 .write()
                 .get_mut(&follower_id)
                 .context(Error::PeerNotFound(follower_id.clone()))?
@@ -67,14 +77,14 @@ impl PeerSvc {
         ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.driver.self_node_id(),
-            self.command_log.clone(),
+            self.peers.driver.self_node_id(),
+            self.state_mechine().clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )
         .await?;
 
-        let conn = self.driver.connect(follower_id.clone());
+        let conn = self.peers.driver.connect(follower_id.clone());
 
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.
@@ -98,7 +108,8 @@ impl PeerSvc {
             },
         };
 
-        self.peer_contexts
+        self.peers
+            .peer_contexts
             .write()
             .get_mut(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?

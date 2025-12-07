@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use sorock::service::raft::client::*;
 use tonic::codegen::CompressionEncoding;
 use tonic::transport::Channel;
@@ -7,7 +8,7 @@ use tonic::transport::Channel;
 pub mod ping_app;
 pub mod raft_process;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum AppWriteRequest {
     FetchAdd { bytes: Vec<u8> },
 }
@@ -21,7 +22,7 @@ impl AppWriteRequest {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum AppReadRequest {
     Read,
     MakeSnapshot,
@@ -36,7 +37,7 @@ impl AppReadRequest {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct AppState(pub u64);
 impl AppState {
     pub fn serialize(&self) -> Bytes {
@@ -59,10 +60,10 @@ impl Client {
         Self { cli }
     }
 
-    pub async fn fetch_add(&mut self, shard_id: u32, n: u64) -> Result<u64> {
+    pub async fn fetch_add(&mut self, shard_index: u32, n: u64) -> Result<u64> {
         let request_id = uuid::Uuid::new_v4().to_string();
         let req = WriteRequest {
-            shard_id,
+            shard_index,
             message: AppWriteRequest::FetchAdd {
                 bytes: vec![1u8; n as usize].into(),
             }
@@ -87,9 +88,9 @@ impl Client {
         Ok(resp.0)
     }
 
-    pub async fn read(&self, shard_id: u32) -> Result<u64> {
+    pub async fn read(&self, shard_index: u32) -> Result<u64> {
         let req = ReadRequest {
-            shard_id,
+            shard_index,
             message: AppReadRequest::Read.serialize(),
             read_locally: false,
         };
@@ -98,9 +99,9 @@ impl Client {
         Ok(resp.0)
     }
 
-    pub async fn make_snapshot(&self, shard_id: u32) -> Result<u64> {
+    pub async fn make_snapshot(&self, shard_index: u32) -> Result<u64> {
         let req = ReadRequest {
-            shard_id,
+            shard_index,
             message: AppReadRequest::MakeSnapshot.serialize(),
             read_locally: true,
         };

@@ -1,12 +1,12 @@
 use super::*;
 
 pub fn into_external_replication_stream(
-    shard_id: ShardId,
+    shard_index: ShardIndex,
     st: request::ReplicationStream,
 ) -> impl futures::stream::Stream<Item = raft::ReplicationStreamChunk> {
     use raft::replication_stream_chunk::Elem as ChunkElem;
     let header_stream = vec![Some(ChunkElem::Header(raft::ReplicationStreamHeader {
-        shard_id,
+        shard_index,
         sender_id: st.sender_id.to_string(),
         prev_clock: Some(raft::Clock {
             term: st.prev_clock.term,

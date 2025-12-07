@@ -15,40 +15,12 @@ pub enum TryInsertResult {
     },
 }
 
-impl CommandLog {
-    /// Append a new entry to the log.
-    /// If `term` is None, then the term of the last entry is used.
-    /// Otherwise, the given term is used to update the term of the last entry.
-    pub async fn append_new_entry(&self, command: Bytes, term: Option<Term>) -> Result<Index> {
-        let _g = self.append_lock.lock().await;
-
-        let cur_last_log_index = self.get_log_last_index().await?;
-        let prev_clock = self.get_entry(cur_last_log_index).await?.this_clock;
-        let append_index = cur_last_log_index + 1;
-        let this_term = match term {
-            Some(t) => t,
-            None => prev_clock.term,
-        };
-        let this_clock = Clock {
-            term: this_term,
-            index: append_index,
-        };
-        let e = Entry {
-            prev_clock,
-            this_clock,
-            command,
-        };
-        self.insert_entry(e).await?;
-
-        Ok(append_index)
-    }
-
-    pub async fn try_insert_entry(
-        &self,
-        entry: Entry,
-        sender_id: NodeId,
-        driver: RaftDriver,
-    ) -> Result<TryInsertResult> {
+pub struct Effect {
+    pub state_mechine: StateMachine,
+    pub driver: RaftHandle,
+}
+impl Effect {
+    pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
@@ -62,11 +34,12 @@ impl CommandLog {
                     snapshot_index
                 );
 
-                let mut g_snapshot_pointer = self.snapshot_pointer.write().await;
+                let mut g_snapshot_pointer = self.state_mechine.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
+                    .state_mechine
                     .app
-                    .fetch_snapshot(snapshot_index, sender_id.clone(), driver)
+                    .fetch_snapshot(snapshot_index, sender_id.clone(), self.driver)
                     .await
                 {
                     error!(
@@ -76,7 +49,7 @@ impl CommandLog {
                     return Err(e);
                 }
 
-                self.insert_snapshot(entry).await?;
+                self.state_mechine.insert_snapshot(entry).await?;
                 *g_snapshot_pointer = snapshot_index;
 
                 return Ok(TryInsertResult::Inserted);
@@ -89,6 +62,7 @@ impl CommandLog {
             index: prev_index,
         } = entry.prev_clock;
         if let Some(prev_clock) = self
+            .state_mechine
             .storage
             .get_entry(prev_index)
             .await?
@@ -108,6 +82,7 @@ impl CommandLog {
 
                 // optimization to skip actual insertion.
                 if let Some(old_clock) = self
+                    .state_mechine
                     .storage
                     .get_entry(this_index)
                     .await?
@@ -120,11 +95,17 @@ impl CommandLog {
                     }
                 }
 
-                self.insert_entry(entry).await?;
+                self.state_mechine.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.user_completions.lock().split_off(&this_index);
-                self.kern_completions.lock().split_off(&this_index);
+                self.state_mechine
+                    .application_completions
+                    .lock()
+                    .split_off(&this_index);
+                self.state_mechine
+                    .kernel_completions
+                    .lock()
+                    .split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)
             }

@@ -1,10 +1,8 @@
 use super::*;
 
-mod election;
+pub mod effect;
 mod failure_detector;
-mod heartbeat;
 mod quorum;
-mod stepdown;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ElectionState {
@@ -24,19 +22,19 @@ pub struct Inner {
 
     leader_failure_detector: failure_detector::FailureDetector,
 
-    command_log: CommandLog,
-    peers: PeerSvc,
-    driver: RaftDriver,
+    state_mechine: Read<StateMachine>,
+    peers: Read<Peers>,
+    driver: RaftHandle,
 }
 
-#[derive(shrinkwraprs::Shrinkwrap, Clone)]
+#[derive(Deref, Clone)]
 pub struct Voter(pub Arc<Inner>);
 impl Voter {
     pub fn new(
         ballot_store: impl RaftBallotStore,
-        command_log: CommandLog,
-        peers: PeerSvc,
-        driver: RaftDriver,
+        state_mechine: Read<StateMachine>,
+        peers: Read<Peers>,
+        driver: RaftHandle,
     ) -> Self {
         let inner = Inner {
             state: spin::Mutex::new(ElectionState::Follower),
@@ -44,7 +42,7 @@ impl Voter {
             vote_lock: tokio::sync::Mutex::new(()),
             safe_term: AtomicU64::new(0),
             leader_failure_detector: failure_detector::FailureDetector::new(),
-            command_log,
+            state_mechine,
             peers,
             driver,
         };
@@ -57,7 +55,7 @@ impl Voter {
         *self.state.lock()
     }
 
-    pub fn write_election_state(&self, e: ElectionState) {
+    fn write_election_state(&self, e: ElectionState) {
         info!("election state -> {e:?}");
         *self.state.lock() = e;
     }
@@ -66,7 +64,7 @@ impl Voter {
         self.ballot.load_ballot().await
     }
 
-    pub async fn write_ballot(&self, b: Ballot) -> Result<()> {
+    async fn write_ballot(&self, b: Ballot) -> Result<()> {
         self.ballot.save_ballot(b).await
     }
 
@@ -80,5 +78,31 @@ impl Voter {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
         Ok(cur_safe_term == cur_term)
+    }
+
+    pub fn get_election_timeout(&self) -> Option<Duration> {
+        // This is an optimization to avoid unnecessary election.
+        // If the node doesn't contain itself in its membership,
+        // it can't become a new leader anyway.
+        if !self
+            .peers
+            .read_membership()
+            .contains(&self.driver.self_node_id())
+        {
+            return None;
+        }
+        self.leader_failure_detector.get_election_timeout()
+    }
+
+    pub async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
+        let ballot = self.read_ballot().await?;
+        let leader_commit_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
+        let req = request::Heartbeat {
+            leader_term: ballot.cur_term,
+            leader_commit_index,
+        };
+        let conn = self.driver.connect(follower_id);
+        conn.queue_heartbeat(req);
+        Ok(())
     }
 }

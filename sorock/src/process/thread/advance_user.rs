@@ -2,17 +2,18 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLog,
-    app: App,
+    state_mechine: StateMachine,
     consumer: EventConsumer<KernEvent>,
     producer: EventProducer<ApplicationEvent>,
 }
 
 impl Thread {
     async fn advance_once(&self) -> Result<()> {
-        self.command_log
-            .advance_user_process(self.app.clone())
-            .await
+        state_machine::effect::advance_user_process::Effect {
+            state_mechine: self.state_mechine.clone(),
+        }
+        .exec()
+        .await
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -32,14 +33,12 @@ impl Thread {
 }
 
 pub fn new(
-    command_log: CommandLog,
-    app: App,
+    state_mechine: StateMachine,
     consumer: EventConsumer<KernEvent>,
     producer: EventProducer<ApplicationEvent>,
 ) -> ThreadHandle {
     Thread {
-        command_log,
-        app,
+        state_mechine,
         consumer,
         producer,
     }
