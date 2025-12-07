@@ -15,7 +15,7 @@ mod snapshot_io;
 pub async fn new(
     snap_file: Option<impl AsRef<Path>>,
     storage: &sorock::process::RaftStorage,
-    driver: sorock::service::raft::RaftHandle,
+    driver: sorock::node::RaftHandle,
 ) -> Result<RaftProcess> {
     let app_main = AppMain::new(snap_file);
     let process = RaftProcess::new(app_main, storage, driver).await?;

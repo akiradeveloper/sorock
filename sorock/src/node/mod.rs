@@ -5,27 +5,24 @@ mod communicator;
 use communicator::{Communicator, RaftConnection};
 use std::collections::HashMap;
 
-pub struct Inner {
+/// `RaftNode` contains a set of `RaftProcess`es.
+pub struct RaftNode {
     self_node_id: NodeAddress,
     cache: moka::sync::Cache<NodeAddress, RaftConnection>,
     process_map: spin::RwLock<HashMap<ShardIndex, Arc<process::RaftProcess>>>,
 }
 
-/// `RaftNode` contains a set of `RaftProcess`es.
-#[derive(Deref, Clone)]
-pub struct RaftNode(Arc<Inner>);
 impl RaftNode {
     /// Create a new Raft node with a given node ID.
     pub fn new(id: NodeAddress) -> Self {
         let builder = moka::sync::Cache::builder()
             .initial_capacity(3)
             .time_to_idle(Duration::from_secs(60));
-        let inner = Inner {
+        Self {
             self_node_id: id,
             cache: builder.build(),
             process_map: HashMap::new().into(),
-        };
-        Self(inner.into())
+        }
     }
 
     /// Get a Raft driver to drive a Raft process on a shard.
@@ -47,7 +44,7 @@ impl RaftNode {
         self.process_map.write().remove(&shard_index);
     }
 
-    pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
+    pub(crate) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
         self.process_map.read().get(&shard_index).cloned()
     }
 }

@@ -22,9 +22,9 @@ mod app;
 use app::query_processor;
 use app::state_machine;
 use app::App;
-use service::raft::RaftHandle;
 use state_machine::Command;
 use storage::{Ballot, Entry};
+use node::RaftHandle;
 
 use app::completion;
 mod kernel_message;
@@ -118,7 +118,7 @@ pub struct RaftProcess {
     peers: Peers,
     query_queue: query_processor::QueryQueue,
     app: App,
-    driver: RaftHandle,
+    driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
 
     queue_tx: thread::EventProducer<thread::QueueEvent>,
@@ -129,7 +129,7 @@ impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
         storage: &storage::RaftStorage,
-        driver: RaftHandle,
+        driver: node::RaftHandle,
     ) -> Result<Self> {
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;

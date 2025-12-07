@@ -30,7 +30,7 @@ impl Node {
                 let address = format!("http://127.0.0.1:{port}");
                 address.parse().unwrap()
             };
-            let node = sorock::service::raft::RaftNode::new(node_id);
+            let node = sorock::node::RaftNode::new(node_id);
 
             info!("env: create db");
             let db = {
@@ -62,7 +62,7 @@ impl Node {
                 node.attach_process(shard_index, process);
             }
 
-            let raft_svc = sorock::service::raft::new(node.clone())
+            let raft_svc = sorock::service::raft::new(Arc::new(node))
                 .send_compressed(CompressionEncoding::Zstd)
                 .accept_compressed(CompressionEncoding::Zstd);
             let reflection_svc = sorock::service::reflection::new();
