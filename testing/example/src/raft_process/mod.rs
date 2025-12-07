@@ -41,7 +41,7 @@ impl AppSnapshot {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct SnapshotTable {
     inner: BTreeMap<u64, AppState>,
 }

@@ -6,7 +6,7 @@ use std::time::Duration;
 mod value {
     use super::*;
 
-    #[derive(serde::Deserialize, serde::Serialize)]
+    #[derive(Deserialize, Serialize)]
     struct OnDiskStruct {
         prev_term: u64,
         cur_index: u64,

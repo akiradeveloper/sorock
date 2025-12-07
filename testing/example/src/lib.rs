@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use sorock::service::raft::client::*;
 use tonic::codegen::CompressionEncoding;
 use tonic::transport::Channel;
@@ -7,7 +8,7 @@ use tonic::transport::Channel;
 pub mod ping_app;
 pub mod raft_process;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum AppWriteRequest {
     FetchAdd { bytes: Vec<u8> },
 }
@@ -21,7 +22,7 @@ impl AppWriteRequest {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum AppReadRequest {
     Read,
     MakeSnapshot,
@@ -36,7 +37,7 @@ impl AppReadRequest {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct AppState(pub u64);
 impl AppState {
     pub fn serialize(&self) -> Bytes {

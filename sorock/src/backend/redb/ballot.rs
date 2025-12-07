@@ -5,7 +5,7 @@ use redb::ReadableDatabase;
 mod value {
     use super::*;
 
-    #[derive(serde::Deserialize, serde::Serialize)]
+    #[derive(Deserialize, Serialize)]
     struct OnDiskStruct {
         term: u64,
         voted_for: Option<sorock::NodeAddress>,

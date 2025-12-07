@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+#[derive(Serialize, Deserialize, std::fmt::Debug)]
 pub enum KernelMessage {
     AddServer(NodeAddress),
     RemoveServer(NodeAddress),

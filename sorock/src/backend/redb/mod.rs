@@ -4,6 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use crossbeam::channel::TryRecvError;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use serde::{Deserialize, Serialize};
 use sorock::process::*;
 use std::sync::Arc;
 
