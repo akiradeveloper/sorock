@@ -21,6 +21,8 @@ pub struct Effect {
 }
 impl Effect {
     pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
+        let _permit = self.state_mechine.write_log_lock.acquire().await?;
+
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
@@ -34,7 +36,6 @@ impl Effect {
                     snapshot_index
                 );
 
-                let mut g_snapshot_pointer = self.state_mechine.snapshot_pointer.write().await;
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
                     .state_mechine
@@ -50,7 +51,7 @@ impl Effect {
                 }
 
                 self.state_mechine.insert_snapshot(entry).await?;
-                *g_snapshot_pointer = snapshot_index;
+                self.state_mechine.snapshot_pointer.store(snapshot_index, Ordering::SeqCst);
 
                 return Ok(TryInsertResult::Inserted);
             }
@@ -90,7 +91,7 @@ impl Effect {
                 {
                     if old_clock == entry.this_clock {
                         // If there is a entry with the same term and index
-                        // then the entry should be the same so to skip insertion.
+                        // then the entry should be the same so we can skip insertion.
                         return Ok(TryInsertResult::SkippedInsertion);
                     }
                 }

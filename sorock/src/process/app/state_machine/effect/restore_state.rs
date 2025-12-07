@@ -29,7 +29,7 @@ impl Effect {
                 1
             }
         };
-        *self.state_mechine.snapshot_pointer.write().await = snapshot_index;
+        self.state_mechine.snapshot_pointer.store(snapshot_index, Ordering::SeqCst);
 
         self.state_mechine
             .commit_pointer
