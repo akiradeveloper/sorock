@@ -13,29 +13,6 @@ mod log;
 pub use ballot::BallotStore;
 pub use log::LogStore;
 
-/// Log entry.
-#[derive(Clone, Debug)]
-pub struct Entry {
-    pub prev_clock: Clock,
-    pub this_clock: Clock,
-    pub command: Bytes,
-}
-
-/// Ballot in election.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Ballot {
-    pub cur_term: Term,
-    pub voted_for: Option<NodeAddress>,
-}
-impl Ballot {
-    pub fn new() -> Self {
-        Self {
-            cur_term: 0,
-            voted_for: None,
-        }
-    }
-}
-
 /// `RaftStorage` is a storage backend for `RaftProcess` based on redb.
 pub struct RaftStorage {
     db: Arc<redb::Database>,

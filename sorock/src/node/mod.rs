@@ -44,7 +44,7 @@ impl RaftNode {
         self.process_map.write().remove(&shard_index);
     }
 
-    pub(crate) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
+    pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
         self.process_map.read().get(&shard_index).cloned()
     }
 }

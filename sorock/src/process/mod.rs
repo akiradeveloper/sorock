@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 mod storage;
 pub use storage::RaftStorage;
 mod api;
-pub(crate) use api::*;
+pub(super) use api::*;
 mod peers;
 use app::state_machine::StateMachine;
 use peers::Peers;
@@ -24,7 +24,6 @@ use app::state_machine;
 use app::App;
 use node::RaftHandle;
 use state_machine::Command;
-use storage::{Ballot, Entry};
 
 use app::completion;
 mod kernel_message;
@@ -49,6 +48,29 @@ pub(super) struct Clock {
 impl PartialEq for Clock {
     fn eq(&self, that: &Self) -> bool {
         self.term == that.term && self.index == that.index
+    }
+}
+
+/// Log entry.
+#[derive(Clone, Debug)]
+struct Entry {
+    prev_clock: Clock,
+    this_clock: Clock,
+    command: Bytes,
+}
+
+/// Ballot in election.
+#[derive(Clone, Debug, PartialEq)]
+struct Ballot {
+    cur_term: Term,
+    voted_for: Option<NodeAddress>,
+}
+impl Ballot {
+    pub fn new() -> Self {
+        Self {
+            cur_term: 0,
+            voted_for: None,
+        }
     }
 }
 
