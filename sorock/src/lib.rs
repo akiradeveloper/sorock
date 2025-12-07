@@ -4,7 +4,7 @@
 mod error;
 use error::Error;
 
-/// Implementation fo `RaftProcess`.
+/// Implementation of `RaftProcess`.
 pub mod process;
 
 /// Implementation of gRPC services.
