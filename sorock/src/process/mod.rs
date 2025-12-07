@@ -24,7 +24,7 @@ use app::state_machine;
 use app::App;
 use service::raft::RaftHandle;
 use state_machine::Command;
-use storage::{Entry, Ballot};
+use storage::{Ballot, Entry};
 
 use app::completion;
 mod kernel_message;
@@ -33,7 +33,7 @@ mod thread;
 
 /// Election term.
 /// In Raft, only one leader can be elected per a term.
-pub (super) type Term = u64;
+pub(super) type Term = u64;
 
 /// Log index.
 pub type LogIndex = u64;
@@ -42,7 +42,7 @@ pub type LogIndex = u64;
 /// If two entries have the same clock, they should be the same entry.
 /// It is like the hash of the git commit.
 #[derive(Clone, Copy, Eq, Debug)]
-pub (super) struct Clock {
+pub(super) struct Clock {
     pub term: Term,
     pub index: LogIndex,
 }
@@ -51,8 +51,6 @@ impl PartialEq for Clock {
         self.term == that.term && self.index == that.index
     }
 }
-
-
 
 /// Snapshot is transferred as stream of bytes.
 /// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.`

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub struct Inner {
     self_node_id: NodeAddress,
     cache: moka::sync::Cache<NodeAddress, RaftConnection>,
-    process_map: spin::RwLock<HashMap<ShardIndex, Arc<RaftProcess>>>,
+    process_map: spin::RwLock<HashMap<ShardIndex, Arc<process::RaftProcess>>>,
 }
 
 /// `RaftNode` contains a set of `RaftProcess`es.
@@ -38,7 +38,7 @@ impl RaftNode {
     }
 
     /// Attach a Raft process to a shard.
-    pub fn attach_process(&self, shard_index: ShardIndex, p: RaftProcess) {
+    pub fn attach_process(&self, shard_index: ShardIndex, p: process::RaftProcess) {
         self.process_map.write().insert(shard_index, Arc::new(p));
     }
 
@@ -47,7 +47,7 @@ impl RaftNode {
         self.process_map.write().remove(&shard_index);
     }
 
-    pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<RaftProcess>> {
+    pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
         self.process_map.read().get(&shard_index).cloned()
     }
 }
@@ -60,11 +60,11 @@ pub struct RaftHandle {
     connection_cache: moka::sync::Cache<NodeAddress, RaftConnection>,
 }
 impl RaftHandle {
-    pub(crate) fn self_node_id(&self) -> NodeAddress {
+    pub(super) fn self_node_id(&self) -> NodeAddress {
         self.self_node_id.clone()
     }
 
-    pub (crate) fn connect(&self, dest_node_id: NodeAddress) -> Communicator {
+    pub(super) fn connect(&self, dest_node_id: NodeAddress) -> Communicator {
         let conn: RaftConnection = self.connection_cache.get_with(dest_node_id.clone(), || {
             RaftConnection::new(self.self_node_id.clone(), dest_node_id.clone())
         });

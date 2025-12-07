@@ -11,8 +11,8 @@ use std::sync::Arc;
 mod ballot;
 mod log;
 
-pub use log::LogStore;
 pub use ballot::BallotStore;
+pub use log::LogStore;
 
 /// Log entry.
 #[derive(Clone, Debug)]
@@ -58,7 +58,10 @@ impl RaftStorage {
         Self { db, tx, _kill_tx }
     }
 
-    pub (super) fn get(&self, shard_index: ShardIndex) -> Result<(log::LogStore, ballot::BallotStore)> {
+    pub(super) fn get(
+        &self,
+        shard_index: ShardIndex,
+    ) -> Result<(log::LogStore, ballot::BallotStore)> {
         let log = log::LogStore::new(self.db.clone(), shard_index, self.tx.clone())?;
         let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
         Ok((log, ballot))

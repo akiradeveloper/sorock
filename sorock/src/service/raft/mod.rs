@@ -2,14 +2,13 @@ use super::*;
 
 mod raft {
     tonic::include_proto!("sorock");
-    pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
+    // pub type RaftClient = raft_client::RaftClient<tonic::transport::channel::Channel>;
 }
 
+pub use node::{RaftHandle, RaftNode};
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;
-mod node;
-pub use node::{RaftHandle, RaftNode};
 
 pub mod client;
 mod stream;

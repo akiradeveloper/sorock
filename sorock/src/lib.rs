@@ -10,6 +10,8 @@ pub mod process;
 /// Implementation of gRPC services.
 pub mod service;
 
+pub mod node;
+
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
 use derive_more::{Deref, Display, FromStr};
