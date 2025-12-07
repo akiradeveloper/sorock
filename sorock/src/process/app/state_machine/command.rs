@@ -27,7 +27,7 @@ impl<'a> Command<'a> {
         bincode::serialize(&self).unwrap().into()
     }
 
-    pub fn deserialize(x: &[u8]) -> Command {
+    pub fn deserialize(x: &[u8]) -> Command<'_> {
         bincode::deserialize(x).unwrap()
     }
 }

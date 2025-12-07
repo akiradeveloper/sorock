@@ -11,12 +11,38 @@ use std::sync::Arc;
 mod ballot;
 mod log;
 
-pub struct Backend {
+pub use log::LogStore;
+pub use ballot::BallotStore;
+
+/// Log entry.
+#[derive(Clone, Debug)]
+pub struct Entry {
+    pub prev_clock: Clock,
+    pub this_clock: Clock,
+    pub command: Bytes,
+}
+
+/// Ballot in election.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ballot {
+    pub cur_term: Term,
+    pub voted_for: Option<NodeAddress>,
+}
+impl Ballot {
+    pub fn new() -> Self {
+        Self {
+            cur_term: 0,
+            voted_for: None,
+        }
+    }
+}
+
+pub struct RaftStorage {
     db: Arc<redb::Database>,
     tx: log::Sender,
     _kill_tx: crossbeam::channel::Sender<()>,
 }
-impl Backend {
+impl RaftStorage {
     pub fn new(redb: redb::Database) -> Self {
         let db = Arc::new(redb);
 
@@ -32,7 +58,7 @@ impl Backend {
         Self { db, tx, _kill_tx }
     }
 
-    pub fn get(&self, shard_index: u32) -> Result<(impl RaftLogStore, impl RaftBallotStore)> {
+    pub (super) fn get(&self, shard_index: ShardIndex) -> Result<(log::LogStore, ballot::BallotStore)> {
         let log = log::LogStore::new(self.db.clone(), shard_index, self.tx.clone())?;
         let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
         Ok((log, ballot))
@@ -47,7 +73,7 @@ mod tests {
     async fn basic_test() -> Result<()> {
         let mem = redb::backends::InMemoryBackend::new();
         let db = redb::Database::builder().create_with_backend(mem)?;
-        let db = Backend::new(db);
+        let db = RaftStorage::new(db);
 
         let entry1 = Entry {
             prev_clock: Clock { index: 0, term: 0 },
@@ -92,7 +118,7 @@ mod tests {
 
         let mem = redb::backends::InMemoryBackend::new();
         let db = redb::Database::builder().create_with_backend(mem)?;
-        let db = Arc::new(Backend::new(db));
+        let db = Arc::new(RaftStorage::new(db));
 
         let mut futs = vec![];
         for shard in 0..100 {

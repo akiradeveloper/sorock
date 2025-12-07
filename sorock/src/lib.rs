@@ -3,7 +3,6 @@
 /// Implementation of `RaftProcess`.
 mod error;
 use error::Error;
-pub mod backend;
 
 /// Implementation fo `RaftProcess`.
 pub mod process;

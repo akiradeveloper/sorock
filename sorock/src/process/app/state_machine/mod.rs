@@ -9,7 +9,7 @@ use response_cache::ResponseCache;
 pub struct Inner {
     /// Lock to serialize the append operation.
     append_lock: tokio::sync::Mutex<()>,
-    storage: Box<dyn RaftLogStore>,
+    storage: storage::LogStore,
 
     // Pointers in the log.
     // Invariant: commit_pointer >= kernel_pointer >= application_pointer >= snapshot_pointer
@@ -34,7 +34,7 @@ pub struct Inner {
 #[derive(derive_more::Deref, Clone)]
 pub struct StateMachine(pub Arc<Inner>);
 impl StateMachine {
-    pub fn new(storage: impl RaftLogStore, app: App) -> Self {
+    pub fn new(storage: storage::LogStore, app: App) -> Self {
         let inner = Inner {
             app,
             append_lock: tokio::sync::Mutex::new(()),
@@ -43,7 +43,7 @@ impl StateMachine {
             application_pointer: AtomicU64::new(0),
             snapshot_pointer: tokio::sync::RwLock::new(0),
             membership_pointer: AtomicU64::new(0),
-            storage: Box::new(storage),
+            storage,
             application_completions: spin::Mutex::new(BTreeMap::new()),
             kernel_completions: spin::Mutex::new(BTreeMap::new()),
             response_cache: spin::Mutex::new(ResponseCache::new()),

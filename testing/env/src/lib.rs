@@ -47,7 +47,7 @@ impl Node {
                         redb::Database::builder().create_with_backend(mem).unwrap()
                     }
                 };
-                sorock::backend::redb::Backend::new(db)
+                sorock::process::RaftStorage::new(db)
             };
             info!("env: db created");
 
@@ -55,9 +55,8 @@ impl Node {
                 let state = pstate
                     .as_ref()
                     .map(|env| env.snapshot_files[shard_index as usize].path());
-                let (log, ballot) = db.get(shard_index).unwrap();
                 let driver = node.get_handle(shard_index);
-                let process = example::raft_process::new(state, log, ballot, driver)
+                let process = example::raft_process::new(state, &db, driver)
                     .await
                     .unwrap();
                 node.attach_process(shard_index, process);

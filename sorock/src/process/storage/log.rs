@@ -41,7 +41,7 @@ mod value {
     }
 }
 
-fn table_def(space: &str) -> redb::TableDefinition<u64, Vec<u8>> {
+fn table_def(space: &str) -> redb::TableDefinition<'_, u64, Vec<u8>> {
     redb::TableDefinition::new(space)
 }
 
@@ -120,10 +120,8 @@ impl LogStore {
             reaper_queue: q.tx,
         })
     }
-}
-#[async_trait]
-impl RaftLogStore for LogStore {
-    async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()> {
+
+    pub async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         let e = LazyInsert {
             index: i,
@@ -138,7 +136,7 @@ impl RaftLogStore for LogStore {
         Ok(())
     }
 
-    async fn delete_entries_before(&self, i: LogIndex) -> Result<()> {
+    pub async fn delete_entries_before(&self, i: LogIndex) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
             let mut tbl = tx.open_table(table_def(&self.space))?;
@@ -148,7 +146,7 @@ impl RaftLogStore for LogStore {
         Ok(())
     }
 
-    async fn get_entry(&self, i: LogIndex) -> Result<Option<Entry>> {
+    pub async fn get_entry(&self, i: LogIndex) -> Result<Option<Entry>> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         match tbl.get(i)? {
@@ -157,7 +155,7 @@ impl RaftLogStore for LogStore {
         }
     }
 
-    async fn get_head_index(&self) -> Result<LogIndex> {
+    pub async fn get_head_index(&self) -> Result<LogIndex> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.first()?;
@@ -167,7 +165,7 @@ impl RaftLogStore for LogStore {
         })
     }
 
-    async fn get_last_index(&self) -> Result<LogIndex> {
+    pub async fn get_last_index(&self) -> Result<LogIndex> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.last()?;

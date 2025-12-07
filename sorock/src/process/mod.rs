@@ -9,6 +9,8 @@ use tracing::{debug, error, info, warn};
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
+mod storage;
+pub use storage::RaftStorage;
 mod api;
 pub(crate) use api::*;
 mod peers;
@@ -22,6 +24,7 @@ use app::state_machine;
 use app::App;
 use service::raft::RaftHandle;
 use state_machine::Command;
+use storage::{Entry, Ballot};
 
 use app::completion;
 mod kernel_message;
@@ -30,7 +33,7 @@ mod thread;
 
 /// Election term.
 /// In Raft, only one leader can be elected per a term.
-pub type Term = u64;
+pub (super) type Term = u64;
 
 /// Log index.
 pub type LogIndex = u64;
@@ -39,7 +42,7 @@ pub type LogIndex = u64;
 /// If two entries have the same clock, they should be the same entry.
 /// It is like the hash of the git commit.
 #[derive(Clone, Copy, Eq, Debug)]
-pub struct Clock {
+pub (super) struct Clock {
     pub term: Term,
     pub index: LogIndex,
 }
@@ -49,28 +52,7 @@ impl PartialEq for Clock {
     }
 }
 
-/// Log entry.
-#[derive(Clone)]
-pub struct Entry {
-    pub prev_clock: Clock,
-    pub this_clock: Clock,
-    pub command: Bytes,
-}
 
-/// Ballot in election.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Ballot {
-    pub cur_term: Term,
-    pub voted_for: Option<NodeAddress>,
-}
-impl Ballot {
-    pub fn new() -> Self {
-        Self {
-            cur_term: 0,
-            voted_for: None,
-        }
-    }
-}
 
 /// Snapshot is transferred as stream of bytes.
 /// `SnapshotStream` is converted to gRPC streaming outside of the `RaftProcess`.`
@@ -117,37 +99,6 @@ pub trait RaftApp: Sync + Send + 'static {
     async fn get_latest_snapshot(&self) -> Result<LogIndex>;
 }
 
-/// `RaftLogStore` is the representation of the log store in Raft.
-/// Conceptually, it is like `RwLock<BTreeMap<Index, Entry>>`.
-#[async_trait::async_trait]
-pub trait RaftLogStore: Sync + Send + 'static {
-    /// Insert the entry at index `i` into the log.
-    async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()>;
-
-    /// Delete all the entries in `[, i)` from the log.
-    async fn delete_entries_before(&self, i: LogIndex) -> Result<()>;
-
-    /// Get the entry at index `i` from the log.
-    async fn get_entry(&self, i: LogIndex) -> Result<Option<Entry>>;
-
-    /// Get the index of the first entry in the log.
-    async fn get_head_index(&self) -> Result<LogIndex>;
-
-    /// Get the index of the last entry in the log.
-    async fn get_last_index(&self) -> Result<LogIndex>;
-}
-
-/// `RaftBallotStore` is the representation of the ballot store in Raft.
-/// Conceptually, it is like `RwLock<Ballot>`.
-#[async_trait::async_trait]
-pub trait RaftBallotStore: Sync + Send + 'static {
-    /// Replace the current ballot with the new one.
-    async fn save_ballot(&self, v: Ballot) -> Result<()>;
-
-    /// Get the current ballot.
-    async fn load_ballot(&self) -> Result<Ballot>;
-}
-
 #[allow(dead_code)]
 struct ThreadHandles {
     advance_kern_handle: thread::ThreadHandle,
@@ -179,11 +130,11 @@ pub struct RaftProcess {
 impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
-        log_store: impl RaftLogStore,
-        ballot_store: impl RaftBallotStore,
+        storage: &storage::RaftStorage,
         driver: RaftHandle,
     ) -> Result<Self> {
         let app = App::new(app);
+        let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
         let (query_tx, query_rx) = query_processor::new(Read(app.clone()));
 
@@ -396,7 +347,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn add_server(&self, req: request::AddServer) -> Result<()> {
+    pub(super) async fn add_server(&self, req: request::AddServer) -> Result<()> {
         if self.peers.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
             self.bootstrap_cluster().await?;
         } else {
@@ -410,7 +361,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn remove_server(&self, req: request::RemoveServer) -> Result<()> {
+    pub(super) async fn remove_server(&self, req: request::RemoveServer) -> Result<()> {
         let msg = kernel_message::KernelMessage::RemoveServer(req.server_id);
         let req = request::KernelRequest {
             message: msg.serialize(),
@@ -420,7 +371,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn send_replication_stream(
+    pub(super) async fn send_replication_stream(
         &self,
         req: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
@@ -433,7 +384,7 @@ impl RaftProcess {
         Ok(resp)
     }
 
-    pub(crate) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
+    pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         let ballot = self.voter.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
@@ -474,7 +425,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn process_application_read_request(
+    pub(super) async fn process_application_read_request(
         &self,
         req: request::ApplicationReadRequest,
     ) -> Result<Bytes> {
@@ -510,7 +461,7 @@ impl RaftProcess {
         Ok(resp)
     }
 
-    pub(crate) async fn process_application_write_request(
+    pub(super) async fn process_application_write_request(
         &self,
         req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
@@ -547,7 +498,7 @@ impl RaftProcess {
         Ok(resp)
     }
 
-    pub(crate) async fn receive_heartbeat(
+    pub(super) async fn receive_heartbeat(
         &self,
         leader_id: NodeAddress,
         req: request::Heartbeat,
@@ -565,7 +516,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
+    pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
         let st = self
             .state_mechine
             .open_snapshot(index, self.app.clone())
@@ -573,7 +524,7 @@ impl RaftProcess {
         Ok(st)
     }
 
-    pub(crate) async fn send_timeout_now(&self) -> Result<()> {
+    pub(super) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
         voter::effect::try_promote::Effect {
             voter: self.voter.clone(),
@@ -585,7 +536,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    pub(crate) async fn request_vote(&self, req: request::RequestVote) -> Result<bool> {
+    pub(super) async fn request_vote(&self, req: request::RequestVote) -> Result<bool> {
         let candidate_term = req.vote_term;
         let candidate_id = req.candidate_id;
         let candidate_clock = req.candidate_clock;
@@ -608,7 +559,7 @@ impl RaftProcess {
         Ok(vote_granted)
     }
 
-    pub(crate) async fn get_log_state(&self) -> Result<response::LogState> {
+    pub(super) async fn get_log_state(&self) -> Result<response::LogState> {
         let out = response::LogState {
             head_index: self.state_mechine.get_log_head_index().await?,
             last_index: self.state_mechine.get_log_last_index().await?,
@@ -622,7 +573,7 @@ impl RaftProcess {
         Ok(out)
     }
 
-    pub(crate) async fn get_membership(&self) -> Result<response::Membership> {
+    pub(super) async fn get_membership(&self) -> Result<response::Membership> {
         let out = response::Membership {
             members: self.peers.read_membership(),
         };

@@ -47,7 +47,7 @@ impl RaftNode {
         self.process_map.write().remove(&shard_index);
     }
 
-    pub(crate) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<RaftProcess>> {
+    pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<RaftProcess>> {
         self.process_map.read().get(&shard_index).cloned()
     }
 }
@@ -55,8 +55,8 @@ impl RaftNode {
 /// `RaftDriver` is a context to drive a `RaftProcess`.
 #[derive(Clone)]
 pub struct RaftHandle {
-    shard_index: ShardIndex,
-    self_node_id: NodeAddress,
+    pub self_node_id: NodeAddress,
+    pub shard_index: ShardIndex,
     connection_cache: moka::sync::Cache<NodeAddress, RaftConnection>,
 }
 impl RaftHandle {
@@ -64,7 +64,7 @@ impl RaftHandle {
         self.self_node_id.clone()
     }
 
-    pub(crate) fn connect(&self, dest_node_id: NodeAddress) -> Communicator {
+    pub (crate) fn connect(&self, dest_node_id: NodeAddress) -> Communicator {
         let conn: RaftConnection = self.connection_cache.get_with(dest_node_id.clone(), || {
             RaftConnection::new(self.self_node_id.clone(), dest_node_id.clone())
         });
