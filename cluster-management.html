@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-98231d7b.js";
+            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3c5fd17f.js"></script>
@@ -186,12 +186,12 @@ and therefore can be implemented as an extension of the normal log replication
 by defining AddServer and RemoveServer commands.
 From the admin client, the following API can add or remove a Raft process in the cluster.</p>
 <pre><code class="language-proto">message AddServerRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   string server_id = 2;
 }
 
 message RemoveServerRequest {
-  uint32 shard_id = 1;
+  uint32 shard_index = 1;
   string server_id = 2;
 }
 </code></pre>
