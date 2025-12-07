@@ -1,7 +1,6 @@
 use crate as sorock;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use crossbeam::channel::TryRecvError;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use serde::{Deserialize, Serialize};
@@ -37,6 +36,7 @@ impl Ballot {
     }
 }
 
+/// `RaftStorage` is a storage backend for `RaftProcess` based on redb.
 pub struct RaftStorage {
     db: Arc<redb::Database>,
     tx: log::Sender,

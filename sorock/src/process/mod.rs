@@ -22,9 +22,9 @@ mod app;
 use app::query_processor;
 use app::state_machine;
 use app::App;
+use node::RaftHandle;
 use state_machine::Command;
 use storage::{Ballot, Entry};
-use node::RaftHandle;
 
 use app::completion;
 mod kernel_message;
@@ -111,7 +111,7 @@ struct ThreadHandles {
 }
 
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
-/// `RaftProcess` is unaware of the gRPC and the network but just focuses on the Raft algorithm.
+/// `RaftProcess` is unaware of the gRPC and the network and it focuses on the Raft algorithm.
 pub struct RaftProcess {
     state_mechine: StateMachine,
     voter: Voter,
