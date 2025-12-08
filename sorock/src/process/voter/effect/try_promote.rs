@@ -124,7 +124,7 @@ impl Effect {
             info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = state_machine::effect::append_new_entry::Effect {
+            let index = state_machine::effect::append::Effect {
                 state_mechine: self.state_mechine.clone(),
             }
             .exec(

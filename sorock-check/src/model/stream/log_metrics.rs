@@ -14,8 +14,8 @@ impl CopyLogMetrics {
             if let Some(state) = data.write().nodes.get_mut(&self.url) {
                 let new_state = LogState {
                     head_index: metric.head_index,
-                    snapshot_index: metric.snap_index,
-                    app_index: metric.app_index,
+                    snapshot_index: metric.snapshot_index,
+                    application_index: metric.application_index,
                     commit_index: metric.commit_index,
                     last_index: metric.last_index,
                 };

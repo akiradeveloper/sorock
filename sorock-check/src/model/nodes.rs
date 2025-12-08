@@ -12,7 +12,7 @@ impl Drop for DropHandle {
 pub struct LogState {
     pub head_index: u64,
     pub snapshot_index: u64,
-    pub app_index: u64,
+    pub application_index: u64,
     pub commit_index: u64,
     pub last_index: u64,
 }
@@ -51,7 +51,7 @@ impl Nodes {
                 log_state: model::LogState {
                     head_index: 100,
                     snapshot_index: 110,
-                    app_index: 140,
+                    application_index: 140,
                     commit_index: 160,
                     last_index: 165,
                 },
@@ -64,7 +64,7 @@ impl Nodes {
                 log_state: model::LogState {
                     head_index: 125,
                     snapshot_index: 130,
-                    app_index: 140,
+                    application_index: 140,
                     commit_index: 165,
                     last_index: 180,
                 },
@@ -77,7 +77,7 @@ impl Nodes {
                 log_state: model::LogState {
                     head_index: 168,
                     snapshot_index: 168,
-                    app_index: 168,
+                    application_index: 168,
                     commit_index: 168,
                     last_index: 168,
                 },

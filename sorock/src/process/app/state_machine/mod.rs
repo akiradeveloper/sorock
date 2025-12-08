@@ -7,7 +7,7 @@ mod response_cache;
 use response_cache::ResponseCache;
 
 pub struct Inner {
-    /// Lock to serialize the append operation.
+    /// Lock to serialize insertions to the log.
     write_log_lock: tokio::sync::Semaphore,
     storage: storage::LogStore,
 
@@ -16,12 +16,10 @@ pub struct Inner {
     pub commit_pointer: AtomicU64,
     kernel_pointer: AtomicU64,
     pub application_pointer: AtomicU64,
-
-    /// Lock entries in `[snapshot_index, user_application_index]`.
     snapshot_pointer: AtomicU64,
 
     /// The index of the last membership.
-    /// Unless `commit_index` >= membership_index`,
+    /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
     pub membership_pointer: AtomicU64,
 

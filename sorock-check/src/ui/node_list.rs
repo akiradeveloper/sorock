@@ -20,7 +20,7 @@ impl LogStripe {
 
         let min_to_head = (node.head_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_snap = (node.snapshot_index - node.min_max.min_index) as f64 / width as f64;
-        let min_to_app = (node.app_index - node.min_max.min_index) as f64 / width as f64;
+        let min_to_app = (node.application_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_commit = (node.commit_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_last = (node.last_index - node.min_max.min_index) as f64 / width as f64;
 
@@ -43,7 +43,7 @@ pub struct Node {
 
     pub head_index: u64,
     pub snapshot_index: u64,
-    pub app_index: u64,
+    pub application_index: u64,
     pub commit_index: u64,
     pub last_index: u64,
 
@@ -151,7 +151,7 @@ impl StatefulWidget for NodeList {
                 node.name,
                 node.head_index,
                 node.snapshot_index,
-                node.app_index,
+                node.application_index,
                 node.commit_index,
                 node.last_index
             );

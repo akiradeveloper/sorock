@@ -1,8 +1,8 @@
 use super::*;
 
-pub mod advance_kern_process;
-pub mod advance_snapshot_index;
-pub mod advance_user_process;
-pub mod append_new_entry;
+pub mod advance_application;
+pub mod advance_kernel;
+pub mod advance_snapshot;
+pub mod append;
 pub mod restore_state;
 pub mod try_insert;

@@ -1,7 +1,7 @@
 use super::*;
 
 pub mod completion;
-pub mod query_processor;
+pub mod query_processing;
 pub mod state_machine;
 
 #[derive(Deref, Clone)]

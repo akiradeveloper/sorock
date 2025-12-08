@@ -150,7 +150,7 @@ impl StatefulWidget for &App {
                     name: uri.to_string(),
                     head_index: log_state.head_index,
                     snapshot_index: log_state.snapshot_index,
-                    app_index: log_state.app_index,
+                    application_index: log_state.application_index,
                     commit_index: log_state.commit_index,
                     last_index: log_state.last_index,
                     min_max: ui::node_list::IndexRange {
