@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,13 +178,13 @@
                     <main>
                         <h1 id="cluster-management"><a class="header" href="#cluster-management">Cluster Management</a></h1>
 <h2 id="single-server-change-approach"><a class="header" href="#single-server-change-approach">Single server change approach</a></h2>
-<p>There are two approaches to membership change.
+<p>There are two known approaches to change the cluster membership.
 One is by joint consensus and the other is what is called <strong>single server change approach</strong>.
-sorock implements the second one.</p>
+Sorock implements the second one because the thesis author recommends it.</p>
 <p>This approach exploits the log replication mechanism in membership change
 and therefore can be implemented as an extension of the normal log replication
-by defining AddServer and RemoveServer commands.
-From the admin client, the following API can add or remove a Raft process in the cluster.</p>
+by defining <code>AddServer</code> and <code>RemoveServer</code> commands.
+From the admin client, the following API will add or remove a Raft process in the cluster.</p>
 <pre><code class="language-proto">message AddServerRequest {
   uint32 shard_index = 1;
   string server_id = 2;
@@ -197,10 +197,10 @@ message RemoveServerRequest {
 </code></pre>
 <h2 id="cluster-bootstrapping"><a class="header" href="#cluster-bootstrapping">Cluster bootstrapping</a></h2>
 <p>In Raft, any command is directed to the leader.
-So the question is how to add a Raft process to the empty cluster.</p>
+Now the question is how to add a Raft process to the empty cluster.</p>
 <p>The answer is so-called <strong>cluster bootstrapping</strong>.
-On receiving the AddServer command and the receiving node recognizes the cluster is empty,
-the node tries to form a new cluster with itself and immediately becomes a leader as a result of a self election.</p>
+On receiving the AddServer command and the receiving node evaluates the cluster is empty,
+the node tries to form a new cluster with solely itself and immediately becomes a leader as a result of a self election.</p>
 
                     </main>
 

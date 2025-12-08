@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,28 +181,27 @@
 <p>Raft is a leader-based consensus algorithm.
 Only a single leader can exist in the cluster at a time and
 all commands are directed to the leader.</p>
-<p>In sorock, if the receiving Raft process isn’t the leader,
-the command is redirected to the leader.</p>
+<p>In Sorock, if the receiving Raft process isn’t the leader,
+the command is redirected to the known leader.</p>
 <h2 id="adaptive-leader-failure-detection"><a class="header" href="#adaptive-leader-failure-detection">Adaptive leader failure detection</a></h2>
-<p>Detecting the leader’s failure is a very important issue in Raft algorithm.
-The naive implementation can send heartbeats to the followers periodically and
+<p>Detecting the leader’s failure is a very important problem in Raft algorithm.
+The naive implementation written in thesis sends heartbeats to the followers periodically and
 followers can detect the leader’s failure by timeout.
-However, this approach requires the heartbeat interval and the timeout duration
-to be set properly before deployment. This brings another complexity.
-Not only that, these times can’t be fixed to a single value when
-the distance between nodes is heterogeneous such as geo-distributed environment.</p>
-<p>To solve this problem, sorock uses an adaptive failure detection algorithm called
+However, this approach requires the heartbeat interval and the timeout to be set properly before deployment. This brings another complexity.
+Not only that, these numbers can’t be fixed to a single value when
+the distance between nodes is heterogeneous in such as geo-distributed environment.</p>
+<p>To solve this problem, Sorock uses an adaptive failure detection algorithm called
 <strong>Phi accrual failure detector</strong>.
 With this approach, users are free from setting the timing parameters.</p>
 <h2 id="leadership-transfer-extension"><a class="header" href="#leadership-transfer-extension">Leadership transfer extension</a></h2>
-<p>In multi-raft, changing the cluster members is not a rare case.
+<p>In Multi-Raft, changing the cluster membership is not a rare case.
 An example of this case is rebalancing:
-To balance the CPU/disk usage between nodes, Raft process may be
+To balance the CPU/disk usage between nodes, Raft processes may be
 moved to other nodes.</p>
-<p>If the Raft process to be removed is the leader, the cluster will not have a
+<p>If the Raft process is to be removed as a leader, the cluster will not have a
 leader until a new leader is elected which causes downtime.</p>
 <p>To mitigate this problem, the admin client can send a TimeoutNow command to
-any remaining Raft process to forcibly start a new election (by promoting to a candidate in Raft term).</p>
+any other Raft processes to forcibly start a new election (by promoting to a candidate).</p>
 <pre><code class="language-proto">message TimeoutNow {
   uint32 shard_index = 1;
 }

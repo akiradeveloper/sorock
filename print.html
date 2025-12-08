@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,46 +178,45 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="introduction-to-sorock"><a class="header" href="#introduction-to-sorock">Introduction to Sorock</a></h1>
+<p>The name Sorock comes from Ebara Soroku who
+has established Azabu high school.</p>
+<p>I respect him from my bottom of my heart.</p>
 <p><img src="images/soroku.jpg" alt="Cover Image"></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="multi-raft"><a class="header" href="#multi-raft">Multi-Raft</a></h1>
-<p><a href="https://raft.github.io/">Raft</a> consensus algorithm is nowadays a widely used building block of distributed applications.
+<p><a href="https://raft.github.io/">Raft</a> consensus algorithm in recent years is a widely used building block of distributed applications.
 The algorithm is about consensus on the sequence of log entries, which are applied to a state machine.
 When the two log entries are identical, then the resulting state is identical too.
-In this sense, it is also called <strong>replicated state machine</strong>.</p>
+For such reason, it is also called <strong>replicated state machine</strong>.</p>
 <p>The typical usage of the Raft algorithm is to implement a distributed key-value store.
 However, naive implementation will suffer from scalability issues due to the seriality of the algorithm.
 Let’s consider putting (k1,v1) and (k2,v2) in the data store, naive implementation can’t handle these two concurrently
-because the operations are serialized.</p>
+because the all write operations are serialized.</p>
 <p>Sharding is a common solution to this kind of problem.
-If the k1 and k2 are enough distant in the key space, then the operations can be handled concurrently
-by sharded Raft clusters.
-Since we can split the single Raft cluster into multiple small Raft clusters,
-it naturally addresses the capacity scalability problem at the same time.
-TiKV uses this technique (<a href="https://tikv.org/deep-dive/scalability/multi-raft/">ref</a>).</p>
+If the k1 and k2 are enough distant in the key space, then the operations can be handled concurrently by sharded Raft clusters.
+TiKV is known to use this technique (<a href="https://tikv.org/deep-dive/scalability/multi-raft/">ref</a>).</p>
 <p><img src="images/multi-raft-tikv.png" alt=""></p>
-<p>There are two ways of implementing a multi-raft.
+<p>There are two ways in implementing a multi-raft.
 One is deploying multiple Raft clusters independently.
-One of the problems of this approach is that resources like IP addresses or ports must be
+One of the known problems of this approach is that resources like IP addresses or ports must be
 allocated per node to identify them.
 This introduces unnecessary complexity in deployment.
 Another problem is that shards can’t share the resources efficiently.
 In the implementation of a key-value store, the embedded datastore should be shared among the shards
-for efficient I/O like write batching.
-For these problems, I will take the second approach.</p>
-<p>sorock implements <strong>in-process multi-raft</strong>.
+for efficient I/O such as write batching.
+For these problems, I will take the another approach.</p>
+<p>Sorock implements <strong>in-process multi-raft</strong>.
 As the name implies, sorock allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
 These Raft processes can form a Raft cluster on independent <strong>shards</strong>.</p>
 <p><img src="images/multi-raft.png" alt=""></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="heartbeat-multiplexing"><a class="header" href="#heartbeat-multiplexing">Heartbeat Multiplexing</a></h1>
-<p>In Raft, leader is responsible for periodically sending heartbeats to all followers to maintain the leadership.
-In Multi-Raft, without any optimization load from the the heartbeats can be non-negligible.
-However, we can optimize to reduce the heartbeat RPCs by multiplexing the heartbeats from different shards.</p>
+<p>In Raft, leader is responsible for periodically sending heartbeats to every followers to maintain the leadership.
+In Multi-Raft, without any optimization, the load from the the heartbeats will be non-negligible.
+To address this problem, we can make an optimization to reduce the heartbeat RPCs by multiplexing the heartbeats from different shards.</p>
 <h2 id="problem-of-naive-implementation"><a class="header" href="#problem-of-naive-implementation">Problem of naive implementation</a></h2>
-<p>In the following diagram, we have two nodes Node1 and Node2 and there are two shards.
-A Process is a leader if it is denoted with an asterisk (*):
-P1 is sending the heartbeats to the P3 and P2 to P4 as well.
+<p>In the following diagram, we have two nodes (Node1 and Node2) and there are two shards.
+A Process with an asterisk (*) is a leader: P1 is sending heartbeats to the P3 and P2 to P4 as well.
 So there are two RPC messages sent from P1 to P3 and P2 to P4 independently.</p>
 <pre class="mermaid">graph LR
   subgraph Node1
@@ -233,8 +232,8 @@ So there are two RPC messages sent from P1 to P3 and P2 to P4 independently.</p>
 </pre>
 
 <h2 id="multiplexing-heartbeats"><a class="header" href="#multiplexing-heartbeats">Multiplexing heartbeats</a></h2>
-<p>To reduce the number of RPCs to only one, we can introduce multiplexer and demultiplexer in the nodes.
-The two heartbeats are buffered in the multiplexer and sent in a batched RPC to the destination node.
+<p>To reduce the number of RPCs to only one, we will install multiplexer (Mux) and demultiplexer (Demux) in the nodes.
+The two heartbeats are buffered in the multiplexer and sent in a <strong>batched RPC</strong> to the destination node.
 In the destination node, the demultiplexer will split the batched RPC into individual heartbeats
 and send them to the corresponding processes.</p>
 <pre class="mermaid">graph LR
@@ -255,27 +254,27 @@ and send them to the corresponding processes.</p>
   DEMUX --&gt; P4
 </pre>
 
-<p>In this case the reduction rate is 2.
-But what would be the reduction rate in general.
-Let’s do some math.</p>
+<p>In this case the reduction rate is 2.</p>
 <h2 id="math-reduction-rate"><a class="header" href="#math-reduction-rate">Math: Reduction rate</a></h2>
+<p>What is the reduction rate in general?
+Let’s do some easy math.</p>
 <p>Let’s consider there are N nodes and L shards.
 Each shard have K replication and leader processes are
 balanced among the nodes.</p>
 <p>In this case,
-the total number of heartbeats sent in period is LK.
+the total number of heartbeats sent in a period is LK.
 And the total directed paths connecting two nodes is N(N-1) and
 these heartbeats are evenly attributed to these paths.
 Therefore, the number of heartbeats sent in each path is LK/(N(N-1))
-and this is the reduction rate.
+and this is the solution.
 For example, if there are 5 nodes and 1000 shards with 3 replication,
 the reduction rate is 150.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="batched-write"><a class="header" href="#batched-write">Batched Write</a></h1>
-<p>In multi-raft, multiple shards process write requests. Conceptually, each shard maintains its own log for entry insertion.</p>
+<p>In Multi-Raft, multiple shards process write requests independently. Conceptually, each shard maintains its own log for entry insertion.</p>
 <p>Having a physically independent log for each shard isn’t efficient as each write requires a transaction to persist the data on the storage.</p>
-<p>However, an optimization technique called “batching” can be used. Here, each shard maintains a virtual log, and the entries are temporarily queued in a shared queue. These queued entries are then processed in a single transaction, reducing the number of transactions.</p>
-<p>This approach often presents a throughput versus latency dilemma. However, this implementation increases throughput without sacrificing latency.</p>
+<p>However, an optimization technique called “batched write” can be used. Here, each shard maintains a virtual log, and the entries are temporarily queued in a shared queue. These queued entries are then processed in a single transaction, reducing the number of transactions.</p>
+<p>This approach often presents a throughput versus latency dilemma. However, Sorock’s implementation increases throughput without much sacrificing latency.</p>
 <pre class="mermaid">graph LR
   CLI(Client)
 
@@ -306,68 +305,61 @@ the reduction rate is 150.</p>
 
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="raft-process"><a class="header" href="#raft-process">Raft Process</a></h1>
-<p>The core of multi-raft is Raft process.
-Each multi-raft server has one or more Raft processes.</p>
-<p>To implement multi-raft,
-sorock implements Raft process as it is agnostic to
+<p>The core of Multi-Raft is Raft process.
+Each Multi-Raft server has one or more Raft processes.</p>
+<p>To implement Multi-Raft,
+Sorock implements Raft process as it is fully agnostic to
 detailed node communications through gRPC.
 Since the Raft process doesn’t know about the IO,
 we call it <strong>Pure Raft</strong>.</p>
 <p><img src="images/raft-process.png" alt=""></p>
 <p>To make Raft process to communicate with other Raft processes
-through network, <code>RaftDriver</code> must be provided.
-Everything about actual network communication is encapsulated under <code>RaftDriver</code>.</p>
+through network, <code>RaftHandle</code> must be provided.
+Everything about actual on-network communication is encapsulated under <code>RaftHandle</code>.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
-        log_store: impl RaftLogStore,
-        ballot_store: impl RaftBallotStore,
-        driver: RaftDriver,
+        storage: &amp;RaftStorage,
+        handle: RaftHandle,
     ) -&gt; Result&lt;Self&gt; {
 <span class="boring">}</span></code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="multi-threading"><a class="header" href="#multi-threading">Multi Threading</a></h1>
-<p>Inside RaftProcess, there is a state called <code>RaftCore</code> and
-many threads to process it concurrently on an event-driven basis,
-most of them are driven by timers.</p>
-<p><img src="images/multi-threading.png" alt=""></p>
-<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="application-state"><a class="header" href="#application-state">Application State</a></h1>
-<p>In RaftCore, <code>RaftApp</code> and <code>RaftLogStore</code> are especially important because
-these two compose the application state.
-This section explains the conceptual aspect of it.</p>
+<p>Inside Raft Process, <code>RaftApp</code> and Log are most important data structures for application state.</p>
 <p><img src="images/application-state.png" alt=""></p>
 <h2 id="raftapp"><a class="header" href="#raftapp">RaftApp</a></h2>
-<p><code>RaftApp</code> is an abstraction that represents the FSM (Finite State Machine) of the application
-and the snapshot repository.
+<p><code>RaftApp</code> is an abstraction that represents the application state and the snapshot repository.
 The snapshot repository isn’t separated because the contents of the snapshot is
 strongly coupled with the application state.</p>
 <p>The application state can be updated by applying the log entries.
-In this figure, the last applied entry is of index 55.</p>
-<p><code>RaftApp</code> can generate a snapshot arbitrarily to compact the log.
-When <code>RaftApp</code> makes a snapshot and stores it in the snapshot repository.
-The latest snapshot is immediately picked up by the Raft process and it
-manipulates the log (right in the figure) by replacing the snapshot entry.
+In this figure, the lastly applied entry is of index 55.</p>
+<p><code>RaftApp</code> can arbitrarily generate a snapshot to compact the log.
+When <code>RaftApp</code> makes a snapshot and stores it in the snapshot repository,
+The newest snapshot is immediately picked up by an internal thread
+to update the log (right in the figure) by replacing the snapshot entry.
 In this figure, the snapshot index is 51.</p>
 <p>Old snapshots will be garbage collected.</p>
-<p>Snapshots may be fetched from other nodes.
+<p>Snapshots might be fetched from other nodes.
 This happens when the Raft process is far behind the leader and
-the leader doesn’t have the log entries as they are garbage collected.</p>
-<h2 id="raftlogstore"><a class="header" href="#raftlogstore">RaftLogStore</a></h2>
-<p><code>RaftLogStore</code> is an abstraction that represents the log entries.
-In the figure, log entries from 45 to 50 are scheduled for garbage collection.
-snapshot entry is of index 51 and it is guaranteed that the corresponding snapshot
+the leader doesn’t have the log entries as they are previously garbage collected.</p>
+<h2 id="log"><a class="header" href="#log">Log</a></h2>
+<p>In the figure, log entries from 45 to 50 are scheduled for garbage collection.
+Snapshot entry is of index 51 and it is guaranteed that the corresponding snapshot
 exists in the snapshot repository. 52 to 55 are applied.
-56 or later are not applied yet. They are either uncommitted or committed.</p>
+56 or later are not applied yet: They are either uncommitted or committed.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="multi-threading"><a class="header" href="#multi-threading">Multi Threading</a></h1>
+<p>Inside <code>RaftProcess</code>, there are so many looping threads to process concurrently.</p>
+<p><img src="images/multi-threading.png" alt=""></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="client-interaction"><a class="header" href="#client-interaction">Client Interaction</a></h1>
 <p>You can send application-defined commands to the Raft cluster.</p>
-<p>sorock distinguishes the command into two types: read-write and read-only.
-The read-only command is called <strong>query</strong> and queries can be processed through the optimized path.</p>
+<p>Sorock distinguishes the command into two types: read-write (R/W) and read-only (R/O).
+The R/O command is called <strong>query</strong> and queries can be processed in parallel through the optimized path.</p>
 <h2 id="rw-commnand"><a class="header" href="#rw-commnand">R/W commnand</a></h2>
-<p>R/W command is a normal application command that is inserted into the log to be applied later.</p>
+<p>R/W command is a normal application command which is inserted into the log to be applied later.</p>
 <p>You can send a R/W command to the cluster with this API.</p>
 <pre><code class="language-proto">message WriteRequest {
   uint32 shard_index = 1;
@@ -375,18 +367,18 @@ The read-only command is called <strong>query</strong> and queries can be proces
   string request_id = 3;
 }
 </code></pre>
-<p><strong>request_id</strong> is to avoid doubly application.
+<p><strong>request_id</strong> is required to avoid doubly application.
 Let’s think about this scenario:</p>
 <ol>
 <li>The client sends a R/W command to add 1 to the value.</li>
-<li>The leader server replicates the command to the followers but crashes before application (+response).</li>
+<li>The leader server replicates the command to the followers but crashes before application and response.</li>
 <li>The client resends the command to a new leader after a timeout.</li>
-<li>The result is adding 2 to the value whereas the expectation is 1.</li>
+<li>The result is adding 2 in total to the value while the expectation is only 1.</li>
 </ol>
 <p>To avoid this issue, request_id is added to identify the commands.</p>
 <h2 id="ro-command"><a class="header" href="#ro-command">R/O command</a></h2>
 <p>The R/O command can bypass the log because it is safe to execute the query after the
-commit index at query time is applied. This is called <strong>read_index</strong> optimization.</p>
+commit index at time of query is applied. This is called <strong>read_index</strong> optimization.</p>
 <p>You can send a R/O command to the cluster with the following API.</p>
 <p>When <code>read_locally</code> is set to true, the request isn’t proxied to the leader but
 processed locally.</p>
@@ -399,13 +391,13 @@ processed locally.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="cluster-management"><a class="header" href="#cluster-management">Cluster Management</a></h1>
 <h2 id="single-server-change-approach"><a class="header" href="#single-server-change-approach">Single server change approach</a></h2>
-<p>There are two approaches to membership change.
+<p>There are two known approaches to change the cluster membership.
 One is by joint consensus and the other is what is called <strong>single server change approach</strong>.
-sorock implements the second one.</p>
+Sorock implements the second one because the thesis author recommends it.</p>
 <p>This approach exploits the log replication mechanism in membership change
 and therefore can be implemented as an extension of the normal log replication
-by defining AddServer and RemoveServer commands.
-From the admin client, the following API can add or remove a Raft process in the cluster.</p>
+by defining <code>AddServer</code> and <code>RemoveServer</code> commands.
+From the admin client, the following API will add or remove a Raft process in the cluster.</p>
 <pre><code class="language-proto">message AddServerRequest {
   uint32 shard_index = 1;
   string server_id = 2;
@@ -418,38 +410,37 @@ message RemoveServerRequest {
 </code></pre>
 <h2 id="cluster-bootstrapping"><a class="header" href="#cluster-bootstrapping">Cluster bootstrapping</a></h2>
 <p>In Raft, any command is directed to the leader.
-So the question is how to add a Raft process to the empty cluster.</p>
+Now the question is how to add a Raft process to the empty cluster.</p>
 <p>The answer is so-called <strong>cluster bootstrapping</strong>.
-On receiving the AddServer command and the receiving node recognizes the cluster is empty,
-the node tries to form a new cluster with itself and immediately becomes a leader as a result of a self election.</p>
+On receiving the AddServer command and the receiving node evaluates the cluster is empty,
+the node tries to form a new cluster with solely itself and immediately becomes a leader as a result of a self election.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="leadership"><a class="header" href="#leadership">Leadership</a></h1>
 <h2 id="command-redirection"><a class="header" href="#command-redirection">Command redirection</a></h2>
 <p>Raft is a leader-based consensus algorithm.
 Only a single leader can exist in the cluster at a time and
 all commands are directed to the leader.</p>
-<p>In sorock, if the receiving Raft process isn’t the leader,
-the command is redirected to the leader.</p>
+<p>In Sorock, if the receiving Raft process isn’t the leader,
+the command is redirected to the known leader.</p>
 <h2 id="adaptive-leader-failure-detection"><a class="header" href="#adaptive-leader-failure-detection">Adaptive leader failure detection</a></h2>
-<p>Detecting the leader’s failure is a very important issue in Raft algorithm.
-The naive implementation can send heartbeats to the followers periodically and
+<p>Detecting the leader’s failure is a very important problem in Raft algorithm.
+The naive implementation written in thesis sends heartbeats to the followers periodically and
 followers can detect the leader’s failure by timeout.
-However, this approach requires the heartbeat interval and the timeout duration
-to be set properly before deployment. This brings another complexity.
-Not only that, these times can’t be fixed to a single value when
-the distance between nodes is heterogeneous such as geo-distributed environment.</p>
-<p>To solve this problem, sorock uses an adaptive failure detection algorithm called
+However, this approach requires the heartbeat interval and the timeout to be set properly before deployment. This brings another complexity.
+Not only that, these numbers can’t be fixed to a single value when
+the distance between nodes is heterogeneous in such as geo-distributed environment.</p>
+<p>To solve this problem, Sorock uses an adaptive failure detection algorithm called
 <strong>Phi accrual failure detector</strong>.
 With this approach, users are free from setting the timing parameters.</p>
 <h2 id="leadership-transfer-extension"><a class="header" href="#leadership-transfer-extension">Leadership transfer extension</a></h2>
-<p>In multi-raft, changing the cluster members is not a rare case.
+<p>In Multi-Raft, changing the cluster membership is not a rare case.
 An example of this case is rebalancing:
-To balance the CPU/disk usage between nodes, Raft process may be
+To balance the CPU/disk usage between nodes, Raft processes may be
 moved to other nodes.</p>
-<p>If the Raft process to be removed is the leader, the cluster will not have a
+<p>If the Raft process is to be removed as a leader, the cluster will not have a
 leader until a new leader is elected which causes downtime.</p>
 <p>To mitigate this problem, the admin client can send a TimeoutNow command to
-any remaining Raft process to forcibly start a new election (by promoting to a candidate in Raft term).</p>
+any other Raft processes to forcibly start a new election (by promoting to a candidate).</p>
 <pre><code class="language-proto">message TimeoutNow {
   uint32 shard_index = 1;
 }
@@ -457,16 +448,12 @@ any remaining Raft process to forcibly start a new election (by promoting to a c
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="development"><a class="header" href="#development">Development</a></h1>
 <h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
-<p><code>cargo test</code> to run unit tests.</p>
+<p><code>cargo test -- --test-threads=1</code> to run the unit tests.</p>
 <h2 id="benchmark"><a class="header" href="#benchmark">Benchmark</a></h2>
-<p><code>cargo +nightly bench</code> to run benchmarks.</p>
-<h2 id="load-testing"><a class="header" href="#load-testing">Load Testing</a></h2>
-<p>We have a nice load testing tool named “Mr. Bench”.
-To ask him for a help, run <code>cargo run -p mrbench</code>.
-For detail, please refer to the README.</p>
+<p><code>cargo run -p benchmark --release</code> to run the Raft-level benchmark program.</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
-<p>For editing the mdbook under doc/ directory,
-you can run <code>mdbook serve doc</code> to start the local mdbook server.</p>
+<p><code>rake doc</code> to start a local docs.rs server.</p>
+<p><code>rake book</code> to start a local mdbook server.</p>
 
                     </main>
 

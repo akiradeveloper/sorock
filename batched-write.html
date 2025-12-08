@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,10 +177,10 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="batched-write"><a class="header" href="#batched-write">Batched Write</a></h1>
-<p>In multi-raft, multiple shards process write requests. Conceptually, each shard maintains its own log for entry insertion.</p>
+<p>In Multi-Raft, multiple shards process write requests independently. Conceptually, each shard maintains its own log for entry insertion.</p>
 <p>Having a physically independent log for each shard isn’t efficient as each write requires a transaction to persist the data on the storage.</p>
-<p>However, an optimization technique called “batching” can be used. Here, each shard maintains a virtual log, and the entries are temporarily queued in a shared queue. These queued entries are then processed in a single transaction, reducing the number of transactions.</p>
-<p>This approach often presents a throughput versus latency dilemma. However, this implementation increases throughput without sacrificing latency.</p>
+<p>However, an optimization technique called “batched write” can be used. Here, each shard maintains a virtual log, and the entries are temporarily queued in a shared queue. These queued entries are then processed in a single transaction, reducing the number of transactions.</p>
+<p>This approach often presents a throughput versus latency dilemma. However, Sorock’s implementation increases throughput without much sacrificing latency.</p>
 <pre class="mermaid">graph LR
   CLI(Client)
 

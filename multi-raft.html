@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,31 +177,28 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="multi-raft"><a class="header" href="#multi-raft">Multi-Raft</a></h1>
-<p><a href="https://raft.github.io/">Raft</a> consensus algorithm is nowadays a widely used building block of distributed applications.
+<p><a href="https://raft.github.io/">Raft</a> consensus algorithm in recent years is a widely used building block of distributed applications.
 The algorithm is about consensus on the sequence of log entries, which are applied to a state machine.
 When the two log entries are identical, then the resulting state is identical too.
-In this sense, it is also called <strong>replicated state machine</strong>.</p>
+For such reason, it is also called <strong>replicated state machine</strong>.</p>
 <p>The typical usage of the Raft algorithm is to implement a distributed key-value store.
 However, naive implementation will suffer from scalability issues due to the seriality of the algorithm.
 Let’s consider putting (k1,v1) and (k2,v2) in the data store, naive implementation can’t handle these two concurrently
-because the operations are serialized.</p>
+because the all write operations are serialized.</p>
 <p>Sharding is a common solution to this kind of problem.
-If the k1 and k2 are enough distant in the key space, then the operations can be handled concurrently
-by sharded Raft clusters.
-Since we can split the single Raft cluster into multiple small Raft clusters,
-it naturally addresses the capacity scalability problem at the same time.
-TiKV uses this technique (<a href="https://tikv.org/deep-dive/scalability/multi-raft/">ref</a>).</p>
+If the k1 and k2 are enough distant in the key space, then the operations can be handled concurrently by sharded Raft clusters.
+TiKV is known to use this technique (<a href="https://tikv.org/deep-dive/scalability/multi-raft/">ref</a>).</p>
 <p><img src="images/multi-raft-tikv.png" alt=""></p>
-<p>There are two ways of implementing a multi-raft.
+<p>There are two ways in implementing a multi-raft.
 One is deploying multiple Raft clusters independently.
-One of the problems of this approach is that resources like IP addresses or ports must be
+One of the known problems of this approach is that resources like IP addresses or ports must be
 allocated per node to identify them.
 This introduces unnecessary complexity in deployment.
 Another problem is that shards can’t share the resources efficiently.
 In the implementation of a key-value store, the embedded datastore should be shared among the shards
-for efficient I/O like write batching.
-For these problems, I will take the second approach.</p>
-<p>sorock implements <strong>in-process multi-raft</strong>.
+for efficient I/O such as write batching.
+For these problems, I will take the another approach.</p>
+<p>Sorock implements <strong>in-process multi-raft</strong>.
 As the name implies, sorock allows you to place multiple <strong>Raft processes</strong> in a single gRPC server process.
 These Raft processes can form a Raft cluster on independent <strong>shards</strong>.</p>
 <p><img src="images/multi-raft.png" alt=""></p>

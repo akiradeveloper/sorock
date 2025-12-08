@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,10 +178,10 @@
                     <main>
                         <h1 id="client-interaction"><a class="header" href="#client-interaction">Client Interaction</a></h1>
 <p>You can send application-defined commands to the Raft cluster.</p>
-<p>sorock distinguishes the command into two types: read-write and read-only.
-The read-only command is called <strong>query</strong> and queries can be processed through the optimized path.</p>
+<p>Sorock distinguishes the command into two types: read-write (R/W) and read-only (R/O).
+The R/O command is called <strong>query</strong> and queries can be processed in parallel through the optimized path.</p>
 <h2 id="rw-commnand"><a class="header" href="#rw-commnand">R/W commnand</a></h2>
-<p>R/W command is a normal application command that is inserted into the log to be applied later.</p>
+<p>R/W command is a normal application command which is inserted into the log to be applied later.</p>
 <p>You can send a R/W command to the cluster with this API.</p>
 <pre><code class="language-proto">message WriteRequest {
   uint32 shard_index = 1;
@@ -189,18 +189,18 @@ The read-only command is called <strong>query</strong> and queries can be proces
   string request_id = 3;
 }
 </code></pre>
-<p><strong>request_id</strong> is to avoid doubly application.
+<p><strong>request_id</strong> is required to avoid doubly application.
 Let’s think about this scenario:</p>
 <ol>
 <li>The client sends a R/W command to add 1 to the value.</li>
-<li>The leader server replicates the command to the followers but crashes before application (+response).</li>
+<li>The leader server replicates the command to the followers but crashes before application and response.</li>
 <li>The client resends the command to a new leader after a timeout.</li>
-<li>The result is adding 2 to the value whereas the expectation is 1.</li>
+<li>The result is adding 2 in total to the value while the expectation is only 1.</li>
 </ol>
 <p>To avoid this issue, request_id is added to identify the commands.</p>
 <h2 id="ro-command"><a class="header" href="#ro-command">R/O command</a></h2>
 <p>The R/O command can bypass the log because it is safe to execute the query after the
-commit index at query time is applied. This is called <strong>read_index</strong> optimization.</p>
+commit index at time of query is applied. This is called <strong>read_index</strong> optimization.</p>
 <p>You can send a R/O command to the cluster with the following API.</p>
 <p>When <code>read_locally</code> is set to true, the request isn’t proxied to the leader but
 processed locally.</p>
@@ -215,7 +215,7 @@ processed locally.</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="application-state.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="multi-threading.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -229,7 +229,7 @@ processed locally.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="application-state.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="multi-threading.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

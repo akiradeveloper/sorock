@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-002ae6ee.js";
+            window.path_to_searchindex_js = "searchindex-e6fac20a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3c5fd17f.js"></script>
+        <script src="toc-91a7bdf6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,16 +178,12 @@
                     <main>
                         <h1 id="development"><a class="header" href="#development">Development</a></h1>
 <h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
-<p><code>cargo test</code> to run unit tests.</p>
+<p><code>cargo test -- --test-threads=1</code> to run the unit tests.</p>
 <h2 id="benchmark"><a class="header" href="#benchmark">Benchmark</a></h2>
-<p><code>cargo +nightly bench</code> to run benchmarks.</p>
-<h2 id="load-testing"><a class="header" href="#load-testing">Load Testing</a></h2>
-<p>We have a nice load testing tool named “Mr. Bench”.
-To ask him for a help, run <code>cargo run -p mrbench</code>.
-For detail, please refer to the README.</p>
+<p><code>cargo run -p benchmark --release</code> to run the Raft-level benchmark program.</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
-<p>For editing the mdbook under doc/ directory,
-you can run <code>mdbook serve doc</code> to start the local mdbook server.</p>
+<p><code>rake doc</code> to start a local docs.rs server.</p>
+<p><code>rake book</code> to start a local mdbook server.</p>
 
                     </main>
 
