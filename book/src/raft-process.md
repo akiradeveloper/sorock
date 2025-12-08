@@ -1,10 +1,10 @@
 # Raft Process
 
-The core of multi-raft is Raft process.
-Each multi-raft server has one or more Raft processes.
+The core of Multi-Raft is Raft process.
+Each Multi-Raft server has one or more Raft processes.
 
-To implement multi-raft,
-sorock implements Raft process as it is agnostic to
+To implement Multi-Raft,
+Sorock implements Raft process as it is fully agnostic to
 detailed node communications through gRPC.
 Since the Raft process doesn't know about the IO,
 we call it **Pure Raft**.
@@ -12,15 +12,14 @@ we call it **Pure Raft**.
 ![](images/raft-process.png)
 
 To make Raft process to communicate with other Raft processes
-through network, `RaftDriver` must be provided.
-Everything about actual network communication is encapsulated under `RaftDriver`.
+through network, `RaftHandle` must be provided.
+Everything about actual on-network communication is encapsulated under `RaftHandle`.
 
 ```rust
 impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
-        log_store: impl RaftLogStore,
-        ballot_store: impl RaftBallotStore,
-        driver: RaftDriver,
+        storage: &RaftStorage,
+        handle: RaftHandle,
     ) -> Result<Self> {
 ```
