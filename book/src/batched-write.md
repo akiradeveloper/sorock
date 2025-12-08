@@ -1,6 +1,6 @@
 # Batched Write
 
-In multi-raft, multiple shards process write requests independently. Conceptually, each shard maintains its own log for entry insertion.
+In Multi-Raft, multiple shards process write requests independently. Conceptually, each shard maintains its own log for entry insertion.
 
 Having a physically independent log for each shard isn't efficient as each write requires a transaction to persist the data on the storage.
 

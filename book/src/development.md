@@ -2,14 +2,14 @@
 
 ## Testing
 
-`cargo test -- --test-threads=1` to run unit tests.
+`cargo test -- --test-threads=1` to run the unit tests.
 
 ## Benchmark
 
-`cargo run --release -p benchmark` to run benchmark program.
-`--help` for more detail.
+`cargo run -p benchmark --release` to run the Raft-level benchmark program.
 
 ## Documentation
 
-`mdbook serve doc` to start a local mdbook server and
-edit the writings under book/ directory.
+`rake doc` to start a local docs.rs server.
+
+`rake book` to start a local mdbook server.

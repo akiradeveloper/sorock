@@ -1,9 +1,9 @@
 # Raft Process
 
-The core of multi-raft is Raft process.
-Each multi-raft server has one or more Raft processes.
+The core of Multi-Raft is Raft process.
+Each Multi-Raft server has one or more Raft processes.
 
-To implement multi-raft,
+To implement Multi-Raft,
 Sorock implements Raft process as it is fully agnostic to
 detailed node communications through gRPC.
 Since the Raft process doesn't know about the IO,
