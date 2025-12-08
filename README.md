@@ -17,7 +17,7 @@ A Multi-Raft implementation in Rust language.
   - Tested with 1000 shards per node.
   - Heartbeats in shards are batched to reduce the network overhead.
 - Based on [Tonic](https://github.com/hyperium/tonic) and efficient gRPC streaming is exploited in log replication and snapshot.
-- Efficient default backend implementation using [redb](https://github.com/cberner/redb).
+- Efficient backend implementation using [redb](https://github.com/cberner/redb).
   - Writes in shards are batched in one transaction. 
 - Phi Accrual Failure Detector is used for leader failure detection.
   - The adaptive algorithm allows you to not choose a fixed timeout number before deployment and to deploy Raft node in even geo-distributed environment where the latency between nodes isn't identical.
