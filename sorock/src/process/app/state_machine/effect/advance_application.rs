@@ -6,13 +6,13 @@ pub struct Effect {
 
 impl Effect {
     pub async fn exec(self) -> Result<()> {
-        let cur_user_index = self
+        let cur_app_index = self
             .state_mechine
             .application_pointer
             .load(Ordering::SeqCst);
-        ensure!(cur_user_index < self.state_mechine.kernel_pointer.load(Ordering::SeqCst));
+        ensure!(cur_app_index < self.state_mechine.kernel_pointer.load(Ordering::SeqCst));
 
-        let process_index = cur_user_index + 1;
+        let process_index = cur_app_index + 1;
         let e = self.state_mechine.get_entry(process_index).await?;
         let command = Command::deserialize(&e.command);
 
@@ -44,24 +44,24 @@ impl Effect {
                     }
 
                     // Leader may have the completion for the request.
-                    let user_completion = self
+                    let app_completion = self
                         .state_mechine
                         .application_completions
                         .lock()
                         .remove(&process_index);
-                    if let Some(user_completion) = user_completion {
+                    if let Some(app_completion) = app_completion {
                         if let Some(resp) = response_cache.get_response(&request_id) {
                             // If client abort the request before retry,
                             // the completion channel is destroyed because the gRPC is context is cancelled.
                             // In this case, we should keep the response in the cache for the later request.
-                            if let Err(resp) = user_completion.complete_with(resp) {
+                            if let Err(resp) = app_completion.complete_with(resp) {
                                 response_cache.insert_response(request_id.clone(), resp);
                             } else {
                                 // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
                                 // This should be queued and replicated to the followers.
                                 // Otherwise followers will never know the request is completed and the context will never be terminated.
                                 let command = Command::CompleteRequest { request_id };
-                                state_machine::effect::append_new_entry::Effect {
+                                state_machine::effect::append::Effect {
                                     state_mechine: self.state_mechine.clone(),
                                 }
                                 .exec(Command::serialize(command), None)

@@ -6,7 +6,7 @@ pub struct Thread {
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        state_machine::effect::advance_snapshot_index::Effect {
+        state_machine::effect::advance_snapshot::Effect {
             state_mechine: self.state_mechine.clone(),
         }
         .exec()

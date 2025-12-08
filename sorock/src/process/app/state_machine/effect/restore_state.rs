@@ -29,7 +29,9 @@ impl Effect {
                 1
             }
         };
-        self.state_mechine.snapshot_pointer.store(snapshot_index, Ordering::SeqCst);
+        self.state_mechine
+            .snapshot_pointer
+            .store(snapshot_index, Ordering::SeqCst);
 
         self.state_mechine
             .commit_pointer

@@ -35,7 +35,7 @@ impl<T> Queue<T> {
 
 pub struct Query {
     pub message: Bytes,
-    pub user_completion: completion::ApplicationCompletion,
+    pub app_completion: completion::ApplicationCompletion,
 }
 
 #[derive(Clone)]
@@ -68,7 +68,7 @@ impl QueryProcessor {
                 // The `completion` of the failed queries are dropped
                 // which just results in failing on the client side.
                 if let Ok(resp) = app.process_read(&q.message).await {
-                    q.user_completion.complete_with(resp).ok();
+                    q.app_completion.complete_with(resp).ok();
                 }
             };
             futs.push(fut);

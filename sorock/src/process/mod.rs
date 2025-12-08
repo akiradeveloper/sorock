@@ -19,7 +19,7 @@ use peers::Peers;
 mod voter;
 use voter::Voter;
 mod app;
-use app::query_processor;
+use app::query_processing;
 use app::state_machine;
 use app::App;
 use node::RaftHandle;
@@ -119,8 +119,8 @@ pub trait RaftApp: Sync + Send + 'static {
 
 #[allow(dead_code)]
 struct ThreadHandles {
-    advance_kern_handle: thread::ThreadHandle,
-    advance_user_handle: thread::ThreadHandle,
+    advance_kernel_handle: thread::ThreadHandle,
+    advance_application_handle: thread::ThreadHandle,
     advance_snapshot_handle: thread::ThreadHandle,
     advance_commit_handle: thread::ThreadHandle,
     election_handle: thread::ThreadHandle,
@@ -136,7 +136,7 @@ pub struct RaftProcess {
     state_mechine: StateMachine,
     voter: Voter,
     peers: Peers,
-    query_queue: query_processor::QueryQueue,
+    query_queue: query_processing::QueryQueue,
     app: App,
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
@@ -154,7 +154,7 @@ impl RaftProcess {
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
-        let (query_tx, query_rx) = query_processor::new(Read(app.clone()));
+        let (query_tx, query_rx) = query_processing::new(Read(app.clone()));
 
         let state_mechine = StateMachine::new(log_store, app.clone());
         state_machine::effect::restore_state::Effect {
@@ -193,13 +193,13 @@ impl RaftProcess {
         .await?;
 
         let _thread_handles = ThreadHandles {
-            advance_kern_handle: thread::advance_kern::new(
+            advance_kernel_handle: thread::advance_kernel::new(
                 state_mechine.clone(),
                 voter.clone(),
                 commit_rx.clone(),
                 kern_tx.clone(),
             ),
-            advance_user_handle: thread::advance_user::new(
+            advance_application_handle: thread::advance_application::new(
                 state_mechine.clone(),
                 kern_rx.clone(),
                 app_tx.clone(),
@@ -217,16 +217,13 @@ impl RaftProcess {
                 state_mechine.clone(),
                 peers.clone(),
             ),
-            log_compaction_handle: thread::log_compaction::new(state_mechine.clone()),
+            log_compaction_handle: thread::gc_log::new(state_mechine.clone()),
             query_execution_handle: thread::query_execution::new(
                 query_rx.clone(),
                 Read(state_mechine.clone()),
                 app_rx.clone(),
             ),
-            snapshot_deleter_handle: thread::snapshot_deleter::new(
-                state_mechine.clone(),
-                app.clone(),
-            ),
+            snapshot_deleter_handle: thread::gc_snapshot::new(state_mechine.clone(), app.clone()),
             stepdown_handle: thread::stepdown::new(
                 voter.clone(),
                 Read(state_mechine.clone()),
@@ -275,7 +272,7 @@ impl RaftProcess {
     async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
         ensure!(self.voter.allow_queue_new_entry().await?);
 
-        let append_index = state_machine::effect::append_new_entry::Effect {
+        let append_index = state_machine::effect::append::Effect {
             state_mechine: self.state_mechine.clone(),
         }
         .exec(command.clone(), None)
@@ -460,12 +457,12 @@ impl RaftProcess {
             );
 
         let resp = if will_process {
-            let (user_completion, rx) = completion::prepare_application_completion();
+            let (app_completion, rx) = completion::prepare_application_completion();
 
             let read_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
-            let query = query_processor::Query {
+            let query = query_processing::Query {
                 message: req.message,
-                user_completion,
+                app_completion,
             };
             self.query_queue.register(read_index, query)?;
 
@@ -493,7 +490,7 @@ impl RaftProcess {
             self.voter.read_election_state(),
             voter::ElectionState::Leader
         ) {
-            let (user_completion, rx) = completion::prepare_application_completion();
+            let (app_completion, rx) = completion::prepare_application_completion();
 
             let command = Command::ExecuteRequest {
                 message: &req.message,
@@ -502,7 +499,7 @@ impl RaftProcess {
 
             self.queue_new_entry(
                 Command::serialize(command),
-                Completion::Application(user_completion),
+                Completion::Application(app_completion),
             )
             .await?;
 
@@ -581,8 +578,8 @@ impl RaftProcess {
         let out = response::LogState {
             head_index: self.state_mechine.get_log_head_index().await?,
             last_index: self.state_mechine.get_log_last_index().await?,
-            snap_index: self.state_mechine.get_snapshot_index().await,
-            app_index: self
+            snapshot_index: self.state_mechine.get_snapshot_index().await,
+            application_index: self
                 .state_mechine
                 .application_pointer
                 .load(Ordering::SeqCst),

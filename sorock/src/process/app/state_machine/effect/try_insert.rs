@@ -51,7 +51,9 @@ impl Effect {
                 }
 
                 self.state_mechine.insert_snapshot(entry).await?;
-                self.state_mechine.snapshot_pointer.store(snapshot_index, Ordering::SeqCst);
+                self.state_mechine
+                    .snapshot_pointer
+                    .store(snapshot_index, Ordering::SeqCst);
 
                 return Ok(TryInsertResult::Inserted);
             }

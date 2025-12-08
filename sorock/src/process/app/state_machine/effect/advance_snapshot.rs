@@ -43,7 +43,9 @@ impl Effect {
             self.state_mechine
                 .insert_snapshot(new_snapshot_entry)
                 .await?;
-            self.state_mechine.snapshot_pointer.store(proposed_snapshot_index, Ordering::SeqCst);
+            self.state_mechine
+                .snapshot_pointer
+                .store(proposed_snapshot_index, Ordering::SeqCst);
         }
 
         Ok(())

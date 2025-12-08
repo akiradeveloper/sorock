@@ -51,8 +51,8 @@ impl model::stream::Node for MockNode {
                 };
                 let metrics = proto::LogMetrics {
                     head_index: f(x),
-                    snap_index: f(x+1),
-                    app_index: f(x+2),
+                    snapshot_index: f(x+1),
+                    application_index: f(x+2),
                     commit_index: f(x+3),
                     last_index: f(x+4),
                 };
