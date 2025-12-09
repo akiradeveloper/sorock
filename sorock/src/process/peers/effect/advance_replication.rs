@@ -56,7 +56,7 @@ impl Effect {
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.state_mechine().get_snapshot_index().await;
+        let cur_snapshot_index = self.state_mechine().snapshot_pointer.load(Ordering::SeqCst);
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",

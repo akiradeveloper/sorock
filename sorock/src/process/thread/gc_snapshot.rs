@@ -2,14 +2,14 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_mechine: StateMachine,
+    state_mechine: Read<StateMachine>,
     app: App,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        self.state_mechine
-            .delete_old_snapshots(self.app.clone())
-            .await
+        let cur_snapshot_index = self.state_mechine.snapshot_pointer.load(Ordering::SeqCst);
+        self.app.delete_snapshots_before(cur_snapshot_index).await?;
+        Ok(())
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -25,6 +25,6 @@ impl Thread {
     }
 }
 
-pub fn new(state_mechine: StateMachine, app: App) -> ThreadHandle {
+pub fn new(app: App, state_mechine: Read<StateMachine>) -> ThreadHandle {
     Thread { state_mechine, app }.do_loop()
 }

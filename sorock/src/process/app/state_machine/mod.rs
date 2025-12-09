@@ -16,7 +16,7 @@ pub struct Inner {
     pub commit_pointer: AtomicU64,
     kernel_pointer: AtomicU64,
     pub application_pointer: AtomicU64,
-    snapshot_pointer: AtomicU64,
+    pub snapshot_pointer: AtomicU64,
 
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
@@ -51,22 +51,6 @@ impl StateMachine {
 }
 
 impl Inner {
-    /// Delete snapshots in `[, snapshot_index)`.
-    pub async fn delete_old_snapshots(&self, app: App) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
-        app.delete_snapshots_before(cur_snapshot_index).await?;
-        Ok(())
-    }
-
-    /// Delete log entries in `[, snapshot_index)`.
-    pub async fn delete_old_entries(&self) -> Result<()> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
-        self.storage
-            .delete_entries_before(cur_snapshot_index)
-            .await?;
-        Ok(())
-    }
-
     async fn insert_snapshot(&self, e: Entry) -> Result<()> {
         let new_snapshot_index = e.this_clock.index;
 
@@ -81,18 +65,6 @@ impl Inner {
 
         info!("inserted a new snapshot@{new_snapshot_index}");
         Ok(())
-    }
-
-    pub async fn open_snapshot(&self, index: LogIndex, app: App) -> Result<SnapshotStream> {
-        let cur_snapshot_index = self.snapshot_pointer.load(Ordering::SeqCst);
-        ensure!(index == cur_snapshot_index);
-
-        let st = app.open_snapshot(index).await?;
-        Ok(st)
-    }
-
-    pub async fn get_snapshot_index(&self) -> LogIndex {
-        self.snapshot_pointer.load(Ordering::SeqCst)
     }
 
     pub async fn get_log_head_index(&self) -> Result<LogIndex> {

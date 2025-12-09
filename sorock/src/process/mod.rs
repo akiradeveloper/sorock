@@ -223,7 +223,10 @@ impl RaftProcess {
                 Read(state_mechine.clone()),
                 app_rx.clone(),
             ),
-            snapshot_deleter_handle: thread::gc_snapshot::new(state_mechine.clone(), app.clone()),
+            snapshot_deleter_handle: thread::gc_snapshot::new(
+                app.clone(),
+                Read(state_mechine.clone()),
+            ),
             stepdown_handle: thread::stepdown::new(
                 voter.clone(),
                 Read(state_mechine.clone()),
@@ -531,10 +534,9 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
-        let st = self
-            .state_mechine
-            .open_snapshot(index, self.app.clone())
-            .await?;
+        let cur_snapshot_index = self.state_mechine.snapshot_pointer.load(Ordering::SeqCst);
+        ensure!(index == cur_snapshot_index);
+        let st = self.app.open_snapshot(index).await?;
         Ok(st)
     }
 
@@ -577,7 +579,7 @@ impl RaftProcess {
         let out = response::LogState {
             head_index: self.state_mechine.get_log_head_index().await?,
             last_index: self.state_mechine.get_log_last_index().await?,
-            snapshot_index: self.state_mechine.get_snapshot_index().await,
+            snapshot_index: self.state_mechine.snapshot_pointer.load(Ordering::SeqCst),
             application_index: self
                 .state_mechine
                 .application_pointer
