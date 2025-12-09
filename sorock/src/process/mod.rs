@@ -275,7 +275,7 @@ impl RaftProcess {
     async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
         ensure!(self.voter.allow_queue_new_entry().await?);
 
-        let append_index = state_machine::effect::append::Effect {
+        let append_index = state_machine::effect::append_entry::Effect {
             state_mechine: self.state_mechine.clone(),
         }
         .exec(command.clone(), None)
@@ -347,7 +347,7 @@ impl RaftProcess {
         membership.insert(self.driver.self_node_id());
 
         let command = Command::serialize(Command::ClusterConfiguration { membership });
-        state_machine::effect::append::Effect {
+        state_machine::effect::append_entry::Effect {
             state_mechine: self.state_mechine.clone(),
         }
         .exec(command.clone(), None)

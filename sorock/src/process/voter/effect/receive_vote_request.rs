@@ -17,7 +17,7 @@ impl Effect {
         force_vote: bool,
         pre_vote: bool,
     ) -> Result<bool> {
-        let _lk = self.voter.vote_lock.lock().await;
+        let _g = self.voter.vote_sequencer.try_acquire()?;
 
         let allow_update_ballot = !pre_vote;
 

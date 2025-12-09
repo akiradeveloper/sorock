@@ -2,8 +2,6 @@ use super::*;
 
 pub struct Effect {
     pub voter: Voter,
-    // pub state_mechine: Read<CommandLog>,
-    // pub peers: Read<Peers>,
 }
 impl Effect {
     fn state_mechine(&self) -> &Read<StateMachine> {

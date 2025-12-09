@@ -11,7 +11,7 @@ impl Effect {
         leader_term: Term,
         leader_commit: LogIndex,
     ) -> Result<()> {
-        let _lk = self.voter.vote_lock.lock().await;
+        let _g = self.voter.vote_sequencer.try_acquire()?;
 
         let mut ballot = self.voter.read_ballot().await?;
         if leader_term < ballot.cur_term {

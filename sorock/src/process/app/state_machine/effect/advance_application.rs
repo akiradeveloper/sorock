@@ -61,7 +61,7 @@ impl Effect {
                                 // This should be queued and replicated to the followers.
                                 // Otherwise followers will never know the request is completed and the context will never be terminated.
                                 let command = Command::CompleteRequest { request_id };
-                                state_machine::effect::append::Effect {
+                                state_machine::effect::append_entry::Effect {
                                     state_mechine: self.state_mechine.clone(),
                                 }
                                 .exec(Command::serialize(command), None)

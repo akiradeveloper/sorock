@@ -15,8 +15,7 @@ pub struct Inner {
     state: spin::Mutex<ElectionState>,
     ballot: storage::BallotStore,
 
-    /// Serializing any events that may change ballot state simplifies the voter's logic.
-    vote_lock: tokio::sync::Mutex<()>,
+    vote_sequencer: tokio::sync::Semaphore,
 
     safe_term: AtomicU64,
 
@@ -39,7 +38,7 @@ impl Voter {
         let inner = Inner {
             state: spin::Mutex::new(ElectionState::Follower),
             ballot: ballot_store,
-            vote_lock: tokio::sync::Mutex::new(()),
+            vote_sequencer: tokio::sync::Semaphore::new(1),
             safe_term: AtomicU64::new(0),
             leader_failure_detector: failure_detector::FailureDetector::new(),
             state_mechine,

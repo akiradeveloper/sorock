@@ -8,9 +8,9 @@ pub struct Effect {
 impl Effect {
     /// Try to become a leader.
     pub async fn exec(self, force_vote: bool) -> Result<()> {
-        info!("try to promote to leader (force={force_vote})");
+        let _g = self.voter.vote_sequencer.try_acquire()?;
 
-        let _lk = self.voter.vote_lock.lock().await;
+        info!("try to promote to leader (force={force_vote})");
 
         let pre_vote_term = {
             let ballot = self.voter.read_ballot().await?;
@@ -124,7 +124,7 @@ impl Effect {
             info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = state_machine::effect::append::Effect {
+            let index = state_machine::effect::append_entry::Effect {
                 state_mechine: self.state_mechine.clone(),
             }
             .exec(

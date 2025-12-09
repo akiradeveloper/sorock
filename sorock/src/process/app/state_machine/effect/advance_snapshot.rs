@@ -7,7 +7,7 @@ pub struct Effect {
 impl Effect {
     /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn exec(&self) -> Result<()> {
-        let _permit = self.state_mechine.write_log_lock.acquire().await?;
+        let _g = self.state_mechine.write_sequencer.try_acquire()?;
 
         let proposed_snapshot_index = self.state_mechine.app.get_latest_snapshot().await?;
         let cur_snapshot_index = self.state_mechine.snapshot_pointer.load(Ordering::SeqCst);

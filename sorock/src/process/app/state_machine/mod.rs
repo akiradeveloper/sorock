@@ -8,7 +8,7 @@ use response_cache::ResponseCache;
 
 pub struct Inner {
     /// Lock to serialize insertions to the log.
-    write_log_lock: tokio::sync::Semaphore,
+    write_sequencer: tokio::sync::Semaphore,
     storage: storage::LogStore,
 
     // Pointers in the log.
@@ -35,7 +35,7 @@ impl StateMachine {
     pub fn new(storage: storage::LogStore, app: App) -> Self {
         let inner = Inner {
             app,
-            write_log_lock: tokio::sync::Semaphore::new(1),
+            write_sequencer: tokio::sync::Semaphore::new(1),
             commit_pointer: AtomicU64::new(0),
             kernel_pointer: AtomicU64::new(0),
             application_pointer: AtomicU64::new(0),

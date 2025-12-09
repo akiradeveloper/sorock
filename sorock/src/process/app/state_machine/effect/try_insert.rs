@@ -21,7 +21,7 @@ pub struct Effect {
 }
 impl Effect {
     pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
-        let _permit = self.state_mechine.write_log_lock.acquire().await?;
+        let _g = self.state_mechine.write_sequencer.try_acquire()?;
 
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
