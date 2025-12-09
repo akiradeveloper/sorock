@@ -110,11 +110,11 @@ impl Communicator {
     }
 
     pub async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
-        let req = raft::KernRequest {
+        let req = raft::KernelRequest {
             shard_index: self.shard_index,
             message: req.message,
         };
-        self.conn.client.clone().process_kern_request(req).await?;
+        self.conn.client.clone().process_kernel_request(req).await?;
         Ok(())
     }
 

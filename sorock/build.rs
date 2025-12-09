@@ -8,7 +8,7 @@ fn main() {
         .bytes(".sorock.WriteRequest.message")
         .bytes(".sorock.ReadRequest.message")
         .bytes(".sorock.Response.message")
-        .bytes(".sorock.KernRequest.message")
+        .bytes(".sorock.KernelRequest.message")
         .bytes(".sorock.ReplicationStreamEntry.command")
         .bytes(".sorock.SnapshotChunk.data")
         .file_descriptor_set_path(out_dir.join("sorock_descriptor.bin"))

@@ -68,9 +68,9 @@ impl raft::raft_server::Raft for RaftService {
         Ok(tonic::Response::new(raft::Response { message: resp }))
     }
 
-    async fn process_kern_request(
+    async fn process_kernel_request(
         &self,
-        request: tonic::Request<raft::KernRequest>,
+        request: tonic::Request<raft::KernelRequest>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
         let shard_index = req.shard_index;

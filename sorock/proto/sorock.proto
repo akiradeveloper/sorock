@@ -33,7 +33,7 @@ message Clock {
   uint64 index = 2;
 }
 
-message KernRequest {
+message KernelRequest {
   uint32 shard_index = 1;
   bytes message = 2;
 }
@@ -128,7 +128,7 @@ message LogMetrics {
 service Raft {
   rpc Write(WriteRequest) returns (Response);
   rpc Read(ReadRequest) returns (Response);
-  rpc ProcessKernRequest (KernRequest) returns (google.protobuf.Empty);
+  rpc ProcessKernelRequest (KernelRequest) returns (google.protobuf.Empty);
   rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
   rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
