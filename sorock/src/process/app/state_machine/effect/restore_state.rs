@@ -17,6 +17,7 @@ impl Effect {
                 x
             }
             None => {
+                // If the log is new, insert an initial snapshot entry.
                 let init_command = Command::serialize(Command::Snapshot {
                     membership: HashSet::new(),
                 });

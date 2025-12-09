@@ -67,7 +67,7 @@ impl Inner {
         Ok(())
     }
 
-    pub async fn insert_snapshot(&self, e: Entry) -> Result<()> {
+    async fn insert_snapshot(&self, e: Entry) -> Result<()> {
         let new_snapshot_index = e.this_clock.index;
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
@@ -113,7 +113,7 @@ impl Inner {
         Ok(entry.unwrap())
     }
 
-    pub async fn insert_entry(&self, e: Entry) -> Result<()> {
+    async fn insert_entry(&self, e: Entry) -> Result<()> {
         self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
     }

@@ -20,8 +20,6 @@ impl App {
         if owner == driver.self_node_id() {
             return Ok(());
         }
-        // Every node should have a snapshot at index 1
-        // because it is the initial state of the application.
         if snapshot_index == 1 {
             return Ok(());
         }
@@ -32,6 +30,8 @@ impl App {
     }
 
     pub async fn apply_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
+        // The initial snapshot is implicit.
+        // The state machine should be initialized accordingly.
         if snapshot_index == 1 {
             return Ok(());
         }

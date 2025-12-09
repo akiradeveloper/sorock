@@ -344,12 +344,11 @@ impl RaftProcess {
         membership.insert(self.driver.self_node_id());
 
         let command = Command::serialize(Command::ClusterConfiguration { membership });
-        let config = Entry {
-            prev_clock: Clock { term: 0, index: 1 },
-            this_clock: Clock { term: 0, index: 2 },
-            command: command.clone(),
-        };
-        self.state_mechine.insert_entry(config).await?;
+        state_machine::effect::append::Effect {
+            state_mechine: self.state_mechine.clone(),
+        }
+        .exec(command.clone(), None)
+        .await?;
 
         self.process_configuration_command(&command, 2).await?;
 
