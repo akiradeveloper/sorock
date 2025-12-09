@@ -6,7 +6,7 @@
 
 ## Benchmark
 
-`cargo run -p benchmark --release` to run the Raft-level benchmark program.
+`cargo run -p sorock-bench --release` to run the Raft-level benchmark program.
 
 ## Documentation
 
