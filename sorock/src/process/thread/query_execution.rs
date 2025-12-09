@@ -3,14 +3,14 @@ use super::*;
 #[derive(Clone)]
 struct Thread {
     query_queue: query_processing::QueryProcessor,
-    state_mechine: Read<StateMachine>,
+    state_machine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 }
 
 impl Thread {
     async fn advance_once(&self) -> bool {
         let last_applied = self
-            .state_mechine
+            .state_machine
             .application_pointer
             .load(Ordering::SeqCst);
         self.query_queue.process(last_applied).await > 0
@@ -32,12 +32,12 @@ impl Thread {
 
 pub fn new(
     query_queue: query_processing::QueryProcessor,
-    state_mechine: Read<StateMachine>,
+    state_machine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 ) -> ThreadHandle {
     Thread {
         query_queue,
-        state_mechine,
+        state_machine,
         consumer,
     }
     .do_loop()

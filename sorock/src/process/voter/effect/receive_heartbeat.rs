@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect {
     pub voter: Voter,
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
 }
 impl Effect {
     pub async fn exec(
@@ -39,9 +39,9 @@ impl Effect {
 
         let new_commit_index = std::cmp::min(
             leader_commit,
-            self.state_mechine.get_log_last_index().await?,
+            self.state_machine.get_log_last_index().await?,
         );
-        self.state_mechine
+        self.state_machine
             .commit_pointer
             .fetch_max(new_commit_index, Ordering::SeqCst);
 

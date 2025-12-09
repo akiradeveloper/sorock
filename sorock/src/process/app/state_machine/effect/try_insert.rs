@@ -16,12 +16,12 @@ pub enum TryInsertResult {
 }
 
 pub struct Effect {
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
     pub driver: RaftHandle,
 }
 impl Effect {
     pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
-        let _g = self.state_mechine.write_sequencer.try_acquire()?;
+        let _g = self.state_machine.write_sequencer.try_acquire()?;
 
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
@@ -38,7 +38,7 @@ impl Effect {
 
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
-                    .state_mechine
+                    .state_machine
                     .app
                     .fetch_snapshot(snapshot_index, sender_id.clone(), self.driver)
                     .await
@@ -50,8 +50,8 @@ impl Effect {
                     return Err(e);
                 }
 
-                self.state_mechine.insert_snapshot(entry).await?;
-                self.state_mechine
+                self.state_machine.insert_snapshot(entry).await?;
+                self.state_machine
                     .snapshot_pointer
                     .store(snapshot_index, Ordering::SeqCst);
 
@@ -65,7 +65,7 @@ impl Effect {
             index: prev_index,
         } = entry.prev_clock;
         if let Some(prev_clock) = self
-            .state_mechine
+            .state_machine
             .storage
             .get_entry(prev_index)
             .await?
@@ -85,7 +85,7 @@ impl Effect {
 
                 // optimization to skip actual insertion.
                 if let Some(old_clock) = self
-                    .state_mechine
+                    .state_machine
                     .storage
                     .get_entry(this_index)
                     .await?
@@ -98,14 +98,14 @@ impl Effect {
                     }
                 }
 
-                self.state_mechine.insert_entry(entry).await?;
+                self.state_machine.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.state_mechine
+                self.state_machine
                     .application_completions
                     .lock()
                     .split_off(&this_index);
-                self.state_mechine
+                self.state_machine
                     .kernel_completions
                     .lock()
                     .split_off(&this_index);

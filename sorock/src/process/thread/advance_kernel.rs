@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_mechine: StateMachine,
+    state_machine: StateMachine,
     voter: Voter,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
@@ -10,7 +10,7 @@ pub struct Thread {
 impl Thread {
     async fn advance_once(&self) -> Result<()> {
         state_machine::effect::advance_kernel::Effect {
-            state_mechine: self.state_mechine.clone(),
+            state_machine: self.state_machine.clone(),
             voter: self.voter.clone(),
         }
         .exec()
@@ -34,13 +34,13 @@ impl Thread {
 }
 
 pub fn new(
-    state_mechine: StateMachine,
+    state_machine: StateMachine,
     voter: Voter,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
 ) -> ThreadHandle {
     Thread {
-        state_mechine,
+        state_machine,
         voter,
         consumer,
         producer,

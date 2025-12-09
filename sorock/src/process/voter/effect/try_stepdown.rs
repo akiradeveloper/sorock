@@ -4,8 +4,8 @@ pub struct Effect {
     pub voter: Voter,
 }
 impl Effect {
-    fn state_mechine(&self) -> &Read<StateMachine> {
-        &self.voter.state_mechine
+    fn state_machine(&self) -> &Read<StateMachine> {
+        &self.voter.state_machine
     }
 
     fn peers(&self) -> &Read<Peers> {
@@ -24,15 +24,15 @@ impl Effect {
         // otherwise the configuration change entry may be lost.
         let last_membership_change_index = {
             let index = self
-                .state_mechine()
+                .state_machine()
                 .membership_pointer
                 .load(Ordering::SeqCst);
-            ensure!(index <= self.state_mechine().commit_pointer.load(Ordering::SeqCst));
+            ensure!(index <= self.state_machine().commit_pointer.load(Ordering::SeqCst));
             index
         };
 
         let config = self
-            .state_mechine()
+            .state_machine()
             .try_read_membership(last_membership_change_index)
             .await?
             .context(Error::BadLogState)?;

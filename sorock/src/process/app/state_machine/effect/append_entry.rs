@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct Effect {
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
 }
 impl Effect {
     /// Append a new entry to the log.
@@ -9,11 +9,11 @@ impl Effect {
     /// Otherwise, the given term is used to update the term of the last entry.
     pub async fn exec(&self, command: Bytes, term: Option<Term>) -> Result<LogIndex> {
         // I think using try- variant here will make client interactions unstable.
-        let _g = self.state_mechine.write_sequencer.acquire().await?;
+        let _g = self.state_machine.write_sequencer.acquire().await?;
 
-        let cur_last_log_index = self.state_mechine.get_log_last_index().await?;
+        let cur_last_log_index = self.state_machine.get_log_last_index().await?;
         let prev_clock = self
-            .state_mechine
+            .state_machine
             .get_entry(cur_last_log_index)
             .await?
             .this_clock;
@@ -31,7 +31,7 @@ impl Effect {
             this_clock,
             command,
         };
-        self.state_mechine.insert_entry(e).await?;
+        self.state_machine.insert_entry(e).await?;
 
         Ok(append_index)
     }

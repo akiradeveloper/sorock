@@ -3,7 +3,7 @@ use super::*;
 pub struct Effect {
     pub voter: Voter,
     pub peers: Peers,
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
 }
 impl Effect {
     /// Try to become a leader.
@@ -81,8 +81,8 @@ impl Effect {
         };
 
         let log_last_clock = {
-            let last_log_index = self.state_mechine.get_log_last_index().await?;
-            self.state_mechine
+            let last_log_index = self.state_machine.get_log_last_index().await?;
+            self.state_machine
                 .get_entry(last_log_index)
                 .await?
                 .this_clock
@@ -125,7 +125,7 @@ impl Effect {
 
             // As soon as the node becomes the leader, replicate noop entries with term.
             let index = state_machine::effect::append_entry::Effect {
-                state_mechine: self.state_mechine.clone(),
+                state_machine: self.state_machine.clone(),
             }
             .exec(
                 Command::serialize(Command::Barrier(vote_term)),

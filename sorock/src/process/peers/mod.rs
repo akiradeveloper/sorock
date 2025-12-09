@@ -36,7 +36,7 @@ pub struct Inner {
     peer_contexts: spin::RwLock<HashMap<NodeAddress, PeerContexts>>,
     peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
 
-    state_mechine: Read<StateMachine>,
+    state_machine: Read<StateMachine>,
     driver: RaftHandle,
 
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
@@ -47,7 +47,7 @@ pub struct Inner {
 pub struct Peers(pub Arc<Inner>);
 impl Peers {
     pub fn new(
-        state_mechine: Read<StateMachine>,
+        state_machine: Read<StateMachine>,
         queue_rx: thread::EventConsumer<thread::QueueEvent>,
         replication_tx: thread::EventProducer<thread::ReplicationEvent>,
         driver: RaftHandle,
@@ -58,7 +58,7 @@ impl Peers {
             peer_threads: HashMap::new().into(),
             queue_rx,
             replication_tx,
-            state_mechine,
+            state_machine,
             driver,
         };
         Self(Arc::new(inner))
@@ -71,7 +71,7 @@ impl Peers {
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
-        let last_log_index = self.state_mechine.get_log_last_index().await?;
+        let last_log_index = self.state_machine.get_log_last_index().await?;
         match_indices.push(last_log_index);
 
         let peer_contexts = self.peer_contexts.read();

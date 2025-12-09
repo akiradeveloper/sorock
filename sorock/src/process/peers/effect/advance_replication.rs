@@ -5,22 +5,22 @@ pub struct Effect {
 }
 
 impl Effect {
-    fn state_mechine(&self) -> &Read<StateMachine> {
-        &self.peers.state_mechine
+    fn state_machine(&self) -> &Read<StateMachine> {
+        &self.peers.state_machine
     }
 
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeAddress,
-        state_mechine: Read<StateMachine>,
+        state_machine: Read<StateMachine>,
         l: LogIndex,
         r: LogIndex,
     ) -> Result<request::ReplicationStream> {
-        let head = state_mechine.get_entry(l).await?;
+        let head = state_machine.get_entry(l).await?;
 
         let st = async_stream::stream! {
             for idx in l..r {
-                let x = state_mechine.get_entry(idx).await;
+                let x = state_machine.get_entry(idx).await;
                 let e = match x {
                     Ok(x) => Some(request::ReplicationStreamElem {
                         this_clock: x.this_clock,
@@ -49,14 +49,14 @@ impl Effect {
             .clone();
 
         let old_progress = peer_context.progress;
-        let cur_last_log_index = self.state_mechine().get_log_last_index().await?;
+        let cur_last_log_index = self.state_machine().get_log_last_index().await?;
 
         // More entries to send?
         ensure!(old_progress.next_index <= cur_last_log_index);
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.state_mechine().snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.state_machine().snapshot_pointer.load(Ordering::SeqCst);
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",
@@ -78,7 +78,7 @@ impl Effect {
 
         let out_stream = Self::prepare_replication_stream(
             self.peers.driver.self_node_id(),
-            self.state_mechine().clone(),
+            self.state_machine().clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )

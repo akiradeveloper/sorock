@@ -2,12 +2,12 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_mechine: Read<StateMachine>,
+    state_machine: Read<StateMachine>,
     app: App,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let cur_snapshot_index = self.state_mechine.snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.state_machine.snapshot_pointer.load(Ordering::SeqCst);
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
@@ -25,6 +25,6 @@ impl Thread {
     }
 }
 
-pub fn new(app: App, state_mechine: Read<StateMachine>) -> ThreadHandle {
-    Thread { state_mechine, app }.do_loop()
+pub fn new(app: App, state_machine: Read<StateMachine>) -> ThreadHandle {
+    Thread { state_machine, app }.do_loop()
 }

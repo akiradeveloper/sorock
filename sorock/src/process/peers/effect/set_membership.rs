@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect {
     pub peers: Peers,
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
     pub voter: Read<Voter>,
     pub driver: RaftHandle,
 }
@@ -17,7 +17,7 @@ impl Effect {
         }
 
         let init_progress = {
-            let last_log_index = self.state_mechine.get_log_last_index().await?;
+            let last_log_index = self.state_machine.get_log_last_index().await?;
             ReplicationProgress::new(last_log_index)
         };
 
@@ -85,7 +85,7 @@ impl Effect {
         info!("membership changed -> {:?}", config);
         *self.peers.membership.write() = config;
 
-        self.state_mechine
+        self.state_machine
             .membership_pointer
             .store(index, Ordering::SeqCst);
 

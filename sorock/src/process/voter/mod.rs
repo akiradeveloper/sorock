@@ -21,7 +21,7 @@ pub struct Inner {
 
     leader_failure_detector: failure_detector::FailureDetector,
 
-    state_mechine: Read<StateMachine>,
+    state_machine: Read<StateMachine>,
     peers: Read<Peers>,
     driver: RaftHandle,
 }
@@ -31,7 +31,7 @@ pub struct Voter(pub Arc<Inner>);
 impl Voter {
     pub fn new(
         ballot_store: storage::BallotStore,
-        state_mechine: Read<StateMachine>,
+        state_machine: Read<StateMachine>,
         peers: Read<Peers>,
         driver: RaftHandle,
     ) -> Self {
@@ -41,7 +41,7 @@ impl Voter {
             vote_sequencer: tokio::sync::Semaphore::new(1),
             safe_term: AtomicU64::new(0),
             leader_failure_detector: failure_detector::FailureDetector::new(),
-            state_mechine,
+            state_machine,
             peers,
             driver,
         };
@@ -95,7 +95,7 @@ impl Voter {
 
     pub async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
         let ballot = self.read_ballot().await?;
-        let leader_commit_index = self.state_mechine.commit_pointer.load(Ordering::SeqCst);
+        let leader_commit_index = self.state_machine.commit_pointer.load(Ordering::SeqCst);
         let req = request::Heartbeat {
             leader_term: ballot.cur_term,
             leader_commit_index,

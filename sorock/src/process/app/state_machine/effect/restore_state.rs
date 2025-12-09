@@ -1,14 +1,14 @@
 use super::*;
 
 pub struct Effect {
-    pub state_mechine: StateMachine,
+    pub state_machine: StateMachine,
 }
 
 impl Effect {
     pub async fn exec(self) -> Result<()> {
-        let log_last_index = self.state_mechine.get_log_last_index().await?;
+        let log_last_index = self.state_machine.get_log_last_index().await?;
         let snapshot_index = match self
-            .state_mechine
+            .state_machine
             .find_last_snapshot_index(log_last_index)
             .await?
         {
@@ -26,21 +26,21 @@ impl Effect {
                     this_clock: Clock { term: 0, index: 1 },
                     command: init_command.clone(),
                 };
-                self.state_mechine.insert_entry(snapshot).await?;
+                self.state_machine.insert_entry(snapshot).await?;
                 1
             }
         };
-        self.state_mechine
+        self.state_machine
             .snapshot_pointer
             .store(snapshot_index, Ordering::SeqCst);
 
-        self.state_mechine
+        self.state_machine
             .commit_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
-        self.state_mechine
+        self.state_machine
             .kernel_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
-        self.state_mechine
+        self.state_machine
             .application_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
 
