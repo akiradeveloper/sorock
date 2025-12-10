@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect {
     pub state_machine: StateMachine,
-    pub voter: Voter,
+    pub ctrl: Control,
 }
 
 impl Effect {
@@ -25,7 +25,7 @@ impl Effect {
             debug!("process kern@{process_index}");
             match command {
                 Command::Barrier(term) => {
-                    self.voter.commit_safe_term(term);
+                    self.ctrl.commit_safe_term(term);
                 }
                 Command::ClusterConfiguration { .. } => {}
                 _ => {}

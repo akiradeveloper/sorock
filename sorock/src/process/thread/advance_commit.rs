@@ -3,18 +3,20 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     state_machine: StateMachine,
-    peers: Read<Peers>,
-    voter: Read<Voter>,
+    ctrl: Read<Control>,
     consumer: EventConsumer<ReplicationEvent>,
     producer: EventProducer<CommitEvent>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.voter.read_election_state();
-        ensure!(std::matches!(election_state, voter::ElectionState::Leader));
+        let election_state = self.ctrl.read_election_state();
+        ensure!(std::matches!(
+            election_state,
+            control::ElectionState::Leader
+        ));
 
         let cur_commit_index = self.state_machine.commit_pointer.load(Ordering::SeqCst);
-        let new_commit_index = self.peers.find_new_commit_index().await?;
+        let new_commit_index = self.ctrl.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {
             self.state_machine
@@ -42,15 +44,13 @@ impl Thread {
 
 pub fn new(
     state_machine: StateMachine,
-    peers: Read<Peers>,
-    voter: Read<Voter>,
+    ctrl: Read<Control>,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {
     Thread {
         state_machine,
-        peers,
-        voter,
+        ctrl,
         consumer: consume,
         producer: produce,
     }

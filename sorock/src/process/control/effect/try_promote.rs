@@ -1,19 +1,18 @@
 use super::*;
 
 pub struct Effect {
-    pub voter: Voter,
-    pub peers: Peers,
+    pub ctrl: Control,
     pub state_machine: StateMachine,
 }
 impl Effect {
     /// Try to become a leader.
     pub async fn exec(self, force_vote: bool) -> Result<()> {
-        let _g = self.voter.vote_sequencer.try_acquire()?;
+        let _g = self.ctrl.vote_sequencer.try_acquire()?;
 
         info!("try to promote to leader (force={force_vote})");
 
         let pre_vote_term = {
-            let ballot = self.voter.read_ballot().await?;
+            let ballot = self.ctrl.read_ballot().await?;
             ballot.cur_term + 1
         };
 
@@ -29,17 +28,17 @@ impl Effect {
         // --- END pre-vote ---
 
         let vote_term = {
-            let mut new_ballot = self.voter.read_ballot().await?;
+            let mut new_ballot = self.ctrl.read_ballot().await?;
             let vote_term = new_ballot.cur_term + 1;
             ensure!(vote_term == pre_vote_term);
 
             // Vote to itself
             new_ballot.cur_term = vote_term;
-            new_ballot.voted_for = Some(self.voter.driver.self_node_id());
-            self.voter.write_ballot(new_ballot).await?;
+            new_ballot.voted_for = Some(self.ctrl.driver.self_node_id());
+            self.ctrl.write_ballot(new_ballot).await?;
 
             // Becoming Candidate avoids this node starts another election during this election.
-            self.voter.write_election_state(ElectionState::Candidate);
+            self.ctrl.write_election_state(ElectionState::Candidate);
             vote_term
         };
 
@@ -65,13 +64,13 @@ impl Effect {
         pre_vote: bool,
     ) -> Result<bool> {
         let (others, remaining) = {
-            let membership = self.peers.read_membership();
-            ensure!(membership.contains(&self.voter.driver.self_node_id()));
+            let membership = self.ctrl.read_membership();
+            ensure!(membership.contains(&self.ctrl.driver.self_node_id()));
 
             let n = membership.len();
             let mut others = vec![];
             for id in membership {
-                if id != self.voter.driver.self_node_id() {
+                if id != self.ctrl.driver.self_node_id() {
                     others.push(id);
                 }
             }
@@ -91,8 +90,8 @@ impl Effect {
         // Get remaining votes from others.
         let mut vote_requests = vec![];
         for endpoint in others {
-            let selfid = self.voter.driver.self_node_id();
-            let conn = self.voter.driver.connect(endpoint);
+            let selfid = self.ctrl.driver.self_node_id();
+            let conn = self.ctrl.driver.connect(endpoint);
             vote_requests.push(async move {
                 let req = request::RequestVote {
                     candidate_id: selfid,
@@ -136,15 +135,15 @@ impl Effect {
             info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress
-            peers::effect::reset_progress::Effect {
-                peers: self.peers.clone(),
+            control::effect::reset_replication_state::Effect {
+                ctrl: self.ctrl.clone(),
             }
             .exec(index);
 
-            self.voter.write_election_state(ElectionState::Leader);
+            self.ctrl.write_election_state(ElectionState::Leader);
         } else {
             info!("failed to become leader. now back to follower");
-            self.voter.write_election_state(ElectionState::Follower);
+            self.ctrl.write_election_state(ElectionState::Follower);
         }
         Ok(())
     }
