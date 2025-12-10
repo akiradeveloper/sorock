@@ -3,20 +3,19 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    peers: Peers,
-    voter: Read<Voter>,
+    ctrl: Control,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
-        let election_state = self.voter.read_election_state();
-        if !std::matches!(election_state, voter::ElectionState::Leader) {
+        let election_state = self.ctrl.read_election_state();
+        if !std::matches!(election_state, control::ElectionState::Leader) {
             return Ok(false);
         }
 
-        peers::effect::advance_replication::Effect {
-            peers: self.peers.clone(),
+        control::effect::advance_replication::Effect {
+            ctrl: self.ctrl.clone(),
         }
         .exec(self.follower_id.clone())
         .await?;
@@ -42,15 +41,13 @@ impl Thread {
 
 pub fn new(
     follower_id: NodeAddress,
-    peers: Peers,
-    voter: Read<Voter>,
+    ctrl: Control,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 ) -> ThreadHandle {
     Thread {
         follower_id,
-        peers,
-        voter,
+        ctrl,
         consumer,
         producer,
     }

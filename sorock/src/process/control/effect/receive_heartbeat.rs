@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct Effect {
-    pub voter: Voter,
+    pub ctrl: Control,
     pub state_machine: StateMachine,
 }
 impl Effect {
@@ -11,15 +11,15 @@ impl Effect {
         leader_term: Term,
         leader_commit: LogIndex,
     ) -> Result<()> {
-        let _g = self.voter.vote_sequencer.try_acquire()?;
+        let _g = self.ctrl.vote_sequencer.try_acquire()?;
 
-        let mut ballot = self.voter.read_ballot().await?;
+        let mut ballot = self.ctrl.read_ballot().await?;
         if leader_term < ballot.cur_term {
             warn!("heartbeat is stale. rejected");
             return Ok(());
         }
 
-        self.voter
+        self.ctrl
             .leader_failure_detector
             .receive_heartbeat(leader_id.clone());
 
@@ -27,7 +27,7 @@ impl Effect {
             warn!("received heartbeat with newer term. reset ballot");
             ballot.cur_term = leader_term;
             ballot.voted_for = None;
-            self.voter.write_election_state(ElectionState::Follower);
+            self.ctrl.write_election_state(ElectionState::Follower);
         }
 
         if ballot.voted_for != Some(leader_id.clone()) {
@@ -35,7 +35,7 @@ impl Effect {
             ballot.voted_for = Some(leader_id);
         }
 
-        self.voter.write_ballot(ballot).await?;
+        self.ctrl.write_ballot(ballot).await?;
 
         let new_commit_index = std::cmp::min(
             leader_commit,

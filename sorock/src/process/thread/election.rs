@@ -2,30 +2,28 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    voter: Voter,
+    ctrl: Control,
     state_machine: StateMachine,
-    peers: Peers,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.voter.read_election_state();
+        let election_state = self.ctrl.read_election_state();
         ensure!(std::matches!(
             election_state,
-            voter::ElectionState::Follower
+            control::ElectionState::Follower
         ));
 
         // sleep random duration
-        if let Some(timeout) = self.voter.get_election_timeout() {
+        if let Some(timeout) = self.ctrl.get_election_timeout() {
             tokio::time::sleep(timeout).await;
         }
         // if it doesn't receive any heartbeat from a leader (or new leader)
         // it try to become a leader.
-        if self.voter.get_election_timeout().is_some() {
+        if self.ctrl.get_election_timeout().is_some() {
             info!("election timeout. try to become a leader");
-            voter::effect::try_promote::Effect {
-                voter: self.voter.clone(),
+            control::effect::try_promote::Effect {
+                ctrl: self.ctrl.clone(),
                 state_machine: self.state_machine.clone(),
-                peers: self.peers.clone(),
             }
             .exec(false)
             .await?;
@@ -46,11 +44,10 @@ impl Thread {
     }
 }
 
-pub fn new(voter: Voter, state_machine: StateMachine, peers: Peers) -> ThreadHandle {
+pub fn new(ctrl: Control, state_machine: StateMachine) -> ThreadHandle {
     Thread {
-        voter,
+        ctrl,
         state_machine,
-        peers,
     }
     .do_loop()
 }

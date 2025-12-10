@@ -13,11 +13,9 @@ mod storage;
 pub use storage::RaftStorage;
 mod api;
 pub(super) use api::*;
-mod peers;
 use app::state_machine::StateMachine;
-use peers::Peers;
-mod voter;
-use voter::Voter;
+mod control;
+use control::Control;
 mod app;
 use app::query_processing;
 use app::state_machine;
@@ -134,8 +132,7 @@ struct ThreadHandles {
 /// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
     state_machine: StateMachine,
-    voter: Voter,
-    peers: Peers,
+    ctrl: Control,
     query_queue: query_processing::QueryQueue,
     app: App,
     driver: node::RaftHandle,
@@ -169,24 +166,17 @@ impl RaftProcess {
         let (kern_tx, kern_rx) = thread::notify();
         let (app_tx, app_rx) = thread::notify();
 
-        let peers = Peers::new(
+        let ctrl = Control::new(
+            ballot_store,
             Read(state_machine.clone()),
             queue_rx.clone(),
             replication_tx.clone(),
             driver.clone(),
         );
 
-        let voter = Voter::new(
-            ballot_store,
-            Read(state_machine.clone()),
-            Read(peers.clone()),
-            driver.clone(),
-        );
-
-        peers::effect::restore_state::Effect {
-            peers: peers.clone(),
+        control::effect::restore_membership::Effect {
+            ctrl: ctrl.clone(),
             state_machine: state_machine.clone(),
-            voter: Read(voter.clone()),
             driver: driver.clone(),
         }
         .exec()
@@ -195,7 +185,7 @@ impl RaftProcess {
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
                 state_machine.clone(),
-                voter.clone(),
+                ctrl.clone(),
                 commit_rx.clone(),
                 kern_tx.clone(),
             ),
@@ -207,16 +197,11 @@ impl RaftProcess {
             advance_snapshot_handle: thread::advance_snapshot::new(state_machine.clone()),
             advance_commit_handle: thread::advance_commit::new(
                 state_machine.clone(),
-                Read(peers.clone()),
-                Read(voter.clone()),
+                Read(ctrl.clone()),
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
-            election_handle: thread::election::new(
-                voter.clone(),
-                state_machine.clone(),
-                peers.clone(),
-            ),
+            election_handle: thread::election::new(ctrl.clone(), state_machine.clone()),
             log_compaction_handle: thread::gc_log::new(state_machine.clone()),
             query_execution_handle: thread::query_execution::new(
                 query_rx.clone(),
@@ -227,17 +212,12 @@ impl RaftProcess {
                 app.clone(),
                 Read(state_machine.clone()),
             ),
-            stepdown_handle: thread::stepdown::new(
-                voter.clone(),
-                Read(state_machine.clone()),
-                Read(peers.clone()),
-            ),
+            stepdown_handle: thread::stepdown::new(ctrl.clone()),
         };
 
         Ok(Self {
             state_machine,
-            voter,
-            peers,
+            ctrl,
             query_queue: query_tx,
             driver,
             app,
@@ -260,10 +240,9 @@ impl RaftProcess {
             _ => None,
         };
         if let Some(config) = config0 {
-            peers::effect::set_membership::Effect {
-                peers: self.peers.clone(),
+            control::effect::set_membership::Effect {
+                ctrl: self.ctrl.clone(),
                 state_machine: self.state_machine.clone(),
-                voter: Read(self.voter.clone()),
                 driver: self.driver.clone(),
             }
             .exec(config, index)
@@ -273,7 +252,7 @@ impl RaftProcess {
     }
 
     async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
-        ensure!(self.voter.allow_queue_new_entry().await?);
+        ensure!(self.ctrl.allow_queue_new_entry().await?);
 
         let append_index = state_machine::effect::append_entry::Effect {
             state_machine: self.state_machine.clone(),
@@ -365,7 +344,7 @@ impl RaftProcess {
     }
 
     pub(super) async fn add_server(&self, req: request::AddServer) -> Result<()> {
-        if self.peers.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
+        if self.ctrl.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
             self.bootstrap_cluster().await?;
         } else {
             let msg = kernel_message::KernelMessage::AddServer(req.server_id);
@@ -402,25 +381,25 @@ impl RaftProcess {
     }
 
     pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
-        let ballot = self.voter.read_ballot().await?;
+        let ballot = self.ctrl.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.voter.read_election_state(),
-            voter::ElectionState::Leader
+            self.ctrl.read_election_state(),
+            control::ElectionState::Leader
         ) {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
             let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
                 kernel_message::KernelMessage::AddServer(id) => {
-                    let mut membership = self.peers.read_membership();
+                    let mut membership = self.ctrl.read_membership();
                     membership.insert(id);
                     Command::ClusterConfiguration { membership }
                 }
                 kernel_message::KernelMessage::RemoveServer(id) => {
-                    let mut membership = self.peers.read_membership();
+                    let mut membership = self.ctrl.read_membership();
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
                 }
@@ -446,7 +425,7 @@ impl RaftProcess {
         &self,
         req: request::ApplicationReadRequest,
     ) -> Result<Bytes> {
-        let ballot = self.voter.read_ballot().await?;
+        let ballot = self.ctrl.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             anyhow::bail!(Error::LeaderUnknown)
@@ -454,8 +433,8 @@ impl RaftProcess {
 
         let will_process = req.read_locally
             || std::matches!(
-                self.voter.read_election_state(),
-                voter::ElectionState::Leader
+                self.ctrl.read_election_state(),
+                control::ElectionState::Leader
             );
 
         let resp = if will_process {
@@ -482,15 +461,15 @@ impl RaftProcess {
         &self,
         req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
-        let ballot = self.voter.read_ballot().await?;
+        let ballot = self.ctrl.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         let resp = if std::matches!(
-            self.voter.read_election_state(),
-            voter::ElectionState::Leader
+            self.ctrl.read_election_state(),
+            control::ElectionState::Leader
         ) {
             let (app_completion, rx) = completion::prepare_application_completion();
 
@@ -523,8 +502,8 @@ impl RaftProcess {
         let term = req.leader_term;
         let leader_commit = req.leader_commit_index;
 
-        voter::effect::receive_heartbeat::Effect {
-            voter: self.voter.clone(),
+        control::effect::receive_heartbeat::Effect {
+            ctrl: self.ctrl.clone(),
             state_machine: self.state_machine.clone(),
         }
         .exec(leader_id, term, leader_commit)
@@ -542,10 +521,9 @@ impl RaftProcess {
 
     pub(super) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
-        voter::effect::try_promote::Effect {
-            voter: self.voter.clone(),
+        control::effect::try_promote::Effect {
+            ctrl: self.ctrl.clone(),
             state_machine: self.state_machine.clone(),
-            peers: self.peers.clone(),
         }
         .exec(true)
         .await?;
@@ -559,8 +537,8 @@ impl RaftProcess {
         let force_vote = req.force_vote;
         let pre_vote = req.pre_vote;
 
-        let vote_granted = voter::effect::receive_vote_request::Effect {
-            voter: self.voter.clone(),
+        let vote_granted = control::effect::receive_vote_request::Effect {
+            ctrl: self.ctrl.clone(),
             // state_machine: Read(self.state_machine.clone()),
         }
         .exec(
@@ -591,7 +569,7 @@ impl RaftProcess {
 
     pub(super) async fn get_membership(&self) -> Result<response::Membership> {
         let out = response::Membership {
-            members: self.peers.read_membership(),
+            members: self.ctrl.read_membership(),
         };
         Ok(out)
     }

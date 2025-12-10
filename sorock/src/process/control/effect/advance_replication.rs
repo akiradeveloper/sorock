@@ -1,12 +1,12 @@
 use super::*;
 
 pub struct Effect {
-    pub peers: Peers,
+    pub ctrl: Control,
 }
 
 impl Effect {
     fn state_machine(&self) -> &Read<StateMachine> {
-        &self.peers.state_machine
+        &self.ctrl.state_machine
     }
 
     /// Prepare a replication stream from the log entries `[l, r)`.
@@ -41,7 +41,7 @@ impl Effect {
 
     pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
         let peer_context = self
-            .peers
+            .ctrl
             .peer_contexts
             .read()
             .get(&follower_id)
@@ -63,7 +63,7 @@ impl Effect {
                 old_progress.next_index, follower_id,
             );
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
-            self.peers
+            self.ctrl
                 .peer_contexts
                 .write()
                 .get_mut(&follower_id)
@@ -77,14 +77,14 @@ impl Effect {
         ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.peers.driver.self_node_id(),
+            self.ctrl.driver.self_node_id(),
             self.state_machine().clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )
         .await?;
 
-        let conn = self.peers.driver.connect(follower_id.clone());
+        let conn = self.ctrl.driver.connect(follower_id.clone());
 
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.
@@ -108,7 +108,7 @@ impl Effect {
             },
         };
 
-        self.peers
+        self.ctrl
             .peer_contexts
             .write()
             .get_mut(&follower_id)

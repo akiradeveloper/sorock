@@ -1,11 +1,11 @@
 use super::*;
 
 pub struct Effect {
-    pub voter: Voter,
+    pub ctrl: Control,
 }
 impl Effect {
     fn state_machine(&self) -> &Read<StateMachine> {
-        &self.voter.state_machine
+        &self.ctrl.state_machine
     }
 
     /// Returns grated or not on vote.
@@ -17,19 +17,19 @@ impl Effect {
         force_vote: bool,
         pre_vote: bool,
     ) -> Result<bool> {
-        let _g = self.voter.vote_sequencer.try_acquire()?;
+        let _g = self.ctrl.vote_sequencer.try_acquire()?;
 
         let allow_update_ballot = !pre_vote;
 
         // If it is a force-vote which is set by TimeoutNow,
         // or it believes the leader has failed, it should vote.
-        let leader_failed = self.voter.get_election_timeout().is_some();
+        let leader_failed = self.ctrl.get_election_timeout().is_some();
         let should_vote = force_vote || leader_failed;
         if !should_vote {
             return Ok(false);
         }
 
-        let mut ballot = self.voter.read_ballot().await?;
+        let mut ballot = self.ctrl.read_ballot().await?;
         if candidate_term < ballot.cur_term {
             warn!("candidate term is older. reject vote");
             return Ok(false);
@@ -40,7 +40,7 @@ impl Effect {
             ballot.cur_term = candidate_term;
             ballot.voted_for = None;
             if allow_update_ballot {
-                self.voter.write_election_state(ElectionState::Follower);
+                self.ctrl.write_election_state(ElectionState::Follower);
             }
         }
 
@@ -65,7 +65,7 @@ impl Effect {
         if !candidate_win {
             warn!("candidate clock is older. reject vote");
             if allow_update_ballot {
-                self.voter.write_ballot(ballot).await?;
+                self.ctrl.write_ballot(ballot).await?;
             }
             return Ok(false);
         }
@@ -89,7 +89,7 @@ impl Effect {
         };
 
         if allow_update_ballot {
-            self.voter.write_ballot(ballot).await?;
+            self.ctrl.write_ballot(ballot).await?;
         }
 
         info!("voted response grant({grant}) to node({candidate_id})");

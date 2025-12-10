@@ -1,9 +1,8 @@
 use super::*;
 
 pub struct Effect {
-    pub peers: Peers,
+    pub ctrl: Control,
     pub state_machine: StateMachine,
-    pub voter: Read<Voter>,
     pub driver: RaftHandle,
 }
 
@@ -27,9 +26,8 @@ impl Effect {
             };
 
             effect::set_membership::Effect {
-                peers: self.peers.clone(),
+                ctrl: self.ctrl.clone(),
                 state_machine: self.state_machine.clone(),
-                voter: self.voter.clone(),
                 driver: self.driver.clone(),
             }
             .exec(last_membership, last_membership_index)

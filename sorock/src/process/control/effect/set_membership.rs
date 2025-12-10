@@ -1,9 +1,8 @@
 use super::*;
 
 pub struct Effect {
-    pub peers: Peers,
+    pub ctrl: Control,
     pub state_machine: StateMachine,
-    pub voter: Read<Voter>,
     pub driver: RaftHandle,
 }
 impl Effect {
@@ -12,7 +11,7 @@ impl Effect {
             return Ok(());
         }
 
-        if self.peers.peer_contexts.read().contains_key(&id) {
+        if self.ctrl.peer_contexts.read().contains_key(&id) {
             return Ok(());
         }
 
@@ -21,7 +20,7 @@ impl Effect {
             ReplicationProgress::new(last_log_index)
         };
 
-        let mut peer_contexts = self.peers.peer_contexts.write();
+        let mut peer_contexts = self.ctrl.peer_contexts.write();
         peer_contexts.insert(
             id.clone(),
             PeerContexts {
@@ -32,25 +31,24 @@ impl Effect {
         let thread_handles = ThreadHandles {
             replicator_handle: thread::replication::new(
                 id.clone(),
-                self.peers.clone(),
-                self.voter.clone(),
-                self.peers.queue_rx.clone(),
-                self.peers.replication_tx.clone(),
+                self.ctrl.clone(),
+                self.ctrl.queue_rx.clone(),
+                self.ctrl.replication_tx.clone(),
             ),
-            heartbeater_handle: thread::heartbeat::new(id.clone(), self.voter.clone()),
+            heartbeater_handle: thread::heartbeat::new(id.clone(), Read(self.ctrl.clone())),
         };
-        self.peers.peer_threads.lock().insert(id, thread_handles);
+        self.ctrl.peer_threads.lock().insert(id, thread_handles);
 
         Ok(())
     }
 
     fn remove_peer(&self, id: NodeAddress) {
-        self.peers.peer_threads.lock().remove(&id);
-        self.peers.peer_contexts.write().remove(&id);
+        self.ctrl.peer_threads.lock().remove(&id);
+        self.ctrl.peer_contexts.write().remove(&id);
     }
 
     pub async fn exec(self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {
-        let cur = self.peers.read_membership();
+        let cur = self.ctrl.read_membership();
 
         let add_peers = {
             let mut out = vec![];
@@ -83,7 +81,7 @@ impl Effect {
         }
 
         info!("membership changed -> {:?}", config);
-        *self.peers.membership.write() = config;
+        *self.ctrl.membership.write() = config;
 
         self.state_machine
             .membership_pointer
