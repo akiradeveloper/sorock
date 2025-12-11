@@ -176,7 +176,6 @@ impl RaftProcess {
 
         control::effect::restore_membership::Effect {
             ctrl: ctrl.clone(),
-            state_machine: state_machine.clone(),
             driver: driver.clone(),
         }
         .exec()
@@ -242,7 +241,6 @@ impl RaftProcess {
         if let Some(config) = config0 {
             control::effect::set_membership::Effect {
                 ctrl: self.ctrl.clone(),
-                state_machine: self.state_machine.clone(),
                 driver: self.driver.clone(),
             }
             .exec(config, index)
@@ -404,7 +402,7 @@ impl RaftProcess {
                     Command::ClusterConfiguration { membership }
                 }
             };
-            ensure!(self.state_machine.allow_queue_new_membership());
+            ensure!(self.ctrl.allow_queue_new_membership());
             self.queue_new_entry(
                 Command::serialize(command),
                 Completion::Kernel(kern_completion),

@@ -18,11 +18,6 @@ pub struct Inner {
     pub application_pointer: AtomicU64,
     pub snapshot_pointer: AtomicU64,
 
-    /// The index of the last membership.
-    /// Unless `commit_pointer` >= membership_pointer`,
-    /// new membership changes are not allowed to be queued.
-    pub membership_pointer: AtomicU64,
-
     app: App,
     response_cache: spin::Mutex<ResponseCache>,
     application_completions: spin::Mutex<BTreeMap<LogIndex, completion::ApplicationCompletion>>,
@@ -40,7 +35,6 @@ impl StateMachine {
             kernel_pointer: AtomicU64::new(0),
             application_pointer: AtomicU64::new(0),
             snapshot_pointer: AtomicU64::new(0),
-            membership_pointer: AtomicU64::new(0),
             storage,
             application_completions: spin::Mutex::new(BTreeMap::new()),
             kernel_completions: spin::Mutex::new(BTreeMap::new()),
@@ -88,10 +82,6 @@ impl Inner {
     async fn insert_entry(&self, e: Entry) -> Result<()> {
         self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
-    }
-
-    pub fn allow_queue_new_membership(&self) -> bool {
-        self.commit_pointer.load(Ordering::SeqCst) >= self.membership_pointer.load(Ordering::SeqCst)
     }
 
     /// Find the last last snapshot in `[, to]`.

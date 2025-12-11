@@ -57,6 +57,11 @@ pub struct Inner {
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
 
+    /// The index of the last membership.
+    /// Unless `commit_pointer` >= membership_pointer`,
+    /// new membership changes are not allowed to be queued.
+    pub membership_pointer: AtomicU64,
+
     state_machine: Read<StateMachine>,
 
     driver: RaftHandle,
@@ -79,6 +84,7 @@ impl Control {
             safe_term: AtomicU64::new(0),
             leader_failure_detector: failure_detector::FailureDetector::new(),
 
+            membership_pointer: AtomicU64::new(0),
             membership: HashSet::new().into(),
             peer_contexts: HashMap::new().into(),
             peer_threads: HashMap::new().into(),
@@ -118,6 +124,11 @@ impl Control {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
         let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
         Ok(cur_safe_term == cur_term)
+    }
+
+    pub fn allow_queue_new_membership(&self) -> bool {
+        self.state_machine.commit_pointer.load(Ordering::SeqCst)
+            >= self.membership_pointer.load(Ordering::SeqCst)
     }
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
