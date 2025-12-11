@@ -50,8 +50,11 @@ impl Inner {
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
 
-        self.commit_pointer
-            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+        // commit_pointer is not reset here because commit_pointer is autonomously restored
+        // from the state of log replication.
+        // In other words, even if we set commit_pointer 0 here, the correct commit_pointer
+        // will be transferred from the leader again.
+
         self.kernel_pointer
             .store(new_snapshot_index - 1, Ordering::SeqCst);
         self.application_pointer

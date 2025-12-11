@@ -33,7 +33,7 @@ impl Effect {
 
         self.state_machine
             .commit_pointer
-            .fetch_max(snapshot_index - 1, Ordering::SeqCst);
+            .store(snapshot_index - 1, Ordering::SeqCst);
         self.state_machine
             .kernel_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
