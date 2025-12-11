@@ -2,7 +2,6 @@ use super::*;
 
 pub struct Effect {
     pub ctrl: Control,
-    pub driver: RaftHandle,
 }
 impl Effect {
     fn state_machine(&self) -> &Read<StateMachine> {
@@ -10,7 +9,7 @@ impl Effect {
     }
 
     async fn add_peer(&self, id: NodeAddress) -> Result<()> {
-        if id == self.driver.self_node_id() {
+        if id == self.ctrl.driver.self_node_id() {
             return Ok(());
         }
 

@@ -2,7 +2,6 @@ use super::*;
 
 pub struct Effect {
     pub ctrl: Control,
-    pub driver: RaftHandle,
 }
 
 impl Effect {
@@ -33,7 +32,6 @@ impl Effect {
 
             effect::set_membership::Effect {
                 ctrl: self.ctrl.clone(),
-                driver: self.driver.clone(),
             }
             .exec(last_membership, last_membership_index)
             .await?;
