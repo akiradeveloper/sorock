@@ -198,13 +198,13 @@ impl RaftProcess {
                 commit_tx.clone(),
             ),
             election_handle: thread::election::new(ctrl.clone(), state_machine.clone()),
-            log_compaction_handle: thread::gc_log::new(state_machine.clone()),
+            log_compaction_handle: thread::delete_old_entries::new(state_machine.clone()),
             query_execution_handle: thread::query_execution::new(
                 query_rx.clone(),
                 Read(state_machine.clone()),
                 app_rx.clone(),
             ),
-            snapshot_deleter_handle: thread::gc_snapshot::new(
+            snapshot_deleter_handle: thread::delete_old_snapshots::new(
                 app.clone(),
                 Read(state_machine.clone()),
             ),
