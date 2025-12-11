@@ -49,6 +49,7 @@ pub struct Inner {
     ballot: storage::BallotStore,
     safe_term: AtomicU64,
     leader_failure_detector: failure_detector::FailureDetector,
+    pub commit_pointer: AtomicU64,
 
     // peers
     membership: spin::RwLock<HashSet<NodeAddress>>,
@@ -56,7 +57,6 @@ pub struct Inner {
     peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
-
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
@@ -83,6 +83,7 @@ impl Control {
             vote_sequencer: tokio::sync::Semaphore::new(1),
             safe_term: AtomicU64::new(0),
             leader_failure_detector: failure_detector::FailureDetector::new(),
+            commit_pointer: AtomicU64::new(0),
 
             membership_pointer: AtomicU64::new(0),
             membership: HashSet::new().into(),
@@ -127,8 +128,7 @@ impl Control {
     }
 
     pub fn allow_queue_new_membership(&self) -> bool {
-        self.state_machine.commit_pointer.load(Ordering::SeqCst)
-            >= self.membership_pointer.load(Ordering::SeqCst)
+        self.commit_pointer.load(Ordering::SeqCst) >= self.membership_pointer.load(Ordering::SeqCst)
     }
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
@@ -143,7 +143,7 @@ impl Control {
 
     pub async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
         let ballot = self.read_ballot().await?;
-        let leader_commit_index = self.state_machine.commit_pointer.load(Ordering::SeqCst);
+        let leader_commit_index = self.commit_pointer.load(Ordering::SeqCst);
         let req = request::Heartbeat {
             leader_term: ballot.cur_term,
             leader_commit_index,

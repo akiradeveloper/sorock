@@ -2,9 +2,12 @@ use super::*;
 
 pub struct Effect {
     pub ctrl: Control,
-    pub state_machine: StateMachine,
 }
 impl Effect {
+    fn state_machine(&self) -> &Read<StateMachine> {
+        &self.ctrl.state_machine
+    }
+
     pub async fn exec(
         self,
         leader_id: NodeAddress,
@@ -39,9 +42,9 @@ impl Effect {
 
         let new_commit_index = std::cmp::min(
             leader_commit,
-            self.state_machine.get_log_last_index().await?,
+            self.state_machine().get_log_last_index().await?,
         );
-        self.state_machine
+        self.ctrl
             .commit_pointer
             .fetch_max(new_commit_index, Ordering::SeqCst);
 
