@@ -168,7 +168,7 @@ impl Control {
             match_indices.push(peer.progress.match_index);
         }
 
-        match_indices.sort();
+        match_indices.sort_unstable();
         match_indices.reverse();
         let mid = match_indices.len() / 2;
         let new_commit_index = match_indices[mid];
