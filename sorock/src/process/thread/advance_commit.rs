@@ -2,8 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_machine: StateMachine,
-    ctrl: Read<Control>,
+    ctrl: Control,
     consumer: EventConsumer<ReplicationEvent>,
     producer: EventProducer<CommitEvent>,
 }
@@ -15,11 +14,11 @@ impl Thread {
             control::ElectionState::Leader
         ));
 
-        let cur_commit_index = self.state_machine.commit_pointer.load(Ordering::SeqCst);
+        let cur_commit_index = self.ctrl.commit_pointer.load(Ordering::SeqCst);
         let new_commit_index = self.ctrl.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {
-            self.state_machine
+            self.ctrl
                 .commit_pointer
                 .fetch_max(new_commit_index, Ordering::SeqCst);
             self.producer.push_event(CommitEvent);
@@ -43,13 +42,11 @@ impl Thread {
 }
 
 pub fn new(
-    state_machine: StateMachine,
-    ctrl: Read<Control>,
+    ctrl: Control,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {
     Thread {
-        state_machine,
         ctrl,
         consumer: consume,
         producer: produce,

@@ -9,7 +9,7 @@ impl Effect {
     /// Advance kernel process once.
     pub async fn exec(self) -> Result<()> {
         let cur_kern_index = self.state_machine.kernel_pointer.load(Ordering::SeqCst);
-        ensure!(cur_kern_index < self.state_machine.commit_pointer.load(Ordering::SeqCst));
+        ensure!(cur_kern_index < self.ctrl.commit_pointer.load(Ordering::SeqCst));
 
         let process_index = cur_kern_index + 1;
         let e = self.state_machine.get_entry(process_index).await?;

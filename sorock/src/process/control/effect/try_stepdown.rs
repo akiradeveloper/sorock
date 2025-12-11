@@ -20,7 +20,7 @@ impl Effect {
         // otherwise the configuration change entry may be lost.
         let last_membership_change_index = {
             let index = self.ctrl.membership_pointer.load(Ordering::SeqCst);
-            ensure!(index <= self.state_machine().commit_pointer.load(Ordering::SeqCst));
+            ensure!(index <= self.ctrl.commit_pointer.load(Ordering::SeqCst));
             index
         };
 

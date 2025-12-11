@@ -2,6 +2,7 @@ use super::*;
 
 pub struct Effect {
     pub state_machine: StateMachine,
+    pub ctrl: Control,
 }
 
 impl Effect {
@@ -31,7 +32,7 @@ impl Effect {
             }
         };
 
-        self.state_machine
+        self.ctrl
             .commit_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
         self.state_machine

@@ -154,11 +154,6 @@ impl RaftProcess {
         let (query_tx, query_rx) = query_processing::new(Read(app.clone()));
 
         let state_machine = StateMachine::new(log_store, app.clone());
-        state_machine::effect::restore_state::Effect {
-            state_machine: state_machine.clone(),
-        }
-        .exec()
-        .await?;
 
         let (queue_tx, queue_rx) = thread::notify();
         let (replication_tx, replication_rx) = thread::notify();
@@ -174,11 +169,16 @@ impl RaftProcess {
             driver.clone(),
         );
 
-        control::effect::restore_membership::Effect {
+        state_machine::effect::restore_state::Effect {
+            state_machine: state_machine.clone(),
             ctrl: ctrl.clone(),
         }
         .exec()
         .await?;
+
+        control::effect::restore_membership::Effect { ctrl: ctrl.clone() }
+            .exec()
+            .await?;
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
@@ -194,8 +194,7 @@ impl RaftProcess {
             ),
             advance_snapshot_handle: thread::advance_snapshot::new(state_machine.clone()),
             advance_commit_handle: thread::advance_commit::new(
-                state_machine.clone(),
-                Read(ctrl.clone()),
+                ctrl.clone(),
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
@@ -436,7 +435,7 @@ impl RaftProcess {
         let resp = if will_process {
             let (app_completion, rx) = completion::prepare_application_completion();
 
-            let read_index = self.state_machine.commit_pointer.load(Ordering::SeqCst);
+            let read_index = self.ctrl.commit_pointer.load(Ordering::SeqCst);
             let query = query_processing::Query {
                 message: req.message,
                 app_completion,
@@ -500,7 +499,6 @@ impl RaftProcess {
 
         control::effect::receive_heartbeat::Effect {
             ctrl: self.ctrl.clone(),
-            state_machine: self.state_machine.clone(),
         }
         .exec(leader_id, term, leader_commit)
         .await?;
@@ -558,7 +556,7 @@ impl RaftProcess {
                 .state_machine
                 .application_pointer
                 .load(Ordering::SeqCst),
-            commit_index: self.state_machine.commit_pointer.load(Ordering::SeqCst),
+            commit_index: self.ctrl.commit_pointer.load(Ordering::SeqCst),
         };
         Ok(out)
     }

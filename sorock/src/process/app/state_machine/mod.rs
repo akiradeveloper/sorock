@@ -12,8 +12,7 @@ pub struct Inner {
     storage: storage::LogStore,
 
     // Pointers in the log.
-    // Invariant: commit_pointer >= kernel_pointer >= application_pointer >= snapshot_pointer
-    pub commit_pointer: AtomicU64,
+    // Invariant: kernel_pointer >= application_pointer >= snapshot_pointer
     kernel_pointer: AtomicU64,
     pub application_pointer: AtomicU64,
     pub snapshot_pointer: AtomicU64,
@@ -31,7 +30,6 @@ impl StateMachine {
         let inner = Inner {
             app,
             write_sequencer: tokio::sync::Semaphore::new(1),
-            commit_pointer: AtomicU64::new(0),
             kernel_pointer: AtomicU64::new(0),
             application_pointer: AtomicU64::new(0),
             snapshot_pointer: AtomicU64::new(0),
