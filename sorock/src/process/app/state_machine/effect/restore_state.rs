@@ -30,19 +30,19 @@ impl Effect {
                 1
             }
         };
-        self.state_machine
-            .snapshot_pointer
-            .store(snapshot_index, Ordering::SeqCst);
 
         self.state_machine
             .commit_pointer
-            .store(snapshot_index - 1, Ordering::SeqCst);
+            .fetch_max(snapshot_index - 1, Ordering::SeqCst);
         self.state_machine
             .kernel_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
         self.state_machine
             .application_pointer
             .store(snapshot_index - 1, Ordering::SeqCst);
+        self.state_machine
+            .snapshot_pointer
+            .store(snapshot_index, Ordering::SeqCst);
 
         info!("restore state: snapshot_index={snapshot_index}");
         Ok(())

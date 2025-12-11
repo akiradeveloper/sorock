@@ -176,7 +176,6 @@ impl RaftProcess {
 
         control::effect::restore_membership::Effect {
             ctrl: ctrl.clone(),
-            driver: driver.clone(),
         }
         .exec()
         .await?;
@@ -241,7 +240,6 @@ impl RaftProcess {
         if let Some(config) = config0 {
             control::effect::set_membership::Effect {
                 ctrl: self.ctrl.clone(),
-                driver: self.driver.clone(),
             }
             .exec(config, index)
             .await?;

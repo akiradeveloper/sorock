@@ -80,7 +80,7 @@ impl Effect {
 
         self.state_machine
             .application_pointer
-            .fetch_max(process_index, Ordering::SeqCst);
+            .store(process_index, Ordering::SeqCst);
 
         Ok(())
     }

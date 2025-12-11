@@ -53,9 +53,11 @@ impl Inner {
         self.commit_pointer
             .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
         self.kernel_pointer
-            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+            .store(new_snapshot_index - 1, Ordering::SeqCst);
         self.application_pointer
-            .fetch_max(new_snapshot_index - 1, Ordering::SeqCst);
+            .store(new_snapshot_index - 1, Ordering::SeqCst);
+        self.snapshot_pointer
+            .store(new_snapshot_index, Ordering::SeqCst);
 
         info!("inserted a new snapshot@{new_snapshot_index}");
         Ok(())
