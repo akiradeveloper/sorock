@@ -171,7 +171,6 @@ impl RaftProcess {
 
         state_machine::effect::restore_state::Effect {
             state_machine: state_machine.clone(),
-            ctrl: ctrl.clone(),
         }
         .exec()
         .await?;
