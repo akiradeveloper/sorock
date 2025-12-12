@@ -6,6 +6,7 @@ use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use serde::{Deserialize, Serialize};
 use sorock::process::*;
 use std::sync::Arc;
+use log_storage::{LogStorage, LogShardView};
 
 mod ballot;
 mod log;
@@ -16,31 +17,24 @@ pub use log::LogStore;
 /// `RaftStorage` is a storage backend for `RaftProcess` based on redb.
 pub struct RaftStorage {
     db: Arc<redb::Database>,
-    tx: log::Sender,
-    _kill_tx: crossbeam::channel::Sender<()>,
+    log_storage: LogStorage,
 }
 impl RaftStorage {
     pub fn new(redb: redb::Database) -> Self {
         let db = Arc::new(redb);
-
-        let (reaper, tx) = log::Reaper::new(db.clone());
-        let (_kill_tx, kill_rx) = crossbeam::channel::bounded(0);
-        std::thread::spawn(move || loop {
-            if let Err(TryRecvError::Disconnected) = kill_rx.try_recv() {
-                break;
-            }
-            reaper.reap().ok();
-        });
-
-        Self { db, tx, _kill_tx }
+        let log_storage = LogStorage::new(db.clone());
+        Self { db, log_storage }
     }
 
     pub(super) fn get(
         &self,
         shard_index: ShardIndex,
     ) -> Result<(log::LogStore, ballot::BallotStore)> {
-        let log = log::LogStore::new(self.db.clone(), shard_index, self.tx.clone())?;
+        let view = self.log_storage.get_shard(shard_index)?;
+        let log = log::LogStore::new(view);
+
         let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
+
         Ok((log, ballot))
     }
 }
