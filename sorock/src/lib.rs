@@ -13,6 +13,9 @@ pub mod service;
 /// Implementation of Raft node containing multiple Raft processes.
 pub mod node;
 
+/// Implementation of log storage with batch processing.
+pub mod log_storage;
+
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
 use derive_more::{Deref, Display, FromStr};
