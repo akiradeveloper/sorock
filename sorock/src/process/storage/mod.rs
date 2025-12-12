@@ -2,11 +2,11 @@ use crate as sorock;
 
 use anyhow::Result;
 use crossbeam::channel::TryRecvError;
+use log_storage::{LogShardView, LogStorage};
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use serde::{Deserialize, Serialize};
 use sorock::process::*;
 use std::sync::Arc;
-use log_storage::{LogStorage, LogShardView};
 
 mod ballot;
 mod log;

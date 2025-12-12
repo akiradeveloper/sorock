@@ -9,8 +9,12 @@ pub struct LogShardView {
 }
 
 impl LogShardView {
-    pub fn new(db: Arc<redb::Database>, shard_index: u32, q: ReaperTx) -> Result<Self> {
-        let space = format!("log-{shard_index}");
+    pub(super) fn new(
+        db: Arc<redb::Database>,
+        shard_index: u32,
+        q: crossbeam::channel::Sender<LazyInsert>,
+    ) -> Result<Self> {
+        let space = format!("log.{shard_index}");
 
         let tx = db.begin_write()?;
         {
@@ -21,7 +25,7 @@ impl LogShardView {
         Ok(Self {
             db,
             space,
-            reaper_queue: q.tx,
+            reaper_queue: q,
         })
     }
 

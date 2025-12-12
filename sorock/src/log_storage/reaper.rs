@@ -7,19 +7,13 @@ pub struct LazyInsert {
     pub notifier: oneshot::Sender<()>,
 }
 
-#[derive(Clone)]
-pub struct ReaperTx {
-    pub tx: crossbeam::channel::Sender<LazyInsert>,
-}
-
 pub struct Reaper {
     db: Arc<redb::Database>,
     rx: crossbeam::channel::Receiver<LazyInsert>,
 }
 impl Reaper {
-    pub fn new(db: Arc<redb::Database>) -> (Self, ReaperTx) {
+    pub fn new(db: Arc<redb::Database>) -> (Self, crossbeam::channel::Sender<LazyInsert>) {
         let (tx, rx) = crossbeam::channel::unbounded();
-        let tx = ReaperTx { tx };
         let this = Self { db, rx };
         (this, tx)
     }

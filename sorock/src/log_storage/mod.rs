@@ -6,12 +6,12 @@ use std::time::Duration;
 mod reaper;
 mod view;
 
-use reaper::{LazyInsert, Reaper, ReaperTx};
+use reaper::{LazyInsert, Reaper};
 pub use view::LogShardView;
 
 pub struct LogStorage {
     db: Arc<redb::Database>,
-    tx: reaper::ReaperTx,
+    tx: crossbeam::channel::Sender<LazyInsert>,
     _kill_tx: crossbeam::channel::Sender<()>,
 }
 
