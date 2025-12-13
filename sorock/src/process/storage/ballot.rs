@@ -29,37 +29,37 @@ mod value {
     }
 }
 
-fn table_def(space: &str) -> TableDefinition<'_, (), Vec<u8>> {
+const BALLOT: &str = "ballot";
+
+fn table_def(space: &str) -> TableDefinition<'_, u32, Vec<u8>> {
     TableDefinition::new(&space)
 }
 
 pub struct BallotStore {
     db: Arc<Database>,
-    space: String,
+    shard_index: u32,
 }
 
 impl BallotStore {
     pub fn new(db: Arc<Database>, shard_index: u32) -> Result<Self> {
-        let space = format!("ballot.{shard_index}");
-
         // Insert the initial value if not exists.
         let tx = db.begin_write()?;
         {
-            let mut tbl = tx.open_table(table_def(&space))?;
-            if tbl.is_empty()? {
-                tbl.insert((), value::ser(Ballot::new()))?;
+            let mut tbl = tx.open_table(table_def(BALLOT))?;
+            if tbl.get(shard_index)?.is_none() {
+                tbl.insert(shard_index, value::ser(Ballot::new()))?;
             }
         }
         tx.commit()?;
 
-        Ok(Self { db, space })
+        Ok(Self { db, shard_index })
     }
 
     pub async fn save_ballot(&self, ballot: Ballot) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
-            let mut tbl = tx.open_table(table_def(&self.space))?;
-            tbl.insert((), value::ser(ballot))?;
+            let mut tbl = tx.open_table(table_def(BALLOT))?;
+            tbl.insert(self.shard_index, value::ser(ballot))?;
         }
         tx.commit()?;
         Ok(())
@@ -67,8 +67,8 @@ impl BallotStore {
 
     pub async fn load_ballot(&self) -> Result<Ballot> {
         let tx = self.db.begin_read()?;
-        let tbl = tx.open_table(table_def(&self.space))?;
-        match tbl.get(())? {
+        let tbl = tx.open_table(table_def(BALLOT))?;
+        match tbl.get(self.shard_index)? {
             Some(bin) => Ok(value::desr(&bin.value())),
             None => Err(anyhow::anyhow!("No ballot")),
         }
