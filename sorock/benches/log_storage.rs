@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-const DURATION: Duration = Duration::from_secs(1);
+const DURATION: Duration = Duration::from_secs(5);
 const IOSIZES: [usize; 3] = [10, 100, 1000]; // X-axis
 const THREADS: [u32; 4] = [1, 10, 100, 1000]; // Y-axis
 
@@ -39,6 +39,12 @@ async fn main() -> Result<()> {
 
     for (i, &iosize) in IOSIZES.iter().enumerate() {
         for (j, &n_thread) in THREADS.iter().enumerate() {
+            eprintln!(
+                "Running ({}sec): iosize={} bytes, n_thread={}",
+                DURATION.as_secs(),
+                iosize,
+                n_thread
+            );
             bench_result_tbl[i][j] = run_bench(iosize, n_thread).await;
         }
     }
