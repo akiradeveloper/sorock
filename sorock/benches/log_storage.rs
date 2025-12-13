@@ -2,7 +2,7 @@ use anyhow::Result;
 
 const DURATION: Duration = Duration::from_secs(1);
 const IOSIZES: [usize; 3] = [10, 100, 1000]; // X-axis
-const THREADS: [usize; 4] = [1, 10, 100, 1000]; // Y-axis
+const THREADS: [u32; 4] = [1, 10, 100, 1000]; // Y-axis
 
 #[derive(Default, Clone, Copy)]
 struct BenchResult {
@@ -17,9 +17,9 @@ fn draw_result(tbl: [[BenchResult; 4]; 3]) {
         let mut arr = vec![];
         for j in 0..4 {
             let cell = format!(
-                "{:.2} MB/s, {:.2} ms/op",
+                "{:.2} MB/s, {:.2} us/op",
                 tbl[i][j].throughput,
-                tbl[i][j].latency.as_millis()
+                tbl[i][j].latency.as_micros()
             );
             arr.push(cell);
         }
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
 
     for (i, &iosize) in IOSIZES.iter().enumerate() {
         for (j, &n_thread) in THREADS.iter().enumerate() {
-            bench_result_tbl[i][j] = run_bench(iosize, n_thread);
+            bench_result_tbl[i][j] = run_bench(iosize, n_thread).await;
         }
     }
 
@@ -52,12 +52,13 @@ use sorock::log_storage::LogStorage;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+#[derive(Debug)]
 struct Total {
     count: u32,
     iotime: Duration,
 }
 
-fn run_bench(iosize: usize, n_threads: usize) -> BenchResult {
+async fn run_bench(iosize: usize, n_threads: u32) -> BenchResult {
     let mem = redb::backends::InMemoryBackend::new();
     let db = redb::Database::builder().create_with_backend(mem).unwrap();
     let log_storage = LogStorage::new(Arc::new(db));
@@ -67,10 +68,11 @@ fn run_bench(iosize: usize, n_threads: usize) -> BenchResult {
         iotime: Duration::ZERO,
     }));
 
-    for _ in 0..n_threads {
-        let shard = log_storage.get_shard(0).unwrap();
+    let mut handles = vec![];
+    for i in 0..n_threads {
+        let shard = log_storage.get_shard(i).unwrap();
         let total = total.clone();
-        tokio::spawn(async move {
+        let hdl = tokio::spawn(async move {
             let mut index = 0;
             let time = Instant::now();
             while time.elapsed() < DURATION {
@@ -87,7 +89,9 @@ fn run_bench(iosize: usize, n_threads: usize) -> BenchResult {
                 index += 1;
             }
         });
+        handles.push(hdl);
     }
+    futures::future::join_all(handles).await;
 
     let total = total.lock();
     BenchResult {
