@@ -65,8 +65,10 @@ struct Total {
 }
 
 async fn run_bench(iosize: usize, n_threads: u32) -> BenchResult {
-    let mem = redb::backends::InMemoryBackend::new();
-    let db = redb::Database::builder().create_with_backend(mem).unwrap();
+    // let mem = redb::backends::InMemoryBackend::new();
+    // let db = redb::Database::builder().create_with_backend(mem).unwrap();
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let db = redb::Database::create(tmp.path()).unwrap();
     let log_storage = LogStorage::new(Arc::new(db));
 
     let total = Arc::new(spin::Mutex::new(Total {

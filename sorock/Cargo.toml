@@ -39,6 +39,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 tabled = "0.20.0"
+tempfile = "3"
 tokio = { workspace = true, features = ["full"] }
 
 [build-dependencies]
