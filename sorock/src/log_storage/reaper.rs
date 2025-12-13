@@ -1,9 +1,9 @@
 use super::*;
 
 pub struct LazyInsert {
+    pub shard_index: u32,
     pub index: u64,
     pub data: Vec<u8>,
-    pub space: String,
     pub notifier: oneshot::Sender<()>,
 }
 
@@ -30,14 +30,18 @@ impl Reaper {
             let e = self.rx.try_recv().unwrap();
             elems.push(e);
         }
+        // Ordered insertion will improve performance.
+        elems.sort_by_key(|e| (e.shard_index, e.index));
 
         let mut notifiers = vec![];
 
         let tx = self.db.begin_write()?;
-        for e in elems {
-            let mut tbl = tx.open_table(table_def(&e.space))?;
-            tbl.insert(e.index, e.data)?;
-            notifiers.push(e.notifier);
+        {
+            let mut tbl = tx.open_table(table_def(LOG))?;
+            for e in elems {
+                tbl.insert((e.shard_index, e.index), e.data)?;
+                notifiers.push(e.notifier);
+            }
         }
         tx.commit()?;
 

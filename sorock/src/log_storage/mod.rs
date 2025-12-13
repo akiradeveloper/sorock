@@ -38,6 +38,8 @@ impl LogStorage {
     }
 }
 
-fn table_def(space: &str) -> redb::TableDefinition<'_, u64, Vec<u8>> {
+const LOG: &str = "log";
+
+fn table_def(space: &str) -> redb::TableDefinition<'_, (u32, u64), Vec<u8>> {
     redb::TableDefinition::new(space)
 }
