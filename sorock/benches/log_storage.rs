@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-const DURATION: Duration = Duration::from_secs(5);
+const DURATION: Duration = Duration::from_millis(500);
 const IOSIZES: [usize; 3] = [10, 100, 1000]; // X-axis
 const THREADS: [u32; 4] = [1, 10, 100, 1000]; // Y-axis
 
@@ -106,7 +106,7 @@ async fn run_bench(iosize: usize, n_threads: u32) -> BenchResult {
 
     let total = total.lock();
     BenchResult {
-        throughput: (total.count as f64 * iosize as f64) / (1024.0 * 1024.0) / 5.0,
+        throughput: (total.count as f64 * iosize as f64) / (1024.0 * 1024.0) / DURATION.as_secs_f64(),
         latency: total.iotime / total.count,
     }
 }
