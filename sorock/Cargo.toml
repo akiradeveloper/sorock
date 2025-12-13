@@ -38,7 +38,12 @@ tonic-reflection = "0.14"
 tracing.workspace = true
 
 [dev-dependencies]
+tabled = "0.20.0"
 tokio = { workspace = true, features = ["full"] }
 
 [build-dependencies]
 tonic-prost-build.workspace = true
+
+[[bench]]
+name = "log_storage"
+harness = false
