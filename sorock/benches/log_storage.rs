@@ -106,7 +106,9 @@ async fn run_bench(iosize: usize, n_threads: u32) -> BenchResult {
 
     let total = total.lock();
     BenchResult {
-        throughput: (total.count as f64 * iosize as f64) / (1024.0 * 1024.0) / DURATION.as_secs_f64(),
+        throughput: (total.count as f64 * iosize as f64)
+            / (1024.0 * 1024.0)
+            / DURATION.as_secs_f64(),
         latency: total.iotime / total.count,
     }
 }
