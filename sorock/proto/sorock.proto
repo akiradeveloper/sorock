@@ -125,17 +125,24 @@ message LogMetrics {
   uint64 last_index = 5;
 }
 
+message ShardMapping {
+  string server_id = 1;
+  repeated uint32 shard_indices = 2;
+}
+
 service Raft {
   rpc Write(WriteRequest) returns (Response);
   rpc Read(ReadRequest) returns (Response);
-  rpc ProcessKernelRequest (KernelRequest) returns (google.protobuf.Empty);
-  rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc AddServer (AddServerRequest) returns (google.protobuf.Empty);
   rpc RemoveServer (RemoveServerRequest) returns (google.protobuf.Empty);
   rpc GetMembership(Shard) returns (Membership) {}
+  rpc ProcessKernelRequest (KernelRequest) returns (google.protobuf.Empty);
+  rpc RequestVote (VoteRequest) returns (VoteResponse);
   rpc SendReplicationStream (stream ReplicationStreamChunk) returns (ReplicationStreamResponse);
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
   rpc SendTimeoutNow (TimeoutNow) returns (google.protobuf.Empty);
   rpc WatchLogMetrics(Shard) returns (stream LogMetrics) {}
+  rpc GetShardMapping (google.protobuf.Empty) returns (ShardMapping);
+  rpc UpdateShardMapping (ShardMapping) returns (google.protobuf.Empty);
 }

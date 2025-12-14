@@ -17,4 +17,6 @@ pub enum Error {
     PeerNotFound(NodeAddress),
     #[error("process not found (shard_index={0})")]
     ProcessNotFound(ShardIndex),
+    #[error("shard not reachable (shard_index={0})")]
+    ShardUnreachable(ShardIndex),
 }
