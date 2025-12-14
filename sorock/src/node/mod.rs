@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 /// `RaftNode` manages multiple `RaftProcess`es on shards.
 pub struct RaftNode {
-    self_node_id: NodeAddress,
+    pub self_node_id: NodeAddress,
     cache: moka::sync::Cache<NodeAddress, RaftConnection>,
     process_map: spin::RwLock<HashMap<ShardIndex, Arc<process::RaftProcess>>>,
 }
@@ -46,6 +46,14 @@ impl RaftNode {
 
     pub(super) fn get_process(&self, shard_index: ShardIndex) -> Option<Arc<process::RaftProcess>> {
         self.process_map.read().get(&shard_index).cloned()
+    }
+
+    pub fn list_processes(&self) -> Vec<ShardIndex> {
+        self.process_map
+            .read()
+            .keys()
+            .cloned()
+            .collect::<Vec<ShardIndex>>()
     }
 }
 
