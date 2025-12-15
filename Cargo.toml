@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "sorock",
     "sorock-check",
+    "sorock-cli",
     "testing/*",
 ]
 
