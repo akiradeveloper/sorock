@@ -2,7 +2,11 @@ use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
-use tonic::transport::Uri;
+use futures::Stream;
+use futures::StreamExt;
+use std::pin::Pin;
+use std::time::{Duration, Instant};
+use tonic::transport::{Endpoint, Uri};
 
 mod sorock {
     tonic::include_proto!("sorock");
@@ -14,6 +18,7 @@ mod sub;
 #[derive(Subcommand, Debug)]
 enum Sub {
     Sync(sub::sync::CommandArgs),
+    Monitor(sub::monitor::CommandArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -28,6 +33,9 @@ async fn main() -> Result<()> {
     match args.sub {
         Sub::Sync(args) => {
             sub::sync::run(args).await?;
+        }
+        Sub::Monitor(args) => {
+            sub::monitor::run(args).await?;
         }
     }
 

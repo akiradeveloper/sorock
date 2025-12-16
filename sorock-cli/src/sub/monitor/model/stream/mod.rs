@@ -8,9 +8,9 @@ pub use membership::CopyMembership;
 
 #[async_trait::async_trait]
 pub trait Node: Send + Sync {
-    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>>;
+    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = sorock::Membership> + Send>>;
     async fn watch_log_metrics(
         &self,
         url: Uri,
-    ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>>;
+    ) -> Pin<Box<dyn Stream<Item = sorock::LogMetrics> + Send>>;
 }

@@ -6,7 +6,7 @@ pub struct CopyLogMetrics {
 impl CopyLogMetrics {
     pub async fn copy(
         &mut self,
-        st: impl Stream<Item = proto::LogMetrics>,
+        st: impl Stream<Item = sorock::LogMetrics>,
         data: Arc<RwLock<Nodes>>,
     ) {
         let mut st = Box::pin(st);

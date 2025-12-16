@@ -6,7 +6,7 @@ use tonic::transport::Uri;
 
 pub fn connect_real_node(uri: Uri, shard_index: u32) -> impl model::stream::Node {
     let chan = Endpoint::from(uri).connect_lazy();
-    let client = proto::raft_client::RaftClient::new(chan);
+    let client = sorock::RaftClient::new(chan);
     RealNode {
         client,
         shard_index,
@@ -14,14 +14,14 @@ pub fn connect_real_node(uri: Uri, shard_index: u32) -> impl model::stream::Node
 }
 
 struct RealNode {
-    client: proto::raft_client::RaftClient<Channel>,
+    client: sorock::RaftClient,
     shard_index: u32,
 }
 
 #[async_trait::async_trait]
 impl model::stream::Node for RealNode {
-    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>> {
-        let shard = proto::Shard {
+    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = sorock::Membership> + Send>> {
+        let shard = sorock::Shard {
             id: self.shard_index,
         };
         let mut client = self.client.clone();
@@ -46,8 +46,8 @@ impl model::stream::Node for RealNode {
     async fn watch_log_metrics(
         &self,
         _: Uri,
-    ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>> {
-        let shard = proto::Shard {
+    ) -> Pin<Box<dyn Stream<Item = sorock::LogMetrics> + Send>> {
+        let shard = sorock::Shard {
             id: self.shard_index,
         };
         let mut client = self.client.clone();
