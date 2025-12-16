@@ -1,61 +1,47 @@
-use anyhow::Result;
-use spin::RwLock;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::Arc;
-use std::{io, vec};
-
-use clap::Parser;
-use futures::Stream;
-use futures::StreamExt;
-use ratatui::prelude::*;
-use ratatui::widgets::{Block, Gauge};
-use ratatui::{
-    crossterm::event::{self, KeyCode, KeyEventKind},
-    widgets::{Axis, Borders, Chart, Dataset, GraphType, StatefulWidget, Widget},
-    DefaultTerminal,
-};
-use std::pin::Pin;
-use std::time::{Duration, Instant};
-use tonic::transport::{Channel, Endpoint, Uri};
+use super::*;
 
 mod mock;
 mod model;
 mod real;
 mod ui;
 
-mod proto {
-    tonic::include_proto!("sorock");
-}
+use ratatui::prelude::*;
+use ratatui::widgets::{Block, Gauge};
+use ratatui::{
+    DefaultTerminal,
+    crossterm::event::{self, KeyCode, KeyEventKind},
+    widgets::{Axis, Borders, Chart, Dataset, GraphType, StatefulWidget, Widget},
+};
+use spin::RwLock;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
 
-#[derive(Parser)]
+#[derive(Subcommand, Debug)]
 enum Sub {
-    #[clap(about = "Start monitoring a cluster by connecting to a node.")]
-    Monitor { addr: Uri, shard_index: u32 },
-    #[clap(about = "Embedded test. 0 -> Static data, 1 -> Mock servers")]
-    TestMonitor { number: u8 },
+    #[clap(about = "Monitoring a real shard in a cluster.")]
+    Connect { node: Uri, shard_index: u32 },
+    #[clap(about = "Test monitoring with test data. (0 -> static, 1 -> mock)")]
+    Test { number: u8 },
 }
 
-#[derive(Parser)]
-struct Args {
+#[derive(Args, Debug)]
+pub struct CommandArgs {
     #[clap(subcommand)]
     sub: Sub,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = Args::parse();
-
+pub async fn run(args: CommandArgs) -> Result<()> {
     let model = match args.sub {
-        Sub::Monitor { addr, shard_index } => {
-            let node = real::connect_real_node(addr, shard_index);
+        Sub::Connect { node, shard_index } => {
+            let node = real::connect_real_node(node, shard_index);
             model::Model::new(node).await
         }
-        Sub::TestMonitor { number: 0 } => model::Model::test(),
-        Sub::TestMonitor { number: 1 } => {
+        Sub::Test { number: 0 } => model::Model::test(),
+        Sub::Test { number: 1 } => {
             let mock = mock::connect_mock_node();
             model::Model::new(mock).await
         }
-        _ => unreachable!(),
+        Sub::Test { .. } => unreachable!(),
     };
 
     let mut terminal = ratatui::init();
@@ -74,7 +60,7 @@ impl App {
         Self { model }
     }
 
-    fn run(self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    fn run(self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
         let mut app_state = AppState::default();
         loop {
             terminal.draw(|frame| {

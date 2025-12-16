@@ -17,8 +17,8 @@ impl MockNode {
 
 #[async_trait::async_trait]
 impl model::stream::Node for MockNode {
-    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = proto::Membership> + Send>> {
-        let out = proto::Membership {
+    async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = sorock::Membership> + Send>> {
+        let out = sorock::Membership {
             members: vec![
                 "http://n1:4000".to_string(),
                 "http://n2:4000".to_string(),
@@ -36,7 +36,7 @@ impl model::stream::Node for MockNode {
     async fn watch_log_metrics(
         &self,
         _: Uri,
-    ) -> Pin<Box<dyn Stream<Item = proto::LogMetrics> + Send>> {
+    ) -> Pin<Box<dyn Stream<Item = sorock::LogMetrics> + Send>> {
         let start_time = self.start_time;
         let st = async_stream::stream! {
             loop {
@@ -49,7 +49,7 @@ impl model::stream::Node for MockNode {
                     let b = f64::log(10.0, x as f64);
                     (a * b) as u64
                 };
-                let metrics = proto::LogMetrics {
+                let metrics = sorock::LogMetrics {
                     head_index: f(x),
                     snapshot_index: f(x+1),
                     application_index: f(x+2),

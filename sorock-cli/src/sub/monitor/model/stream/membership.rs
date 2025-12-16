@@ -3,7 +3,7 @@ use super::*;
 pub struct CopyMembership;
 
 impl CopyMembership {
-    pub async fn copy(st: impl Stream<Item = proto::Membership>, nodes: Arc<RwLock<Nodes>>) {
+    pub async fn copy(st: impl Stream<Item = sorock::Membership>, nodes: Arc<RwLock<Nodes>>) {
         let mut st = Box::pin(st);
         while let Some(membership) = st.next().await {
             let new_membership = {
