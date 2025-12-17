@@ -117,6 +117,15 @@ message TimeoutNow {
   uint32 shard_index = 1;
 }
 
+message CompareTermRequest {
+  uint32 shard_index = 1;
+  uint64 sender_term = 2;
+}
+
+message CompareTermResponse {
+  bool ack = 1;
+}
+
 message LogMetrics {
   uint64 head_index = 1;
   uint64 snapshot_index = 2;
@@ -128,6 +137,10 @@ message LogMetrics {
 message ShardMapping {
   string server_id = 1;
   repeated uint32 shard_indices = 2;
+}
+
+message ReadIndex {
+  optional uint64 read_index = 1;
 }
 
 service Raft {
@@ -142,7 +155,9 @@ service Raft {
   rpc GetSnapshot (GetSnapshotRequest) returns (stream SnapshotChunk);
   rpc SendHeartbeat (Heartbeat) returns (google.protobuf.Empty);
   rpc SendTimeoutNow (TimeoutNow) returns (google.protobuf.Empty);
-  rpc WatchLogMetrics(Shard) returns (stream LogMetrics) {}
+  rpc CompareTerm (CompareTermRequest) returns (CompareTermResponse);
+  rpc IssueReadIndex (Shard) returns (ReadIndex);
+  rpc WatchLogMetrics(Shard) returns (stream LogMetrics) {};
   rpc GetShardMapping (google.protobuf.Empty) returns (ShardMapping);
   rpc UpdateShardMapping (ShardMapping) returns (google.protobuf.Empty);
 }

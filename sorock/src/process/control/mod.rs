@@ -198,4 +198,35 @@ impl Control {
 
         Ok(())
     }
+
+    pub async fn find_read_index(&self) -> Result<Option<LogIndex>> {
+        let cur_term = self.read_ballot().await?.cur_term;
+
+        // A commit-index can be selected as a safety point for readers which we call "read-index".
+        // Readers can process read requests before this point.
+        let saved = self.commit_pointer.load(Ordering::SeqCst);
+
+        let peers = self.membership.read().clone();
+        let n = peers.len();
+
+        // Need to confirm majority of peers have terms less than or equal to `cur_term`.
+        // This ensures that this node has maintained leadership when commit-index was saved.
+        let mut futs = vec![];
+        for peer in peers {
+            let conn = self.driver.connect(peer.clone());
+            let fut = async move {
+                let resp = conn.compare_term(cur_term).await;
+                // Treat errors as NACK.
+                resp.unwrap_or(false)
+            };
+            futs.push(fut);
+        }
+
+        let ok = quorum::join((n + 2) / 2, futs).await;
+        if ok {
+            Ok(Some(saved))
+        } else {
+            Ok(None)
+        }
+    }
 }

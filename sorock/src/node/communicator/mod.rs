@@ -168,4 +168,34 @@ impl Communicator {
             .into_inner();
         Ok(resp.vote_granted)
     }
+
+    pub async fn compare_term(&self, term: Term) -> Result<bool> {
+        let req = raft::CompareTermRequest {
+            shard_index: self.shard_index,
+            sender_term: term,
+        };
+        let resp = self
+            .conn
+            .client
+            .clone()
+            .compare_term(req)
+            .await?
+            .into_inner();
+        Ok(resp.ack)
+    }
+
+    pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
+        let req = raft::Shard {
+            id: self.shard_index,
+        };
+        let resp = self
+            .conn
+            .client
+            .clone()
+            .issue_read_index(req)
+            .await?
+            .into_inner();
+
+        Ok(resp.read_index)
+    }
 }

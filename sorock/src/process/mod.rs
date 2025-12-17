@@ -566,4 +566,31 @@ impl RaftProcess {
         };
         Ok(out)
     }
+
+    pub async fn compare_term(&self, term: Term) -> Result<bool> {
+        let cur_term = self.ctrl.read_ballot().await?.cur_term;
+        Ok(term >= cur_term)
+    }
+
+    pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
+        let ballot = self.ctrl.read_ballot().await?;
+
+        let Some(leader_id) = ballot.voted_for else {
+            bail!(Error::LeaderUnknown)
+        };
+
+        if std::matches!(
+            self.ctrl.read_election_state(),
+            control::ElectionState::Leader
+        ) {
+            let read_index = self.ctrl.find_read_index().await?;
+            Ok(read_index)
+        } else {
+            // Avoid looping.
+            ensure!(self.driver.self_node_id() != leader_id);
+            let conn = self.driver.connect(leader_id);
+            let resp = conn.issue_read_index().await?;
+            Ok(resp)
+        }
+    }
 }
