@@ -5,6 +5,7 @@ mod raft {
 }
 type RaftClient = raft::raft_client::RaftClient<tonic::transport::channel::Channel>;
 
+use bincode::de::read;
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;
@@ -310,6 +311,37 @@ impl raft::raft_server::Raft for RaftService {
             .await
             .unwrap();
         Ok(tonic::Response::new(()))
+    }
+
+    async fn compare_term(
+        &self,
+        req: tonic::Request<raft::CompareTermRequest>,
+    ) -> std::result::Result<tonic::Response<raft::CompareTermResponse>, tonic::Status> {
+        let req = req.into_inner();
+        let shard_index = req.shard_index;
+
+        if let Some(process) = self.node.get_process(shard_index) {
+            let ack = process.compare_term(req.sender_term).await.unwrap();
+            return Ok(tonic::Response::new(raft::CompareTermResponse { ack }));
+        }
+
+        Err(Error::ProcessNotFound(shard_index)).unwrap()
+    }
+
+    async fn issue_read_index(
+        &self,
+        req: tonic::Request<raft::Shard>,
+    ) -> std::result::Result<tonic::Response<raft::ReadIndex>, tonic::Status> {
+        let req = req.into_inner();
+        let shard_index = req.id;
+
+        if let Some(process) = self.node.get_process(shard_index) {
+            let read_index = process.issue_read_index().await.unwrap();
+            let out = raft::ReadIndex { read_index };
+            return Ok(tonic::Response::new(out));
+        }
+
+        Err(Error::ProcessNotFound(shard_index)).unwrap()
     }
 
     type WatchLogMetricsStream =
