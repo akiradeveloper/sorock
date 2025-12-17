@@ -267,6 +267,14 @@ impl RaftProcess {
     }
 
     async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
+        let cur_term = self.ctrl.read_ballot().await?.cur_term;
+        ensure!(
+            cur_term <= req.sender_term,
+            "received replication stream from stale leader (term={} < cur_term={})",
+            req.sender_term,
+            cur_term
+        );
+
         let mut prev_clock = req.prev_clock;
         let mut n_inserted = 0;
         while let Some(Some(cur)) = req.entries.next().await {

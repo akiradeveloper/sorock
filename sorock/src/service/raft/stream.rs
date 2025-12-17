@@ -6,28 +6,31 @@ pub async fn into_internal_replication_stream(
     use raft::replication_stream_chunk::Elem as ChunkElem;
 
     // Get the header of the stream
-    let (shard_index, sender_id, prev_clock) = if let Some(Ok(chunk)) = out_stream.next().await {
-        let e = chunk.elem.context(Error::BadReplicationStream)?;
-        if let ChunkElem::Header(raft::ReplicationStreamHeader {
-            shard_index,
-            sender_id,
-            prev_clock: Some(prev_clock),
-        }) = e
-        {
-            (
+    let (shard_index, sender_id, sender_term, prev_clock) =
+        if let Some(Ok(chunk)) = out_stream.next().await {
+            let e = chunk.elem.context(Error::BadReplicationStream)?;
+            if let ChunkElem::Header(raft::ReplicationStreamHeader {
                 shard_index,
                 sender_id,
-                Clock {
-                    term: prev_clock.term,
-                    index: prev_clock.index,
-                },
-            )
+                sender_term,
+                prev_clock: Some(prev_clock),
+            }) = e
+            {
+                (
+                    shard_index,
+                    sender_id,
+                    sender_term,
+                    Clock {
+                        term: prev_clock.term,
+                        index: prev_clock.index,
+                    },
+                )
+            } else {
+                bail!(Error::BadReplicationStream)
+            }
         } else {
             bail!(Error::BadReplicationStream)
-        }
-    } else {
-        bail!(Error::BadReplicationStream)
-    };
+        };
 
     // Get the entries of the stream
     let entries = async_stream::stream! {
@@ -49,6 +52,7 @@ pub async fn into_internal_replication_stream(
 
     let st = request::ReplicationStream {
         sender_id: sender_id.parse().unwrap(),
+        sender_term,
         prev_clock,
         entries: Box::pin(entries),
     };

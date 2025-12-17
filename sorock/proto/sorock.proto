@@ -41,7 +41,8 @@ message KernelRequest {
 message ReplicationStreamHeader {
   uint32 shard_index = 1;
   string sender_id = 2;
-  Clock prev_clock = 3;
+  uint64 sender_term = 3;
+  Clock prev_clock = 4;
 }
 message ReplicationStreamEntry {
   Clock clock = 1;

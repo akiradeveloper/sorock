@@ -12,6 +12,7 @@ impl Effect {
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeAddress,
+        term: Term,
         state_machine: Read<StateMachine>,
         l: LogIndex,
         r: LogIndex,
@@ -34,12 +35,15 @@ impl Effect {
 
         Ok(request::ReplicationStream {
             sender_id: selfid,
+            sender_term: term,
             prev_clock: head.prev_clock,
             entries: Box::pin(st),
         })
     }
 
     pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
+        let cur_term = self.ctrl.read_ballot().await?.cur_term;
+
         let peer_context = self
             .ctrl
             .peer_contexts
@@ -78,6 +82,7 @@ impl Effect {
 
         let out_stream = Self::prepare_replication_stream(
             self.ctrl.driver.self_node_id(),
+            cur_term,
             self.state_machine().clone(),
             old_progress.next_index,
             old_progress.next_index + n,

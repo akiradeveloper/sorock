@@ -47,6 +47,7 @@ pub mod request {
 
     pub struct ReplicationStream {
         pub sender_id: NodeAddress,
+        pub sender_term: Term,
         pub prev_clock: Clock,
         pub entries: std::pin::Pin<
             Box<dyn futures::stream::Stream<Item = Option<ReplicationStreamElem>> + Send>,
