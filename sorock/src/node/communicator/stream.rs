@@ -8,6 +8,7 @@ pub fn into_external_replication_stream(
     let header_stream = vec![Some(ChunkElem::Header(raft::ReplicationStreamHeader {
         shard_index,
         sender_id: st.sender_id.to_string(),
+        sender_term: st.sender_term,
         prev_clock: Some(raft::Clock {
             term: st.prev_clock.term,
             index: st.prev_clock.index,
