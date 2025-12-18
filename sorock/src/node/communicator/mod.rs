@@ -198,4 +198,24 @@ impl Communicator {
 
         Ok(resp.read_index)
     }
+
+    pub async fn get_membership(&self) -> Result<HashSet<NodeAddress>> {
+        let req = raft::Shard {
+            id: self.shard_index,
+        };
+        let resp = self
+            .conn
+            .client
+            .clone()
+            .get_membership(req)
+            .await?
+            .into_inner();
+
+        let mut out = HashSet::new();
+        for m in resp.members {
+            out.insert(m.parse().unwrap());
+        }
+
+        Ok(out)
+    }
 }
