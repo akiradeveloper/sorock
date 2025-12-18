@@ -27,8 +27,10 @@ async fn n3_write() -> Result<()> {
         cur_state += add_v;
     }
 
-    let expected = cluster.user(0).read(0).await?;
-    assert_eq!(expected, cur_state);
+    for id in (0..3).rev() {
+        let expected = cluster.user(id).read(0).await?;
+        assert_eq!(expected, cur_state);
+    }
 
     Ok(())
 }

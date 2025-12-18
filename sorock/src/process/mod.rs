@@ -426,34 +426,15 @@ impl RaftProcess {
         &self,
         req: request::ApplicationReadRequest,
     ) -> Result<Bytes> {
-        let ballot = self.ctrl.read_ballot().await?;
+        let (app_completion, rx) = completion::prepare_application_completion();
 
-        let Some(leader_id) = ballot.voted_for else {
-            anyhow::bail!(Error::LeaderUnknown)
+        let query = query_processing::Query {
+            message: req.message,
+            app_completion,
         };
+        self.query_queue.queue(query)?;
 
-        let will_process = req.read_locally
-            || std::matches!(
-                self.ctrl.read_election_state(),
-                control::ElectionState::Leader
-            );
-
-        let resp = if will_process {
-            let (app_completion, rx) = completion::prepare_application_completion();
-
-            let query = query_processing::Query {
-                message: req.message,
-                app_completion,
-            };
-            self.query_queue.queue(query)?;
-
-            rx.await?
-        } else {
-            // Avoid looping.
-            ensure!(self.driver.self_node_id() != leader_id);
-            let conn = self.driver.connect(leader_id);
-            conn.process_application_read_request(req).await?
-        };
+        let resp = rx.await?;
         Ok(resp)
     }
 

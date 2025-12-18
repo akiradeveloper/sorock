@@ -103,7 +103,6 @@ impl Communicator {
         let req = raft::ReadRequest {
             shard_index: self.shard_index,
             message: req.message,
-            read_locally: req.read_locally,
         };
         let resp = self.conn.client.clone().read(req).await?.into_inner();
         Ok(resp.message)

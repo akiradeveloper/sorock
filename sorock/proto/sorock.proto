@@ -20,7 +20,6 @@ message WriteRequest {
 message ReadRequest {
   uint32 shard_index = 1;
   bytes message = 2;
-  bool read_locally = 3;
 }
 
 // Response from the `RaftApp`.
