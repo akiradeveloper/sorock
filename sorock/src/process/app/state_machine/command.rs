@@ -2,9 +2,10 @@ use super::*;
 
 #[derive(Serialize, Deserialize)]
 pub enum Command<'a> {
-    /// Any append entry from a client shouldn't be processed unless consensus is reached
-    /// up to the barrier entry which is queued by the current leader.
-    /// This ensures the current leader has common log entries with the majority.
+    /// Any append entry from a client shouldn't be processed unless consensus is
+    /// reached up to the barrier entry which is queued by the current leader.
+    /// This ensures committed entries will not be reverted as described in Figure 3.7
+    /// by allowing only who owns the barrier entry can be elected as a new leader.
     Barrier(Term),
     ClusterConfiguration {
         membership: HashSet<NodeAddress>,
