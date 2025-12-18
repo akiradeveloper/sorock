@@ -89,7 +89,6 @@ impl raft::raft_server::Raft for RaftService {
         if let Some(process) = self.node.get_process(shard_index) {
             let req = request::ApplicationReadRequest {
                 message: req.message,
-                read_locally: req.read_locally,
             };
             let resp = process.process_application_read_request(req).await.unwrap();
             return Ok(tonic::Response::new(raft::Response { message: resp }));
