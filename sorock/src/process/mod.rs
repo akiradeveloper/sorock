@@ -561,10 +561,27 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_membership(&self) -> Result<response::Membership> {
-        let out = response::Membership {
-            members: self.ctrl.read_membership(),
+        let ballot = self.ctrl.read_ballot().await?;
+
+        let Some(leader_id) = ballot.voted_for else {
+            bail!(Error::LeaderUnknown)
         };
-        Ok(out)
+
+        if std::matches!(
+            self.ctrl.read_election_state(),
+            control::ElectionState::Leader
+        ) {
+            let out = response::Membership {
+                members: self.ctrl.read_membership(),
+            };
+            Ok(out)
+        } else {
+            // Avoid looping.
+            ensure!(self.driver.self_node_id() != leader_id);
+            let conn = self.driver.connect(leader_id);
+            let members = conn.get_membership().await?;
+            Ok(response::Membership { members })
+        }
     }
 
     pub async fn compare_term(&self, term: Term) -> Result<bool> {
