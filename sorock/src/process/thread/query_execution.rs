@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 struct Thread {
-    query_queue: query_processing::QueryProcessor,
+    ready_queue: query_processing::ReadyQueue,
     state_machine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 }
@@ -13,7 +13,7 @@ impl Thread {
             .state_machine
             .application_pointer
             .load(Ordering::SeqCst);
-        self.query_queue.process(last_applied).await > 0
+        self.ready_queue.process(last_applied).await > 0
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -31,12 +31,12 @@ impl Thread {
 }
 
 pub fn new(
-    query_queue: query_processing::QueryProcessor,
+    query_queue: query_processing::ReadyQueue,
     state_machine: Read<StateMachine>,
     consumer: EventConsumer<ApplicationEvent>,
 ) -> ThreadHandle {
     Thread {
-        query_queue,
+        ready_queue: query_queue,
         state_machine,
         consumer,
     }

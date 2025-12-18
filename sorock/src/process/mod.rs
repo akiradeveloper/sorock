@@ -124,6 +124,7 @@ struct ThreadHandles {
     election_handle: thread::ThreadHandle,
     log_compaction_handle: thread::ThreadHandle,
     query_execution_handle: thread::ThreadHandle,
+    query_queue_coordinator_handle: thread::ThreadHandle,
     snapshot_deleter_handle: thread::ThreadHandle,
     stepdown_handle: thread::ThreadHandle,
 }
@@ -133,7 +134,7 @@ struct ThreadHandles {
 pub struct RaftProcess {
     state_machine: StateMachine,
     ctrl: Control,
-    query_queue: query_processing::QueryQueue,
+    query_queue: query_processing::PendingQueue,
     app: App,
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
@@ -151,7 +152,8 @@ impl RaftProcess {
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
-        let (query_tx, query_rx) = query_processing::new(Read(app.clone()));
+        let query_queue = query_processing::PendingQueue::new();
+        let exec_queue = query_processing::ReadyQueue::new(Read(app.clone()));
 
         let state_machine = StateMachine::new(log_store, app.clone());
 
@@ -200,9 +202,14 @@ impl RaftProcess {
             election_handle: thread::election::new(ctrl.clone(), state_machine.clone()),
             log_compaction_handle: thread::delete_old_entries::new(state_machine.clone()),
             query_execution_handle: thread::query_execution::new(
-                query_rx.clone(),
+                exec_queue.clone(),
                 Read(state_machine.clone()),
                 app_rx.clone(),
+            ),
+            query_queue_coordinator_handle: thread::query_queue_coordinator::new(
+                query_queue.clone(),
+                exec_queue,
+                driver.clone(),
             ),
             snapshot_deleter_handle: thread::delete_old_snapshots::new(
                 app.clone(),
@@ -214,7 +221,7 @@ impl RaftProcess {
         Ok(Self {
             state_machine,
             ctrl,
-            query_queue: query_tx,
+            query_queue,
             driver,
             app,
             _thread_handles,
@@ -434,12 +441,11 @@ impl RaftProcess {
         let resp = if will_process {
             let (app_completion, rx) = completion::prepare_application_completion();
 
-            let read_index = self.ctrl.commit_pointer.load(Ordering::SeqCst);
             let query = query_processing::Query {
                 message: req.message,
                 app_completion,
             };
-            self.query_queue.register(read_index, query)?;
+            self.query_queue.queue(query)?;
 
             rx.await?
         } else {

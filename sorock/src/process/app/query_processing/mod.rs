@@ -1,9 +1,44 @@
 use super::*;
 
-struct Queue<T> {
+pub struct Query {
+    pub message: Bytes,
+    pub app_completion: completion::ApplicationCompletion,
+}
+
+#[derive(Clone)]
+pub struct PendingQueue {
+    inner: Arc<spin::Mutex<Vec<Query>>>,
+}
+impl PendingQueue {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(spin::Mutex::new(vec![])),
+        }
+    }
+
+    pub fn queue(&self, q: Query) -> Result<()> {
+        self.inner.lock().push(q);
+        Ok(())
+    }
+
+    pub fn drain(&self) -> Vec<Query> {
+        let mut inner = self.inner.lock();
+        let out = inner.drain(..).collect();
+        out
+    }
+
+    pub fn requeue(&self, qs: Vec<Query>) {
+        let mut inner = self.inner.lock();
+        for q in qs {
+            inner.push(q);
+        }
+    }
+}
+
+struct WaitQueue<T> {
     inner: BTreeMap<LogIndex, Vec<T>>,
 }
-impl<T> Queue<T> {
+impl<T> WaitQueue<T> {
     fn new() -> Self {
         Self {
             inner: BTreeMap::new(),
@@ -33,33 +68,29 @@ impl<T> Queue<T> {
     }
 }
 
-pub struct Query {
-    pub message: Bytes,
-    pub app_completion: completion::ApplicationCompletion,
-}
-
 #[derive(Clone)]
-pub struct QueryQueue {
-    inner: Arc<spin::Mutex<Queue<Query>>>,
-}
-impl QueryQueue {
-    /// Register a query for execution when the readable index reaches `read_index`.
-    /// `read_index` should be the index of the commit pointer at the time of query.
-    pub fn register(&self, read_index: LogIndex, q: Query) -> Result<()> {
-        self.inner.lock().push(read_index, q);
-        Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub struct QueryProcessor {
+pub struct ReadyQueue {
     app: Read<App>,
-    inner: Arc<spin::Mutex<Queue<Query>>>,
+    wait_queue: Arc<spin::Mutex<WaitQueue<Query>>>,
 }
-impl QueryProcessor {
+impl ReadyQueue {
+    pub fn new(app: Read<App>) -> Self {
+        Self {
+            app,
+            wait_queue: Arc::new(spin::Mutex::new(WaitQueue::new())),
+        }
+    }
+
+    pub fn register(&self, read_index: LogIndex, qs: Vec<Query>) {
+        let mut wait_queue = self.wait_queue.lock();
+        for q in qs {
+            wait_queue.push(read_index, q);
+        }
+    }
+
     /// Process the waiting queries up to `readable_index`.
     pub async fn process(&self, readable_index: LogIndex) -> usize {
-        let qs = self.inner.lock().pop(readable_index);
+        let qs = self.wait_queue.lock().pop(readable_index);
 
         let mut futs = vec![];
         for (_, q) in qs {
@@ -78,14 +109,4 @@ impl QueryProcessor {
 
         n
     }
-}
-
-pub fn new(app: Read<App>) -> (QueryQueue, QueryProcessor) {
-    let q = Arc::new(spin::Mutex::new(Queue::new()));
-    let processor = QueryProcessor {
-        inner: q.clone(),
-        app,
-    };
-    let producer = QueryQueue { inner: q.clone() };
-    (producer, processor)
 }

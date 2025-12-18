@@ -11,6 +11,7 @@ pub mod delete_old_snapshots;
 pub mod election;
 pub mod heartbeat;
 pub mod query_execution;
+pub mod query_queue_coordinator;
 pub mod replication;
 pub mod stepdown;
 
