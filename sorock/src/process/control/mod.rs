@@ -200,6 +200,11 @@ impl Control {
     }
 
     pub async fn find_read_index(&self) -> Result<Option<LogIndex>> {
+        // Issuing read-index should be as safe as queuing a new read command.
+        if !self.allow_queue_new_entry().await? {
+            return Ok(None);
+        }
+
         let cur_term = self.read_ballot().await?.cur_term;
 
         // A commit-index can be selected as a safety point for readers which we call "read-index".
