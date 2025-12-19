@@ -49,7 +49,7 @@ pub struct Inner {
 
     // peers
     membership: spin::RwLock<HashSet<NodeAddress>>,
-    replication_progresses: spin::RwLock<HashMap<NodeAddress, ReplicationProgress>>,
+    replication_progresses: spin::RwLock<HashMap<NodeAddress, Arc<Mutex<ReplicationProgress>>>>,
     peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
@@ -161,7 +161,7 @@ impl Control {
 
         let progresses = self.replication_progresses.read();
         for (_, peer) in progresses.iter() {
-            match_indices.push(peer.match_index);
+            match_indices.push(peer.lock().await.match_index);
         }
 
         match_indices.sort_unstable();
@@ -178,7 +178,7 @@ impl Control {
             let progresses = self.replication_progresses.read();
             let mut out = vec![];
             for (id, peer) in progresses.iter() {
-                let progress = peer;
+                let progress = peer.lock().await;
                 out.push((id.clone(), progress.match_index));
             }
             out

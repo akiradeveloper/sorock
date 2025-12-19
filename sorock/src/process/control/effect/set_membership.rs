@@ -19,16 +19,17 @@ impl Effect {
 
         let init_progress = {
             let last_log_index = self.state_machine().get_log_last_index().await?;
-            ReplicationProgress::new(last_log_index)
+            Arc::new(Mutex::new(ReplicationProgress::new(last_log_index)))
         };
 
         let mut replication_progresses = self.ctrl.replication_progresses.write();
-        replication_progresses.insert(id.clone(), init_progress);
+        replication_progresses.insert(id.clone(), init_progress.clone());
 
         let thread_handles = ThreadHandles {
             replicator_handle: peer_thread::replication::new(
                 id.clone(),
-                self.ctrl.clone(),
+                init_progress,
+                Read(self.ctrl.clone()),
                 self.ctrl.queue_rx.clone(),
                 self.ctrl.replication_tx.clone(),
             ),
