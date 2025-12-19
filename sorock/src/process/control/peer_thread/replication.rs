@@ -4,8 +4,8 @@ use super::*;
 pub struct Thread {
     follower_id: NodeAddress,
     ctrl: Control,
-    consumer: EventConsumer<QueueEvent>,
-    producer: EventProducer<ReplicationEvent>,
+    consumer: thread::EventConsumer<thread::QueueEvent>,
+    producer: thread::EventProducer<thread::ReplicationEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
@@ -23,28 +23,28 @@ impl Thread {
         Ok(true)
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn do_loop(self) -> thread::ThreadHandle {
         let fut = async move {
             loop {
                 self.consumer
                     .consume_events(Duration::from_millis(100))
                     .await;
                 while let Ok(true) = self.advance_once().await {
-                    self.producer.push_event(ReplicationEvent);
+                    self.producer.push_event(thread::ReplicationEvent);
                 }
             }
         };
         let hdl = tokio::spawn(fut).abort_handle();
-        ThreadHandle(hdl)
+        thread::ThreadHandle(hdl)
     }
 }
 
 pub fn new(
     follower_id: NodeAddress,
     ctrl: Control,
-    consumer: EventConsumer<QueueEvent>,
-    producer: EventProducer<ReplicationEvent>,
-) -> ThreadHandle {
+    consumer: thread::EventConsumer<thread::QueueEvent>,
+    producer: thread::EventProducer<thread::ReplicationEvent>,
+) -> thread::ThreadHandle {
     Thread {
         follower_id,
         ctrl,
