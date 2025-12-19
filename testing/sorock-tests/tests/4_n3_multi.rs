@@ -5,9 +5,9 @@ use sorock_tests::*;
 use std::sync::Arc;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn n3_p10_multi_raft_cluster() -> Result<()> {
+async fn n3_p30_multi_raft_cluster() -> Result<()> {
     const N: u8 = 3;
-    const P: u32 = 10;
+    const P: u32 = 30;
     let cluster = Arc::new(Cluster::new(N, P).await?);
 
     let mut futs = vec![];
@@ -35,9 +35,9 @@ async fn n3_p10_multi_raft_cluster() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn n3_p10_multi_raft_io() -> Result<()> {
+async fn n3_p30_multi_raft_io() -> Result<()> {
     const N: u8 = 3;
-    const P: u32 = 10;
+    const P: u32 = 30;
 
     let cluster = Arc::new(Cluster::new(N, P).await?);
 
@@ -67,9 +67,9 @@ async fn n3_p10_multi_raft_io() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn n3_p10_multi_raft_io_roundrobin() -> Result<()> {
+async fn n3_p30_multi_raft_io_roundrobin() -> Result<()> {
     const N: u8 = 3;
-    const P: u32 = 10;
+    const P: u32 = 30;
 
     let cluster = Arc::new(Cluster::new(3, P).await?);
 
