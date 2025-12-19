@@ -5,8 +5,8 @@ pub struct Thread {
     follower_id: NodeAddress,
     progress: ReplicationProgressActor,
     ctrl_actor: Read<ControlActor>,
-    consumer: thread::EventConsumer<thread::QueueEvent>,
-    producer: thread::EventProducer<thread::ReplicationEvent>,
+    consumer: EventConsumer<QueueEvent>,
+    producer: EventProducer<ReplicationEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
@@ -25,19 +25,19 @@ impl Thread {
         Ok(true)
     }
 
-    fn do_loop(self) -> thread::ThreadHandle {
+    fn do_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.consumer
                     .consume_events(Duration::from_millis(100))
                     .await;
                 while let Ok(true) = self.advance_once().await {
-                    self.producer.push_event(thread::ReplicationEvent);
+                    self.producer.push_event(ReplicationEvent);
                 }
             }
         };
         let hdl = tokio::spawn(fut).abort_handle();
-        thread::ThreadHandle(hdl)
+        ThreadHandle(hdl)
     }
 }
 
@@ -45,9 +45,9 @@ pub fn new(
     follower_id: NodeAddress,
     progress: Arc<Mutex<ReplicationProgress>>,
     ctrl: Read<ControlActor>,
-    consumer: thread::EventConsumer<thread::QueueEvent>,
-    producer: thread::EventProducer<thread::ReplicationEvent>,
-) -> thread::ThreadHandle {
+    consumer: EventConsumer<QueueEvent>,
+    producer: EventProducer<ReplicationEvent>,
+) -> ThreadHandle {
     Thread {
         follower_id,
         progress,

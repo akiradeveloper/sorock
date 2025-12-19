@@ -1,8 +1,8 @@
 use super::*;
 
+pub mod thread;
 pub mod effect;
 mod failure_detector;
-mod peer_thread;
 mod quorum;
 
 #[derive(Clone, Copy, Debug)]
@@ -34,8 +34,8 @@ impl ReplicationProgress {
 
 #[allow(dead_code)]
 struct ThreadHandles {
-    replicator_handle: thread::ThreadHandle,
-    heartbeater_handle: thread::ThreadHandle,
+    replicator_handle: ThreadHandle,
+    heartbeater_handle: ThreadHandle,
 }
 
 pub struct Control {
@@ -50,8 +50,8 @@ pub struct Control {
     membership: HashSet<NodeAddress>,
     replication_progresses: HashMap<NodeAddress, ReplicationProgressActor>,
     peer_threads: HashMap<NodeAddress, ThreadHandles>,
-    queue_rx: thread::EventConsumer<thread::QueueEvent>,
-    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+    queue_rx: EventConsumer<QueueEvent>,
+    replication_tx: EventProducer<ReplicationEvent>,
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
@@ -66,8 +66,8 @@ pub type ControlActor = Arc<tokio::sync::RwLock<Control>>;
 pub fn new_actor(
     ballot_store: storage::BallotStore,
     state_machine: Read<StateMachine>,
-    queue_rx: thread::EventConsumer<thread::QueueEvent>,
-    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+    queue_rx: EventConsumer<QueueEvent>,
+    replication_tx: EventProducer<ReplicationEvent>,
     driver: RaftHandle,
 ) -> ControlActor {
     let raw = Control {

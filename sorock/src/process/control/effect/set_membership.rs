@@ -28,14 +28,14 @@ impl Effect<'_> {
             .insert(id.clone(), init_progress.clone());
 
         let thread_handles = ThreadHandles {
-            replicator_handle: peer_thread::replication::new(
+            replicator_handle: thread::replication::new(
                 id.clone(),
                 init_progress,
                 self.ctrl_actor.clone(),
                 self.ctrl.queue_rx.clone(),
                 self.ctrl.replication_tx.clone(),
             ),
-            heartbeater_handle: peer_thread::heartbeat::new(id.clone(), self.ctrl_actor.clone()),
+            heartbeater_handle: thread::heartbeat::new(id.clone(), self.ctrl_actor.clone()),
         };
         self.ctrl.peer_threads.insert(id, thread_handles);
 

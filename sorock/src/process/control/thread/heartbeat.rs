@@ -20,7 +20,7 @@ impl Thread {
             .await
     }
 
-    fn do_loop(self) -> thread::ThreadHandle {
+    fn do_loop(self) -> ThreadHandle {
         let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_millis(300));
             loop {
@@ -30,10 +30,10 @@ impl Thread {
             }
         };
         let hdl = tokio::spawn(fut).abort_handle();
-        thread::ThreadHandle(hdl)
+        ThreadHandle(hdl)
     }
 }
 
-pub fn new(follower_id: NodeAddress, ctrl: Read<ControlActor>) -> thread::ThreadHandle {
+pub fn new(follower_id: NodeAddress, ctrl: Read<ControlActor>) -> ThreadHandle {
     Thread { follower_id, ctrl }.do_loop()
 }

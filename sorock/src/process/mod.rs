@@ -28,6 +28,7 @@ use app::completion;
 mod kernel_message;
 use completion::*;
 mod thread;
+use thread::utils::*;
 
 /// Election term.
 /// In Raft, only one leader can be elected per a term.
@@ -118,16 +119,16 @@ pub trait RaftApp: Sync + Send + 'static {
 
 #[allow(dead_code)]
 struct ThreadHandles {
-    advance_kernel_handle: thread::ThreadHandle,
-    advance_application_handle: thread::ThreadHandle,
-    advance_snapshot_handle: thread::ThreadHandle,
-    advance_commit_handle: thread::ThreadHandle,
-    election_handle: thread::ThreadHandle,
-    log_compaction_handle: thread::ThreadHandle,
-    query_execution_handle: thread::ThreadHandle,
-    query_queue_coordinator_handle: thread::ThreadHandle,
-    snapshot_deleter_handle: thread::ThreadHandle,
-    stepdown_handle: thread::ThreadHandle,
+    advance_kernel_handle: ThreadHandle,
+    advance_application_handle: ThreadHandle,
+    advance_snapshot_handle: ThreadHandle,
+    advance_commit_handle: ThreadHandle,
+    election_handle: ThreadHandle,
+    log_compaction_handle: ThreadHandle,
+    query_execution_handle: ThreadHandle,
+    query_queue_coordinator_handle: ThreadHandle,
+    snapshot_deleter_handle: ThreadHandle,
+    stepdown_handle: ThreadHandle,
 }
 
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
@@ -140,8 +141,8 @@ pub struct RaftProcess {
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
 
-    queue_tx: thread::EventProducer<thread::QueueEvent>,
-    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+    queue_tx: EventProducer<QueueEvent>,
+    replication_tx: EventProducer<ReplicationEvent>,
 }
 
 impl RaftProcess {
@@ -198,12 +199,15 @@ impl RaftProcess {
                 app_tx.clone(),
             ),
             advance_snapshot_handle: thread::advance_snapshot::new(state_machine.clone()),
-            advance_commit_handle: thread::advance_commit::new(
+            advance_commit_handle: control::thread::advance_commit::new(
                 ctrl.clone(),
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
-            election_handle: thread::election::new(ctrl.clone(), state_machine.clone()),
+            election_handle: control::thread::election::new(
+                ctrl.clone(),
+                state_machine.clone(),
+            ),
             log_compaction_handle: thread::delete_old_entries::new(state_machine.clone()),
             query_execution_handle: thread::query_execution::new(
                 exec_queue.clone(),
@@ -219,7 +223,7 @@ impl RaftProcess {
                 app.clone(),
                 Read(state_machine.clone()),
             ),
-            stepdown_handle: thread::stepdown::new(ctrl.clone()),
+            stepdown_handle: control::thread::stepdown::new(ctrl.clone()),
         };
 
         Ok(Self {
@@ -272,8 +276,8 @@ impl RaftProcess {
         self.process_configuration_command(&command, append_index)
             .await?;
 
-        self.queue_tx.push_event(thread::QueueEvent);
-        self.replication_tx.push_event(thread::ReplicationEvent);
+        self.queue_tx.push_event(QueueEvent);
+        self.replication_tx.push_event(ReplicationEvent);
 
         Ok(append_index)
     }
