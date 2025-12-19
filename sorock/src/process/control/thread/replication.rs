@@ -43,7 +43,7 @@ impl Thread {
 
 pub fn new(
     follower_id: NodeAddress,
-    progress: Arc<Mutex<ReplicationProgress>>,
+    progress: ReplicationProgressActor,
     ctrl: Read<ControlActor>,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,

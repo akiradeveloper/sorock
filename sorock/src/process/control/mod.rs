@@ -1,9 +1,9 @@
 use super::*;
 
-pub mod thread;
 pub mod effect;
 mod failure_detector;
 mod quorum;
+pub mod thread;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ElectionState {
@@ -15,8 +15,8 @@ pub enum ElectionState {
 type ReplicationProgressActor = Arc<tokio::sync::Mutex<ReplicationProgress>>;
 
 #[derive(Clone, Copy, Debug)]
-struct ReplicationProgress {
-    /// The log entrires `[0, match_index]` are replicated with this node.
+pub struct ReplicationProgress {
+    /// The log entries `[0, match_index]` are replicated with this node.
     match_index: LogIndex,
     /// In the next replication, log entrires `[next_index, next_index + next_max_cnt)` will be sent.
     next_index: LogIndex,
@@ -156,7 +156,10 @@ impl Control {
         match_indices.push(last_log_index);
 
         for (_, peer) in &self.replication_progresses {
-            match_indices.push(peer.lock().await.match_index);
+            let peer = peer.clone();
+            // We use try_lock here to avoid waiting for slow followers.
+            let match_index = peer.try_lock().map(|p| p.match_index).unwrap_or(0);
+            match_indices.push(match_index);
         }
 
         match_indices.sort_unstable();

@@ -8,7 +8,6 @@ use tracing::{debug, error, info, warn};
 
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
-use tokio::sync::{Mutex, RwLock, Semaphore};
 
 mod storage;
 pub use storage::RaftStorage;
@@ -204,10 +203,7 @@ impl RaftProcess {
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
-            election_handle: control::thread::election::new(
-                ctrl.clone(),
-                state_machine.clone(),
-            ),
+            election_handle: control::thread::election::new(ctrl.clone(), state_machine.clone()),
             log_compaction_handle: thread::delete_old_entries::new(state_machine.clone()),
             query_execution_handle: thread::query_execution::new(
                 exec_queue.clone(),
@@ -521,7 +517,7 @@ impl RaftProcess {
     pub(super) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
         control::effect::try_promote::Effect {
-            ctrl: &mut *self.ctrl.try_write()?,
+            ctrl: &mut *self.ctrl.write().await,
             state_machine: self.state_machine.clone(),
         }
         .exec(true)
@@ -537,6 +533,10 @@ impl RaftProcess {
         let pre_vote = req.pre_vote;
 
         let vote_granted = control::effect::receive_vote_request::Effect {
+            // We must take try lock here to avoid deadlock:
+            // Two processes time out and try to become a leader simultaneously.
+            // Both of them send vote requests to each other but neither of them can
+            // process the request because both of them are already holding the write lock.
             ctrl: &mut *self.ctrl.try_write()?,
         }
         .exec(

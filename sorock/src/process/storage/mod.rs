@@ -1,9 +1,8 @@
 use crate as sorock;
 
 use anyhow::Result;
-use crossbeam::channel::TryRecvError;
 use log_storage::{LogShardView, LogStorage};
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use redb::{Database, ReadableTable, TableDefinition};
 use serde::{Deserialize, Serialize};
 use sorock::process::*;
 use std::sync::Arc;
@@ -98,12 +97,12 @@ mod tests {
         for shard in 0..100 {
             let db = db.clone();
             let fut = async move {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 let (log, _) = db.get(shard).unwrap();
                 for i in 0..300 {
                     let prev = i;
                     let cur = i + 1;
-                    let b: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
+                    let b: Vec<u8> = (0..100).map(|_| rng.random()).collect();
                     let e = Entry {
                         prev_clock: Clock {
                             index: prev,

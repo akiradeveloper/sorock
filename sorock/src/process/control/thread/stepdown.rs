@@ -8,7 +8,7 @@ pub struct Thread {
 impl Thread {
     pub async fn run_once(&self) -> Result<()> {
         control::effect::try_stepdown::Effect {
-            ctrl: &mut *self.ctrl.try_write()?,
+            ctrl: &mut *self.ctrl.write().await,
         }
         .exec()
         .await?;

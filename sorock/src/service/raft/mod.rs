@@ -5,7 +5,6 @@ mod raft {
 }
 type RaftClient = raft::raft_client::RaftClient<tonic::transport::channel::Channel>;
 
-use bincode::de::read;
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;

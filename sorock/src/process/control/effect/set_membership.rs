@@ -20,7 +20,9 @@ impl Effect<'_> {
 
         let init_progress = {
             let last_log_index = self.state_machine().get_log_last_index().await?;
-            Arc::new(Mutex::new(ReplicationProgress::new(last_log_index)))
+            Arc::new(tokio::sync::Mutex::new(ReplicationProgress::new(
+                last_log_index,
+            )))
         };
 
         self.ctrl

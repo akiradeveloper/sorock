@@ -1,5 +1,3 @@
-use core::time;
-
 use super::*;
 
 #[derive(Clone)]
@@ -27,7 +25,7 @@ impl Thread {
         if timeout.is_some() {
             info!("election timeout. try to become a leader");
             control::effect::try_promote::Effect {
-                ctrl: &mut *self.ctrl.try_write()?,
+                ctrl: &mut *self.ctrl.write().await,
                 state_machine: self.state_machine.clone(),
             }
             .exec(false)
