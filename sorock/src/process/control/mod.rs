@@ -55,7 +55,7 @@ pub struct Inner {
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
-    pub membership_pointer: AtomicU64,
+    membership_pointer: AtomicU64,
 
     state_machine: Read<StateMachine>,
 
