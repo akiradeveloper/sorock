@@ -31,11 +31,6 @@ impl ReplicationProgress {
     }
 }
 
-#[derive(Clone)]
-pub struct PeerContexts {
-    progress: ReplicationProgress,
-}
-
 #[allow(dead_code)]
 struct ThreadHandles {
     replicator_handle: thread::ThreadHandle,
@@ -53,7 +48,7 @@ pub struct Inner {
 
     // peers
     membership: spin::RwLock<HashSet<NodeAddress>>,
-    peer_contexts: spin::RwLock<HashMap<NodeAddress, PeerContexts>>,
+    replication_progresses: spin::RwLock<HashMap<NodeAddress, ReplicationProgress>>,
     peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
@@ -87,7 +82,7 @@ impl Control {
 
             membership_pointer: AtomicU64::new(0),
             membership: HashSet::new().into(),
-            peer_contexts: HashMap::new().into(),
+            replication_progresses: HashMap::new().into(),
             peer_threads: HashMap::new().into(),
             queue_rx,
             replication_tx,
@@ -163,9 +158,9 @@ impl Control {
         let last_log_index = self.state_machine.get_log_last_index().await?;
         match_indices.push(last_log_index);
 
-        let peer_contexts = self.peer_contexts.read();
-        for (_, peer) in peer_contexts.iter() {
-            match_indices.push(peer.progress.match_index);
+        let progresses = self.replication_progresses.read();
+        for (_, peer) in progresses.iter() {
+            match_indices.push(peer.match_index);
         }
 
         match_indices.sort_unstable();
@@ -179,10 +174,10 @@ impl Control {
     /// Choose the most advanced follower and send it TimeoutNow.
     pub async fn transfer_leadership(&self) -> Result<()> {
         let mut xs = {
-            let peer_contexts = self.peer_contexts.read();
+            let progresses = self.replication_progresses.read();
             let mut out = vec![];
-            for (id, peer) in peer_contexts.iter() {
-                let progress = peer.progress;
+            for (id, peer) in progresses.iter() {
+                let progress = peer;
                 out.push((id.clone(), progress.match_index));
             }
             out

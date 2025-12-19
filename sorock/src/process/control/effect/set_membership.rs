@@ -13,7 +13,7 @@ impl Effect {
             return Ok(());
         }
 
-        if self.ctrl.peer_contexts.read().contains_key(&id) {
+        if self.ctrl.replication_progresses.read().contains_key(&id) {
             return Ok(());
         }
 
@@ -22,13 +22,8 @@ impl Effect {
             ReplicationProgress::new(last_log_index)
         };
 
-        let mut peer_contexts = self.ctrl.peer_contexts.write();
-        peer_contexts.insert(
-            id.clone(),
-            PeerContexts {
-                progress: init_progress,
-            },
-        );
+        let mut replication_progresses = self.ctrl.replication_progresses.write();
+        replication_progresses.insert(id.clone(), init_progress);
 
         let thread_handles = ThreadHandles {
             replicator_handle: thread::replication::new(
@@ -46,7 +41,7 @@ impl Effect {
 
     fn remove_peer(&self, id: NodeAddress) {
         self.ctrl.peer_threads.lock().remove(&id);
-        self.ctrl.peer_contexts.write().remove(&id);
+        self.ctrl.replication_progresses.write().remove(&id);
     }
 
     pub async fn exec(self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {

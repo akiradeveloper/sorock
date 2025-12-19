@@ -44,15 +44,15 @@ impl Effect {
     pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
         let cur_term = self.ctrl.read_ballot().await?.cur_term;
 
-        let peer_context = self
+        let cur_progress = self
             .ctrl
-            .peer_contexts
+            .replication_progresses
             .read()
             .get(&follower_id)
             .context(Error::PeerNotFound(follower_id.clone()))?
             .clone();
 
-        let old_progress = peer_context.progress;
+        let old_progress = cur_progress;
         let cur_last_log_index = self.state_machine().get_log_last_index().await?;
 
         // More entries to send?
@@ -67,12 +67,12 @@ impl Effect {
                 old_progress.next_index, follower_id,
             );
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
-            self.ctrl
-                .peer_contexts
+            *self
+                .ctrl
+                .replication_progresses
                 .write()
                 .get_mut(&follower_id)
-                .context(Error::PeerNotFound(follower_id.clone()))?
-                .progress = new_progress;
+                .context(Error::PeerNotFound(follower_id.clone()))? = new_progress;
             return Ok(());
         }
 
@@ -113,12 +113,12 @@ impl Effect {
             },
         };
 
-        self.ctrl
-            .peer_contexts
+        *self
+            .ctrl
+            .replication_progresses
             .write()
             .get_mut(&follower_id)
-            .context(Error::PeerNotFound(follower_id.clone()))?
-            .progress = new_progress;
+            .context(Error::PeerNotFound(follower_id.clone()))? = new_progress;
 
         Ok(())
     }
