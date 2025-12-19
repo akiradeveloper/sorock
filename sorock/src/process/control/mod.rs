@@ -4,6 +4,7 @@ use super::*;
 
 pub mod effect;
 mod failure_detector;
+mod peer_thread;
 mod quorum;
 
 #[derive(Clone, Copy, Debug)]

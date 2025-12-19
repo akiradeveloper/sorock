@@ -16,7 +16,7 @@ impl Thread {
         self.ctrl.send_heartbeat(self.follower_id.clone()).await
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn do_loop(self) -> thread::ThreadHandle {
         let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_millis(300));
             loop {
@@ -26,10 +26,10 @@ impl Thread {
             }
         };
         let hdl = tokio::spawn(fut).abort_handle();
-        ThreadHandle(hdl)
+        thread::ThreadHandle(hdl)
     }
 }
 
-pub fn new(follower_id: NodeAddress, ctrl: Read<Control>) -> ThreadHandle {
+pub fn new(follower_id: NodeAddress, ctrl: Read<Control>) -> thread::ThreadHandle {
     Thread { follower_id, ctrl }.do_loop()
 }

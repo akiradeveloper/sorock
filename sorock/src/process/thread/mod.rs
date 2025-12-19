@@ -1,7 +1,5 @@
 use super::*;
 
-use tokio::task::AbortHandle;
-
 pub mod advance_application;
 pub mod advance_commit;
 pub mod advance_kernel;
@@ -9,14 +7,14 @@ pub mod advance_snapshot;
 pub mod delete_old_entries;
 pub mod delete_old_snapshots;
 pub mod election;
-pub mod heartbeat;
 pub mod query_execution;
 pub mod query_queue_coordinator;
-pub mod replication;
 pub mod stepdown;
 
+use tokio::task::AbortHandle;
+
 /// Wrapper around a `AbortHandle` that aborts it is dropped.
-pub struct ThreadHandle(AbortHandle);
+pub struct ThreadHandle(pub AbortHandle);
 impl Drop for ThreadHandle {
     fn drop(&mut self) {
         self.0.abort();
