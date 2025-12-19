@@ -1,10 +1,11 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl_actor: Read<ControlActor>,
+    pub ctrl: &'a mut Control,
 }
 
-impl Effect {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -31,7 +32,8 @@ impl Effect {
             };
 
             effect::set_membership::Effect {
-                ctrl: self.ctrl.clone(),
+                ctrl_actor: self.ctrl_actor.clone(),
+                ctrl: self.ctrl,
             }
             .exec(last_membership, last_membership_index)
             .await?;

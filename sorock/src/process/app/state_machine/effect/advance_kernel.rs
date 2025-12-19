@@ -2,14 +2,14 @@ use super::*;
 
 pub struct Effect {
     pub state_machine: StateMachine,
-    pub ctrl: Control,
+    pub ctrl: ControlActor,
 }
 
 impl Effect {
     /// Advance kernel process once.
     pub async fn exec(self) -> Result<()> {
         let cur_kern_index = self.state_machine.kernel_pointer.load(Ordering::SeqCst);
-        ensure!(cur_kern_index < self.ctrl.commit_pointer.load(Ordering::SeqCst));
+        ensure!(cur_kern_index < self.ctrl.read().await.get_current_commit_index());
 
         let process_index = cur_kern_index + 1;
         let e = self.state_machine.get_entry(process_index).await?;
@@ -25,7 +25,7 @@ impl Effect {
             debug!("process kern@{process_index}");
             match command {
                 Command::Barrier(term) => {
-                    self.ctrl.commit_safe_term(term);
+                    self.ctrl.write().await.commit_safe_term(term);
                 }
                 Command::ClusterConfiguration { .. } => {}
                 _ => {}

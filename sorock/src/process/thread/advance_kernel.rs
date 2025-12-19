@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     state_machine: StateMachine,
-    ctrl: Control,
+    ctrl: ControlActor,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
 }
@@ -35,7 +35,7 @@ impl Thread {
 
 pub fn new(
     state_machine: StateMachine,
-    ctrl: Control,
+    ctrl: ControlActor,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
 ) -> ThreadHandle {

@@ -1,13 +1,12 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl: &'a mut Control,
 }
 
-impl Effect {
+impl Effect<'_> {
     pub async fn exec(self, init_next_index: LogIndex) {
-        let mut progresses = self.ctrl.replication_progresses.write();
-        for (_, cur_progress) in progresses.iter_mut() {
+        for (_, cur_progress) in &mut self.ctrl.replication_progresses {
             *cur_progress.lock().await = ReplicationProgress::new(init_next_index);
         }
     }

@@ -16,7 +16,7 @@ mod api;
 pub(super) use api::*;
 use app::state_machine::StateMachine;
 mod control;
-use control::Control;
+use control::ControlActor;
 mod app;
 use app::query_processing;
 use app::state_machine;
@@ -134,7 +134,7 @@ struct ThreadHandles {
 /// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
     state_machine: StateMachine,
-    ctrl: Control,
+    ctrl: ControlActor,
     query_queue: query_processing::PendingQueue,
     app: App,
     driver: node::RaftHandle,
@@ -164,7 +164,7 @@ impl RaftProcess {
         let (kern_tx, kern_rx) = thread::notify();
         let (app_tx, app_rx) = thread::notify();
 
-        let ctrl = Control::new(
+        let ctrl = control::new_actor(
             ballot_store,
             Read(state_machine.clone()),
             queue_rx.clone(),
@@ -178,9 +178,12 @@ impl RaftProcess {
         .exec()
         .await?;
 
-        control::effect::restore_membership::Effect { ctrl: ctrl.clone() }
-            .exec()
-            .await?;
+        control::effect::restore_membership::Effect {
+            ctrl_actor: Read(ctrl.clone()),
+            ctrl: &mut *ctrl.write().await,
+        }
+        .exec()
+        .await?;
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
@@ -245,7 +248,8 @@ impl RaftProcess {
         };
         if let Some(config) = config0 {
             control::effect::set_membership::Effect {
-                ctrl: self.ctrl.clone(),
+                ctrl_actor: Read(self.ctrl.clone()),
+                ctrl: &mut *self.ctrl.write().await,
             }
             .exec(config, index)
             .await?;
@@ -254,7 +258,7 @@ impl RaftProcess {
     }
 
     async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
-        ensure!(self.ctrl.allow_queue_new_entry().await?);
+        ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
 
         let append_index = state_machine::effect::append_entry::Effect {
             state_machine: self.state_machine.clone(),
@@ -275,7 +279,7 @@ impl RaftProcess {
     }
 
     async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
-        let cur_term = self.ctrl.read_ballot().await?.cur_term;
+        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
         ensure!(
             cur_term <= req.sender_term,
             "received replication stream from stale leader (term={} < cur_term={})",
@@ -354,7 +358,9 @@ impl RaftProcess {
     }
 
     pub(super) async fn add_server(&self, req: request::AddServer) -> Result<()> {
-        if self.ctrl.read_membership().is_empty() && req.server_id == self.driver.self_node_id() {
+        if self.ctrl.read().await.read_membership().is_empty()
+            && req.server_id == self.driver.self_node_id()
+        {
             self.bootstrap_cluster().await?;
         } else {
             let msg = kernel_message::KernelMessage::AddServer(req.server_id);
@@ -391,30 +397,30 @@ impl RaftProcess {
     }
 
     pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
-        let ballot = self.ctrl.read_ballot().await?;
+        let ballot = self.ctrl.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read_election_state(),
+            self.ctrl.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
             let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
                 kernel_message::KernelMessage::AddServer(id) => {
-                    let mut membership = self.ctrl.read_membership();
+                    let mut membership = self.ctrl.read().await.read_membership();
                     membership.insert(id);
                     Command::ClusterConfiguration { membership }
                 }
                 kernel_message::KernelMessage::RemoveServer(id) => {
-                    let mut membership = self.ctrl.read_membership();
+                    let mut membership = self.ctrl.read().await.read_membership();
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
                 }
             };
-            ensure!(self.ctrl.allow_queue_new_membership());
+            ensure!(self.ctrl.read().await.allow_queue_new_membership());
             self.queue_new_entry(
                 Command::serialize(command),
                 Completion::Kernel(kern_completion),
@@ -451,14 +457,14 @@ impl RaftProcess {
         &self,
         req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
-        let ballot = self.ctrl.read_ballot().await?;
+        let ballot = self.ctrl.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         let resp = if std::matches!(
-            self.ctrl.read_election_state(),
+            self.ctrl.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let (app_completion, rx) = completion::prepare_application_completion();
@@ -493,7 +499,7 @@ impl RaftProcess {
         let leader_commit = req.leader_commit_index;
 
         control::effect::receive_heartbeat::Effect {
-            ctrl: self.ctrl.clone(),
+            ctrl: &mut *self.ctrl.write().await,
         }
         .exec(leader_id, term, leader_commit)
         .await?;
@@ -511,7 +517,7 @@ impl RaftProcess {
     pub(super) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
         control::effect::try_promote::Effect {
-            ctrl: self.ctrl.clone(),
+            ctrl: &mut *self.ctrl.try_write()?,
             state_machine: self.state_machine.clone(),
         }
         .exec(true)
@@ -527,8 +533,7 @@ impl RaftProcess {
         let pre_vote = req.pre_vote;
 
         let vote_granted = control::effect::receive_vote_request::Effect {
-            ctrl: self.ctrl.clone(),
-            // state_machine: Read(self.state_machine.clone()),
+            ctrl: &mut *self.ctrl.try_write()?,
         }
         .exec(
             candidate_term,
@@ -551,24 +556,24 @@ impl RaftProcess {
                 .state_machine
                 .application_pointer
                 .load(Ordering::SeqCst),
-            commit_index: self.ctrl.commit_pointer.load(Ordering::SeqCst),
+            commit_index: self.ctrl.read().await.get_current_commit_index(),
         };
         Ok(out)
     }
 
     pub(super) async fn get_membership(&self) -> Result<response::Membership> {
-        let ballot = self.ctrl.read_ballot().await?;
+        let ballot = self.ctrl.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read_election_state(),
+            self.ctrl.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let out = response::Membership {
-                members: self.ctrl.read_membership(),
+                members: self.ctrl.read().await.read_membership(),
             };
             Ok(out)
         } else {
@@ -581,22 +586,22 @@ impl RaftProcess {
     }
 
     pub async fn compare_term(&self, term: Term) -> Result<bool> {
-        let cur_term = self.ctrl.read_ballot().await?.cur_term;
+        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
         Ok(term >= cur_term)
     }
 
     pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
-        let ballot = self.ctrl.read_ballot().await?;
+        let ballot = self.ctrl.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read_election_state(),
+            self.ctrl.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
-            let read_index = self.ctrl.find_read_index().await?;
+            let read_index = self.ctrl.read().await.find_read_index().await?;
             Ok(read_index)
         } else {
             // Avoid looping.

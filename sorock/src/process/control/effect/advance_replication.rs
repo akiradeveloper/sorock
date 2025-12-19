@@ -2,10 +2,10 @@ use super::*;
 
 pub struct Effect<'a> {
     pub progress: &'a mut ReplicationProgress,
-    pub ctrl: Read<Control>,
+    pub ctrl: &'a Control,
 }
 
-impl<'a> Effect<'a> {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -42,7 +42,7 @@ impl<'a> Effect<'a> {
         })
     }
 
-    pub async fn exec(&mut self, follower_id: NodeAddress) -> Result<()> {
+    pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
         let cur_term = self.ctrl.read_ballot().await?.cur_term;
 
         let cur_progress = *self.progress;

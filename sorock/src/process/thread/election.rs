@@ -1,33 +1,39 @@
+use core::time;
+
 use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    ctrl: Control,
+    ctrl: ControlActor,
     state_machine: StateMachine,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.ctrl.read_election_state();
+        let election_state = self.ctrl.read().await.read_election_state();
         ensure!(std::matches!(
             election_state,
             control::ElectionState::Follower
         ));
 
         // sleep random duration
-        if let Some(timeout) = self.ctrl.get_election_timeout() {
+        let timeout = self.ctrl.read().await.get_election_timeout();
+        if let Some(timeout) = timeout {
             tokio::time::sleep(timeout).await;
         }
+
         // if it doesn't receive any heartbeat from a leader (or new leader)
         // it try to become a leader.
-        if self.ctrl.get_election_timeout().is_some() {
+        let timeout = self.ctrl.read().await.get_election_timeout();
+        if timeout.is_some() {
             info!("election timeout. try to become a leader");
             control::effect::try_promote::Effect {
-                ctrl: self.ctrl.clone(),
+                ctrl: &mut *self.ctrl.try_write()?,
                 state_machine: self.state_machine.clone(),
             }
             .exec(false)
             .await?;
         }
+
         Ok(())
     }
 
@@ -44,7 +50,7 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: Control, state_machine: StateMachine) -> ThreadHandle {
+pub fn new(ctrl: ControlActor, state_machine: StateMachine) -> ThreadHandle {
     Thread {
         ctrl,
         state_machine,

@@ -1,9 +1,9 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl: &'a mut Control,
 }
-impl Effect {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -14,8 +14,6 @@ impl Effect {
         leader_term: Term,
         leader_commit: LogIndex,
     ) -> Result<()> {
-        let _g = self.ctrl.vote_sequencer.try_acquire()?;
-
         let mut ballot = self.ctrl.read_ballot().await?;
         if leader_term < ballot.cur_term {
             warn!("heartbeat is stale. rejected");
@@ -44,9 +42,7 @@ impl Effect {
             leader_commit,
             self.state_machine().get_log_last_index().await?,
         );
-        self.ctrl
-            .commit_pointer
-            .fetch_max(new_commit_index, Ordering::SeqCst);
+        self.ctrl.advance_commit_index(new_commit_index);
 
         Ok(())
     }

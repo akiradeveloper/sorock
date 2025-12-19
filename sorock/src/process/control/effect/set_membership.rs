@@ -1,19 +1,20 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl_actor: Read<ControlActor>,
+    pub ctrl: &'a mut Control,
 }
-impl Effect {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
 
-    async fn add_peer(&self, id: NodeAddress) -> Result<()> {
+    async fn add_peer(&mut self, id: NodeAddress) -> Result<()> {
         if id == self.ctrl.driver.self_node_id() {
             return Ok(());
         }
 
-        if self.ctrl.replication_progresses.read().contains_key(&id) {
+        if self.ctrl.replication_progresses.contains_key(&id) {
             return Ok(());
         }
 
@@ -22,30 +23,31 @@ impl Effect {
             Arc::new(Mutex::new(ReplicationProgress::new(last_log_index)))
         };
 
-        let mut replication_progresses = self.ctrl.replication_progresses.write();
-        replication_progresses.insert(id.clone(), init_progress.clone());
+        self.ctrl
+            .replication_progresses
+            .insert(id.clone(), init_progress.clone());
 
         let thread_handles = ThreadHandles {
             replicator_handle: peer_thread::replication::new(
                 id.clone(),
                 init_progress,
-                Read(self.ctrl.clone()),
+                self.ctrl_actor.clone(),
                 self.ctrl.queue_rx.clone(),
                 self.ctrl.replication_tx.clone(),
             ),
-            heartbeater_handle: peer_thread::heartbeat::new(id.clone(), Read(self.ctrl.clone())),
+            heartbeater_handle: peer_thread::heartbeat::new(id.clone(), self.ctrl_actor.clone()),
         };
-        self.ctrl.peer_threads.lock().insert(id, thread_handles);
+        self.ctrl.peer_threads.insert(id, thread_handles);
 
         Ok(())
     }
 
-    fn remove_peer(&self, id: NodeAddress) {
-        self.ctrl.peer_threads.lock().remove(&id);
-        self.ctrl.replication_progresses.write().remove(&id);
+    fn remove_peer(&mut self, id: NodeAddress) {
+        self.ctrl.peer_threads.remove(&id);
+        self.ctrl.replication_progresses.remove(&id);
     }
 
-    pub async fn exec(self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {
+    pub async fn exec(mut self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {
         let cur = self.ctrl.read_membership();
 
         let add_peers = {
@@ -79,9 +81,9 @@ impl Effect {
         }
 
         info!("membership changed -> {:?}", config);
-        *self.ctrl.membership.write() = config;
+        self.ctrl.membership = config;
 
-        self.ctrl.membership_pointer.store(index, Ordering::SeqCst);
+        self.ctrl.membership_pointer = index;
 
         Ok(())
     }
