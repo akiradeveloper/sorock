@@ -3,17 +3,21 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    ctrl: Read<Control>,
+    ctrl: Read<ControlActor>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.ctrl.read_election_state();
+        let election_state = self.ctrl.read().await.read_election_state();
         ensure!(std::matches!(
             election_state,
             control::ElectionState::Leader
         ));
 
-        self.ctrl.send_heartbeat(self.follower_id.clone()).await
+        self.ctrl
+            .read()
+            .await
+            .send_heartbeat(self.follower_id.clone())
+            .await
     }
 
     fn do_loop(self) -> thread::ThreadHandle {
@@ -30,6 +34,6 @@ impl Thread {
     }
 }
 
-pub fn new(follower_id: NodeAddress, ctrl: Read<Control>) -> thread::ThreadHandle {
+pub fn new(follower_id: NodeAddress, ctrl: Read<ControlActor>) -> thread::ThreadHandle {
     Thread { follower_id, ctrl }.do_loop()
 }

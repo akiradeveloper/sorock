@@ -3,21 +3,21 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    progress: Arc<Mutex<ReplicationProgress>>,
-    ctrl: Read<Control>,
+    progress: ReplicationProgressActor,
+    ctrl_actor: Read<ControlActor>,
     consumer: thread::EventConsumer<thread::QueueEvent>,
     producer: thread::EventProducer<thread::ReplicationEvent>,
 }
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
-        let election_state = self.ctrl.read_election_state();
+        let election_state = self.ctrl_actor.read().await.read_election_state();
         if !std::matches!(election_state, control::ElectionState::Leader) {
             return Ok(false);
         }
 
         control::effect::advance_replication::Effect {
             progress: &mut *self.progress.lock().await,
-            ctrl: self.ctrl.clone(),
+            ctrl: &*self.ctrl_actor.read().await,
         }
         .exec(self.follower_id.clone())
         .await?;
@@ -44,14 +44,14 @@ impl Thread {
 pub fn new(
     follower_id: NodeAddress,
     progress: Arc<Mutex<ReplicationProgress>>,
-    ctrl: Read<Control>,
+    ctrl: Read<ControlActor>,
     consumer: thread::EventConsumer<thread::QueueEvent>,
     producer: thread::EventProducer<thread::ReplicationEvent>,
 ) -> thread::ThreadHandle {
     Thread {
         follower_id,
         progress,
-        ctrl,
+        ctrl_actor: ctrl,
         consumer,
         producer,
     }

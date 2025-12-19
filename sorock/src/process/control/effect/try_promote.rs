@@ -1,14 +1,12 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl: &'a mut Control,
     pub state_machine: StateMachine,
 }
-impl Effect {
+impl Effect<'_> {
     /// Try to become a leader.
-    pub async fn exec(self, force_vote: bool) -> Result<()> {
-        let _g = self.ctrl.vote_sequencer.try_acquire()?;
-
+    pub async fn exec(mut self, force_vote: bool) -> Result<()> {
         info!("try to promote to leader (force={force_vote})");
 
         let pre_vote_term = {
@@ -118,7 +116,7 @@ impl Effect {
         Ok(ok)
     }
 
-    async fn post_election(&self, vote_term: Term, ok: bool) -> Result<()> {
+    async fn post_election(&mut self, vote_term: Term, ok: bool) -> Result<()> {
         if ok {
             info!("got enough votes from the cluster. promoted to leader");
 
@@ -135,11 +133,9 @@ impl Effect {
             info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress
-            control::effect::reset_replication_state::Effect {
-                ctrl: self.ctrl.clone(),
-            }
-            .exec(index)
-            .await;
+            control::effect::reset_replication_state::Effect { ctrl: self.ctrl }
+                .exec(index)
+                .await;
 
             self.ctrl.write_election_state(ElectionState::Leader);
         } else {

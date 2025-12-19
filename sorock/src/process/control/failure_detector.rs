@@ -69,9 +69,9 @@ impl FailureDetector {
         // which is the average interval of the heartbeat.
         // This means two random timeouts are sufficiently distant and it mitigates the risk
         // that two promotions conflict.
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mu = normal_dist.mu().as_millis() as u64;
-        let random_timeout = Duration::from_millis(rng.gen_range(0..=(3 * mu)));
+        let random_timeout = Duration::from_millis(rng.random_range(0..=(3 * mu)));
 
         Some(random_timeout)
     }

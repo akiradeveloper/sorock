@@ -1,5 +1,3 @@
-use crossbeam::queue;
-
 use super::*;
 
 pub mod effect;
@@ -14,16 +12,18 @@ pub enum ElectionState {
     Follower,
 }
 
+type ReplicationProgressActor = Arc<tokio::sync::Mutex<ReplicationProgress>>;
+
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct ReplicationProgress {
+struct ReplicationProgress {
     /// The log entrires `[0, match_index]` are replicated with this node.
-    pub match_index: LogIndex,
+    match_index: LogIndex,
     /// In the next replication, log entrires `[next_index, next_index + next_max_cnt)` will be sent.
-    pub next_index: LogIndex,
-    pub next_max_cnt: LogIndex,
+    next_index: LogIndex,
+    next_max_cnt: LogIndex,
 }
 impl ReplicationProgress {
-    pub fn new(init_next_index: LogIndex) -> Self {
+    fn new(init_next_index: LogIndex) -> Self {
         Self {
             match_index: 0,
             next_index: init_next_index,
@@ -38,93 +38,89 @@ struct ThreadHandles {
     heartbeater_handle: thread::ThreadHandle,
 }
 
-pub struct Inner {
+pub struct Control {
     // voter
-    vote_sequencer: tokio::sync::Semaphore,
-    state: spin::Mutex<ElectionState>,
+    state: ElectionState,
     ballot: storage::BallotStore,
-    safe_term: AtomicU64,
+    safe_term: u64,
     leader_failure_detector: failure_detector::FailureDetector,
-    pub commit_pointer: AtomicU64,
+    commit_pointer: u64,
 
     // peers
-    membership: spin::RwLock<HashSet<NodeAddress>>,
-    replication_progresses: spin::RwLock<HashMap<NodeAddress, Arc<Mutex<ReplicationProgress>>>>,
-    peer_threads: spin::Mutex<HashMap<NodeAddress, ThreadHandles>>,
+    membership: HashSet<NodeAddress>,
+    replication_progresses: HashMap<NodeAddress, ReplicationProgressActor>,
+    peer_threads: HashMap<NodeAddress, ThreadHandles>,
     queue_rx: thread::EventConsumer<thread::QueueEvent>,
     replication_tx: thread::EventProducer<thread::ReplicationEvent>,
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
-    membership_pointer: AtomicU64,
+    membership_pointer: u64,
 
     state_machine: Read<StateMachine>,
 
     driver: RaftHandle,
 }
 
-#[derive(Deref, Clone)]
-pub struct Control(pub Arc<Inner>);
+pub type ControlActor = Arc<tokio::sync::RwLock<Control>>;
+pub fn new_actor(
+    ballot_store: storage::BallotStore,
+    state_machine: Read<StateMachine>,
+    queue_rx: thread::EventConsumer<thread::QueueEvent>,
+    replication_tx: thread::EventProducer<thread::ReplicationEvent>,
+    driver: RaftHandle,
+) -> ControlActor {
+    let raw = Control {
+        state: ElectionState::Follower,
+        ballot: ballot_store,
+        safe_term: 0,
+        leader_failure_detector: failure_detector::FailureDetector::new(),
+        commit_pointer: 0,
+
+        membership_pointer: 0,
+        membership: HashSet::new(),
+        replication_progresses: HashMap::new(),
+        peer_threads: HashMap::new(),
+        queue_rx,
+        replication_tx,
+
+        state_machine,
+        driver,
+    };
+    Arc::new(tokio::sync::RwLock::new(raw))
+}
 impl Control {
-    pub fn new(
-        ballot_store: storage::BallotStore,
-        state_machine: Read<StateMachine>,
-        queue_rx: thread::EventConsumer<thread::QueueEvent>,
-        replication_tx: thread::EventProducer<thread::ReplicationEvent>,
-        driver: RaftHandle,
-    ) -> Self {
-        let inner = Inner {
-            state: spin::Mutex::new(ElectionState::Follower),
-            ballot: ballot_store,
-            vote_sequencer: tokio::sync::Semaphore::new(1),
-            safe_term: AtomicU64::new(0),
-            leader_failure_detector: failure_detector::FailureDetector::new(),
-            commit_pointer: AtomicU64::new(0),
-
-            membership_pointer: AtomicU64::new(0),
-            membership: HashSet::new().into(),
-            replication_progresses: HashMap::new().into(),
-            peer_threads: HashMap::new().into(),
-            queue_rx,
-            replication_tx,
-
-            state_machine,
-            driver,
-        };
-        Self(Arc::new(inner))
-    }
-
     pub fn read_election_state(&self) -> ElectionState {
-        *self.state.lock()
+        self.state
     }
 
-    fn write_election_state(&self, e: ElectionState) {
+    fn write_election_state(&mut self, e: ElectionState) {
         info!("election state -> {e:?}");
-        *self.state.lock() = e;
+        self.state = e;
     }
 
     pub async fn read_ballot(&self) -> Result<Ballot> {
         self.ballot.load_ballot().await
     }
 
-    async fn write_ballot(&self, b: Ballot) -> Result<()> {
+    async fn write_ballot(&mut self, b: Ballot) -> Result<()> {
         self.ballot.save_ballot(b).await
     }
 
-    pub fn commit_safe_term(&self, term: Term) {
+    pub fn commit_safe_term(&mut self, term: Term) {
         info!("commit safe term={term}");
-        self.safe_term.store(term, Ordering::SeqCst);
+        self.safe_term = term;
     }
 
     /// If `safe_term < cur_term`, any new entries are not allowed to be queued.
     pub async fn allow_queue_new_entry(&self) -> Result<bool> {
         let cur_term = self.ballot.load_ballot().await?.cur_term;
-        let cur_safe_term = self.safe_term.load(Ordering::SeqCst);
+        let cur_safe_term = self.safe_term;
         Ok(cur_safe_term == cur_term)
     }
 
     pub fn allow_queue_new_membership(&self) -> bool {
-        self.commit_pointer.load(Ordering::SeqCst) >= self.membership_pointer.load(Ordering::SeqCst)
+        self.commit_pointer >= self.membership_pointer
     }
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
@@ -137,9 +133,9 @@ impl Control {
         self.leader_failure_detector.get_election_timeout()
     }
 
-    pub async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
+    async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
         let ballot = self.read_ballot().await?;
-        let leader_commit_index = self.commit_pointer.load(Ordering::SeqCst);
+        let leader_commit_index = self.commit_pointer;
         let req = request::Heartbeat {
             leader_term: ballot.cur_term,
             leader_commit_index,
@@ -150,7 +146,7 @@ impl Control {
     }
 
     pub fn read_membership(&self) -> HashSet<NodeAddress> {
-        self.membership.read().clone()
+        self.membership.clone()
     }
 
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
@@ -159,8 +155,7 @@ impl Control {
         let last_log_index = self.state_machine.get_log_last_index().await?;
         match_indices.push(last_log_index);
 
-        let progresses = self.replication_progresses.read();
-        for (_, peer) in progresses.iter() {
+        for (_, peer) in &self.replication_progresses {
             match_indices.push(peer.lock().await.match_index);
         }
 
@@ -172,12 +167,19 @@ impl Control {
         Ok(new_commit_index)
     }
 
+    pub fn get_current_commit_index(&self) -> LogIndex {
+        self.commit_pointer
+    }
+
+    pub fn advance_commit_index(&mut self, new_commit_index: LogIndex) {
+        self.commit_pointer = u64::max(self.commit_pointer, new_commit_index);
+    }
+
     /// Choose the most advanced follower and send it TimeoutNow.
     pub async fn transfer_leadership(&self) -> Result<()> {
         let mut xs = {
-            let progresses = self.replication_progresses.read();
             let mut out = vec![];
-            for (id, peer) in progresses.iter() {
+            for (id, peer) in &self.replication_progresses {
                 let progress = peer.lock().await;
                 out.push((id.clone(), progress.match_index));
             }
@@ -205,9 +207,9 @@ impl Control {
 
         // A commit-index can be selected as a safety point for readers which we call "read-index".
         // Readers can process read requests before this point.
-        let saved = self.commit_pointer.load(Ordering::SeqCst);
+        let saved = self.commit_pointer;
 
-        let peers = self.membership.read().clone();
+        let peers = self.membership.clone();
         let n = peers.len();
 
         // Need to confirm majority of peers have terms less than or equal to `cur_term`.

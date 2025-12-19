@@ -1,9 +1,9 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl: &'a mut Control,
 }
-impl Effect {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -19,8 +19,8 @@ impl Effect {
         // Make sure the membership entry is truly committed
         // otherwise the configuration change entry may be lost.
         let last_membership_change_index = {
-            let index = self.ctrl.membership_pointer.load(Ordering::SeqCst);
-            ensure!(index <= self.ctrl.commit_pointer.load(Ordering::SeqCst));
+            let index = self.ctrl.membership_pointer;
+            ensure!(index <= self.ctrl.commit_pointer);
             index
         };
 

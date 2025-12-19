@@ -1,9 +1,9 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub ctrl: &'a mut Control,
 }
-impl Effect {
+impl Effect<'_> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -17,8 +17,6 @@ impl Effect {
         force_vote: bool,
         pre_vote: bool,
     ) -> Result<bool> {
-        let _g = self.ctrl.vote_sequencer.try_acquire()?;
-
         let allow_update_ballot = !pre_vote;
 
         // If it is a force-vote which is set by TimeoutNow,

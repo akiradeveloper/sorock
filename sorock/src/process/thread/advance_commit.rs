@@ -2,25 +2,26 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    ctrl: Control,
+    ctrl: ControlActor,
     consumer: EventConsumer<ReplicationEvent>,
     producer: EventProducer<CommitEvent>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.ctrl.read_election_state();
+        let election_state = self.ctrl.read().await.read_election_state();
         ensure!(std::matches!(
             election_state,
             control::ElectionState::Leader
         ));
 
-        let cur_commit_index = self.ctrl.commit_pointer.load(Ordering::SeqCst);
-        let new_commit_index = self.ctrl.find_new_commit_index().await?;
+        let cur_commit_index = self.ctrl.read().await.get_current_commit_index();
+        let new_commit_index = self.ctrl.read().await.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {
             self.ctrl
-                .commit_pointer
-                .fetch_max(new_commit_index, Ordering::SeqCst);
+                .write()
+                .await
+                .advance_commit_index(new_commit_index);
             self.producer.push_event(CommitEvent);
         }
 
@@ -42,7 +43,7 @@ impl Thread {
 }
 
 pub fn new(
-    ctrl: Control,
+    ctrl: ControlActor,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {
