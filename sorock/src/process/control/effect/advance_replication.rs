@@ -1,10 +1,11 @@
 use super::*;
 
-pub struct Effect {
-    pub ctrl: Control,
+pub struct Effect<'a> {
+    pub progress: &'a mut ReplicationProgress,
+    pub ctrl: Read<Control>,
 }
 
-impl Effect {
+impl<'a> Effect<'a> {
     fn state_machine(&self) -> &Read<StateMachine> {
         &self.ctrl.state_machine
     }
@@ -41,16 +42,10 @@ impl Effect {
         })
     }
 
-    pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
+    pub async fn exec(&mut self, follower_id: NodeAddress) -> Result<()> {
         let cur_term = self.ctrl.read_ballot().await?.cur_term;
 
-        let cur_progress = self
-            .ctrl
-            .replication_progresses
-            .read()
-            .get(&follower_id)
-            .context(Error::PeerNotFound(follower_id.clone()))?
-            .clone();
+        let cur_progress = *self.progress;
 
         let old_progress = cur_progress;
         let cur_last_log_index = self.state_machine().get_log_last_index().await?;
@@ -67,12 +62,7 @@ impl Effect {
                 old_progress.next_index, follower_id,
             );
             let new_progress = ReplicationProgress::new(cur_snapshot_index);
-            *self
-                .ctrl
-                .replication_progresses
-                .write()
-                .get_mut(&follower_id)
-                .context(Error::PeerNotFound(follower_id.clone()))? = new_progress;
+            *self.progress = new_progress;
             return Ok(());
         }
 
@@ -113,12 +103,7 @@ impl Effect {
             },
         };
 
-        *self
-            .ctrl
-            .replication_progresses
-            .write()
-            .get_mut(&follower_id)
-            .context(Error::PeerNotFound(follower_id.clone()))? = new_progress;
+        *self.progress = new_progress;
 
         Ok(())
     }

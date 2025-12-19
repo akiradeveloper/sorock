@@ -138,7 +138,8 @@ impl Effect {
             control::effect::reset_replication_state::Effect {
                 ctrl: self.ctrl.clone(),
             }
-            .exec(index);
+            .exec(index)
+            .await;
 
             self.ctrl.write_election_state(ElectionState::Leader);
         } else {

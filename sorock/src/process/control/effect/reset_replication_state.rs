@@ -5,10 +5,10 @@ pub struct Effect {
 }
 
 impl Effect {
-    pub fn exec(self, init_next_index: LogIndex) {
+    pub async fn exec(self, init_next_index: LogIndex) {
         let mut progresses = self.ctrl.replication_progresses.write();
         for (_, cur_progress) in progresses.iter_mut() {
-            *cur_progress = ReplicationProgress::new(init_next_index);
+            *cur_progress.lock().await = ReplicationProgress::new(init_next_index);
         }
     }
 }

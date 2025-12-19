@@ -3,7 +3,8 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    ctrl: Control,
+    progress: Arc<Mutex<ReplicationProgress>>,
+    ctrl: Read<Control>,
     consumer: thread::EventConsumer<thread::QueueEvent>,
     producer: thread::EventProducer<thread::ReplicationEvent>,
 }
@@ -15,6 +16,7 @@ impl Thread {
         }
 
         control::effect::advance_replication::Effect {
+            progress: &mut *self.progress.lock().await,
             ctrl: self.ctrl.clone(),
         }
         .exec(self.follower_id.clone())
@@ -41,12 +43,14 @@ impl Thread {
 
 pub fn new(
     follower_id: NodeAddress,
-    ctrl: Control,
+    progress: Arc<Mutex<ReplicationProgress>>,
+    ctrl: Read<Control>,
     consumer: thread::EventConsumer<thread::QueueEvent>,
     producer: thread::EventProducer<thread::ReplicationEvent>,
 ) -> thread::ThreadHandle {
     Thread {
         follower_id,
+        progress,
         ctrl,
         consumer,
         producer,
