@@ -533,7 +533,7 @@ impl RaftProcess {
         let pre_vote = req.pre_vote;
 
         let vote_granted = control::effect::receive_vote_request::Effect {
-            ctrl: &mut *self.ctrl.write().await,
+            ctrl: &mut *self.ctrl.try_write()?,
         }
         .exec(
             candidate_term,
