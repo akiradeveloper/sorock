@@ -6,9 +6,9 @@ pub struct Effect {
 
 impl Effect {
     pub fn exec(self, init_next_index: LogIndex) {
-        let mut peer_contexts = self.ctrl.peer_contexts.write();
-        for (_, peer) in peer_contexts.iter_mut() {
-            peer.progress = ReplicationProgress::new(init_next_index);
+        let mut progresses = self.ctrl.replication_progresses.write();
+        for (_, cur_progress) in progresses.iter_mut() {
+            *cur_progress = ReplicationProgress::new(init_next_index);
         }
     }
 }
