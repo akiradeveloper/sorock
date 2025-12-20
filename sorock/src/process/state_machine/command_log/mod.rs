@@ -15,10 +15,11 @@ pub struct CommandLog {
     pub application_pointer: u64,
     pub snapshot_pointer: u64,
 
-    app: App,
-    response_cache: ResponseCache,
     application_completions: BTreeMap<LogIndex, completion::ApplicationCompletion>,
     kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
+
+    app: App,
+    response_cache: ResponseCache,
 }
 
 pub type CommandLogActor = Arc<tokio::sync::RwLock<CommandLog>>;
@@ -116,7 +117,7 @@ impl CommandLog {
         }
     }
 
-    pub fn register_completion(&mut self, index: LogIndex, completion: Completion) {
+    fn register_completion(&mut self, index: LogIndex, completion: Completion) {
         match completion {
             Completion::Application(completion) => {
                 self.application_completions.insert(index, completion);

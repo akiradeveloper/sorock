@@ -261,13 +261,8 @@ impl RaftProcess {
         let append_index = command_log::effect::append_entry::Effect {
             command_log: &mut *self.command_log.write().await,
         }
-        .exec(command.clone(), None)
+        .exec(command.clone(), None, Some(completion))
         .await?;
-
-        self.command_log
-            .write()
-            .await
-            .register_completion(append_index, completion);
 
         self.process_configuration_command(&command, append_index)
             .await?;
@@ -343,7 +338,7 @@ impl RaftProcess {
         command_log::effect::append_entry::Effect {
             command_log: &mut *self.command_log.write().await,
         }
-        .exec(command.clone(), None)
+        .exec(command.clone(), None, None)
         .await?;
 
         self.process_configuration_command(&command, 2).await?;

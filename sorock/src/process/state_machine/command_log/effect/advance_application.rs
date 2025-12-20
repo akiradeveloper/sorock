@@ -60,7 +60,7 @@ impl Effect<'_> {
                                 command_log::effect::append_entry::Effect {
                                     command_log: self.command_log,
                                 }
-                                .exec(Command::serialize(command), None)
+                                .exec(Command::serialize(command), None, None)
                                 .await
                                 .ok();
                             }
