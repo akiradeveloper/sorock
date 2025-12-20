@@ -14,7 +14,7 @@ impl Thread {
             control::ElectionState::Leader
         ));
 
-        let cur_commit_index = self.ctrl.read().await.get_current_commit_index();
+        let cur_commit_index = self.ctrl.read().await.commit_pointer;
         let new_commit_index = self.ctrl.read().await.find_new_commit_index().await?;
 
         if new_commit_index > cur_commit_index {

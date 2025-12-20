@@ -44,7 +44,7 @@ pub struct Control {
     ballot: storage::BallotStore,
     safe_term: u64,
     leader_failure_detector: failure_detector::FailureDetector,
-    commit_pointer: u64,
+    pub commit_pointer: u64,
 
     // peers
     membership: HashSet<NodeAddress>,
@@ -57,7 +57,7 @@ pub struct Control {
     /// new membership changes are not allowed to be queued.
     membership_pointer: u64,
 
-    state_machine: Read<StateMachine>,
+    command_log: Read<CommandLogActor>,
 
     driver: RaftHandle,
 }
@@ -65,7 +65,7 @@ pub struct Control {
 pub type ControlActor = Arc<tokio::sync::RwLock<Control>>;
 pub fn new_actor(
     ballot_store: storage::BallotStore,
-    state_machine: Read<StateMachine>,
+    command_log: Read<CommandLogActor>,
     queue_rx: EventConsumer<QueueEvent>,
     replication_tx: EventProducer<ReplicationEvent>,
     driver: RaftHandle,
@@ -84,7 +84,7 @@ pub fn new_actor(
         queue_rx,
         replication_tx,
 
-        state_machine,
+        command_log,
         driver,
     };
     Arc::new(tokio::sync::RwLock::new(raw))
@@ -152,7 +152,7 @@ impl Control {
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
-        let last_log_index = self.state_machine.get_log_last_index().await?;
+        let last_log_index = self.command_log.read().await.get_log_last_index().await?;
         match_indices.push(last_log_index);
 
         for (_, peer) in &self.replication_progresses {
@@ -168,10 +168,6 @@ impl Control {
         let new_commit_index = match_indices[mid];
 
         Ok(new_commit_index)
-    }
-
-    pub fn get_current_commit_index(&self) -> LogIndex {
-        self.commit_pointer
     }
 
     pub fn advance_commit_index(&mut self, new_commit_index: LogIndex) {

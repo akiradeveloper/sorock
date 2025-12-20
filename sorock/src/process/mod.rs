@@ -6,24 +6,22 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::{debug, error, info, warn};
 
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-
 mod storage;
 pub use storage::RaftStorage;
 mod api;
 pub(super) use api::*;
-use app::state_machine::StateMachine;
 mod control;
 use control::ControlActor;
-mod app;
-use app::query_processing;
-use app::state_machine;
-use app::App;
 use node::RaftHandle;
-use state_machine::Command;
 
-use app::completion;
+mod state_machine;
+use state_machine::command_log;
+use state_machine::command_log::Command;
+use state_machine::command_log::CommandLogActor;
+use state_machine::completion;
+use state_machine::query_queue;
+use state_machine::App;
+
 mod kernel_message;
 use completion::*;
 mod thread;
@@ -133,10 +131,10 @@ struct ThreadHandles {
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
 /// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
-    state_machine: StateMachine,
+    command_log: CommandLogActor,
     ctrl: ControlActor,
-    query_queue: query_processing::PendingQueue,
-    app: App,
+    query_queue: query_queue::PendingQueue,
+    app: state_machine::App,
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
 
@@ -153,10 +151,10 @@ impl RaftProcess {
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
-        let query_queue = query_processing::PendingQueue::new();
-        let exec_queue = query_processing::ReadyQueue::new(Read(app.clone()));
+        let query_queue = query_queue::PendingQueue::new();
+        let exec_queue = query_queue::ReadyQueue::new(Read(app.clone()));
 
-        let state_machine = StateMachine::new(log_store, app.clone());
+        let command_log = command_log::new_actor(log_store, app.clone());
 
         let (queue_tx, queue_rx) = thread::notify();
         let (replication_tx, replication_rx) = thread::notify();
@@ -166,14 +164,14 @@ impl RaftProcess {
 
         let ctrl = control::new_actor(
             ballot_store,
-            Read(state_machine.clone()),
+            Read(command_log.clone()),
             queue_rx.clone(),
             replication_tx.clone(),
             driver.clone(),
         );
 
-        state_machine::effect::restore_state::Effect {
-            state_machine: state_machine.clone(),
+        command_log::effect::restore_state::Effect {
+            command_log: &mut *command_log.write().await,
         }
         .exec()
         .await?;
@@ -187,27 +185,27 @@ impl RaftProcess {
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
-                state_machine.clone(),
+                command_log.clone(),
                 ctrl.clone(),
                 commit_rx.clone(),
                 kern_tx.clone(),
             ),
             advance_application_handle: thread::advance_application::new(
-                state_machine.clone(),
+                command_log.clone(),
                 kern_rx.clone(),
                 app_tx.clone(),
             ),
-            advance_snapshot_handle: thread::advance_snapshot::new(state_machine.clone()),
+            advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
             advance_commit_handle: control::thread::advance_commit::new(
                 ctrl.clone(),
                 replication_rx.clone(),
                 commit_tx.clone(),
             ),
-            election_handle: control::thread::election::new(ctrl.clone(), state_machine.clone()),
-            log_compaction_handle: thread::delete_old_entries::new(state_machine.clone()),
+            election_handle: control::thread::election::new(ctrl.clone(), command_log.clone()),
+            log_compaction_handle: thread::delete_old_entries::new(Read(command_log.clone())),
             query_execution_handle: thread::query_execution::new(
                 exec_queue.clone(),
-                Read(state_machine.clone()),
+                Read(command_log.clone()),
                 app_rx.clone(),
             ),
             query_queue_coordinator_handle: thread::query_queue_coordinator::new(
@@ -217,13 +215,13 @@ impl RaftProcess {
             ),
             snapshot_deleter_handle: thread::delete_old_snapshots::new(
                 app.clone(),
-                Read(state_machine.clone()),
+                Read(command_log.clone()),
             ),
             stepdown_handle: control::thread::stepdown::new(ctrl.clone()),
         };
 
         Ok(Self {
-            state_machine,
+            command_log,
             ctrl,
             query_queue,
             driver,
@@ -260,13 +258,15 @@ impl RaftProcess {
     async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
         ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
 
-        let append_index = state_machine::effect::append_entry::Effect {
-            state_machine: self.state_machine.clone(),
+        let append_index = command_log::effect::append_entry::Effect {
+            command_log: &mut *self.command_log.write().await,
         }
         .exec(command.clone(), None)
         .await?;
 
-        self.state_machine
+        self.command_log
+            .write()
+            .await
             .register_completion(append_index, completion);
 
         self.process_configuration_command(&command, append_index)
@@ -298,10 +298,10 @@ impl RaftProcess {
             let insert_index = entry.this_clock.index;
             let command = entry.command.clone();
 
-            use state_machine::effect::try_insert::TryInsertResult;
+            use command_log::effect::try_insert::TryInsertResult;
 
-            let insert_result = state_machine::effect::try_insert::Effect {
-                state_machine: self.state_machine.clone(),
+            let insert_result = command_log::effect::try_insert::Effect {
+                command_log: &mut *self.command_log.write().await,
                 driver: self.driver.clone(),
             }
             .exec(entry, req.sender_id.clone())
@@ -340,8 +340,8 @@ impl RaftProcess {
         membership.insert(self.driver.self_node_id());
 
         let command = Command::serialize(Command::ClusterConfiguration { membership });
-        state_machine::effect::append_entry::Effect {
-            state_machine: self.state_machine.clone(),
+        command_log::effect::append_entry::Effect {
+            command_log: &mut *self.command_log.write().await,
         }
         .exec(command.clone(), None)
         .await?;
@@ -391,7 +391,7 @@ impl RaftProcess {
 
         let resp = response::ReplicationStream {
             n_inserted,
-            log_last_index: self.state_machine.get_log_last_index().await?,
+            log_last_index: self.command_log.read().await.get_log_last_index().await?,
         };
         Ok(resp)
     }
@@ -443,7 +443,7 @@ impl RaftProcess {
     ) -> Result<Bytes> {
         let (app_completion, rx) = completion::prepare_application_completion();
 
-        let query = query_processing::Query {
+        let query = query_queue::Query {
             message: req.message,
             app_completion,
         };
@@ -508,7 +508,7 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
-        let cur_snapshot_index = self.state_machine.snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.command_log.read().await.snapshot_pointer;
         ensure!(index == cur_snapshot_index);
         let st = self.app.open_snapshot(index).await?;
         Ok(st)
@@ -518,7 +518,7 @@ impl RaftProcess {
         info!("received TimeoutNow. try to become a leader.");
         control::effect::try_promote::Effect {
             ctrl: &mut *self.ctrl.write().await,
-            state_machine: self.state_machine.clone(),
+            command_log: self.command_log.clone(),
         }
         .exec(true)
         .await?;
@@ -553,14 +553,11 @@ impl RaftProcess {
 
     pub(super) async fn get_log_state(&self) -> Result<response::LogState> {
         let out = response::LogState {
-            head_index: self.state_machine.get_log_head_index().await?,
-            last_index: self.state_machine.get_log_last_index().await?,
-            snapshot_index: self.state_machine.snapshot_pointer.load(Ordering::SeqCst),
-            application_index: self
-                .state_machine
-                .application_pointer
-                .load(Ordering::SeqCst),
-            commit_index: self.ctrl.read().await.get_current_commit_index(),
+            head_index: self.command_log.read().await.get_log_head_index().await?,
+            last_index: self.command_log.read().await.get_log_last_index().await?,
+            snapshot_index: self.command_log.read().await.snapshot_pointer,
+            application_index: self.command_log.read().await.application_pointer,
+            commit_index: self.ctrl.read().await.commit_pointer,
         };
         Ok(out)
     }

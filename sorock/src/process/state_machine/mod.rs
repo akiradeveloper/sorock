@@ -1,8 +1,8 @@
 use super::*;
 
+pub mod command_log;
 pub mod completion;
-pub mod query_processing;
-pub mod state_machine;
+pub mod query_queue;
 
 #[derive(Deref, Clone)]
 pub struct App(Arc<dyn RaftApp>);

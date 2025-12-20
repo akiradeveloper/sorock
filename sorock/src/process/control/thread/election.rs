@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     ctrl: ControlActor,
-    state_machine: StateMachine,
+    command_log: CommandLogActor,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -26,7 +26,7 @@ impl Thread {
             info!("election timeout. try to become a leader");
             control::effect::try_promote::Effect {
                 ctrl: &mut *self.ctrl.write().await,
-                state_machine: self.state_machine.clone(),
+                command_log: self.command_log.clone(),
             }
             .exec(false)
             .await?;
@@ -48,10 +48,6 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: ControlActor, state_machine: StateMachine) -> ThreadHandle {
-    Thread {
-        ctrl,
-        state_machine,
-    }
-    .do_loop()
+pub fn new(ctrl: ControlActor, command_log: CommandLogActor) -> ThreadHandle {
+    Thread { ctrl, command_log }.do_loop()
 }

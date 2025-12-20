@@ -1,14 +1,14 @@
 use super::*;
 
-pub struct Effect {
-    pub state_machine: StateMachine,
+pub struct Effect<'a> {
+    pub command_log: &'a mut CommandLog,
 }
 
-impl Effect {
+impl Effect<'_> {
     pub async fn exec(self) -> Result<()> {
-        let log_last_index = self.state_machine.get_log_last_index().await?;
+        let log_last_index = self.command_log.get_log_last_index().await?;
         let snapshot_index = match self
-            .state_machine
+            .command_log
             .find_last_snapshot_index(log_last_index)
             .await?
         {
@@ -26,20 +26,14 @@ impl Effect {
                     this_clock: Clock { term: 0, index: 1 },
                     command: init_command.clone(),
                 };
-                self.state_machine.insert_entry(snapshot).await?;
+                self.command_log.insert_entry(snapshot).await?;
                 1
             }
         };
 
-        self.state_machine
-            .kernel_pointer
-            .store(snapshot_index - 1, Ordering::SeqCst);
-        self.state_machine
-            .application_pointer
-            .store(snapshot_index - 1, Ordering::SeqCst);
-        self.state_machine
-            .snapshot_pointer
-            .store(snapshot_index, Ordering::SeqCst);
+        self.command_log.kernel_pointer = snapshot_index - 1;
+        self.command_log.application_pointer = snapshot_index - 1;
+        self.command_log.snapshot_pointer = snapshot_index;
 
         info!("restore state: snapshot_index={snapshot_index}");
         Ok(())

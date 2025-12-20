@@ -6,44 +6,38 @@ pub use command::Command;
 mod response_cache;
 use response_cache::ResponseCache;
 
-pub struct Inner {
-    /// Lock to serialize insertions to the log.
-    write_sequencer: tokio::sync::Semaphore,
+pub struct CommandLog {
     storage: storage::LogStore,
 
     // Pointers in the log.
     // Invariant: kernel_pointer >= application_pointer >= snapshot_pointer
-    kernel_pointer: AtomicU64,
-    pub application_pointer: AtomicU64,
-    pub snapshot_pointer: AtomicU64,
+    pub kernel_pointer: u64,
+    pub application_pointer: u64,
+    pub snapshot_pointer: u64,
 
     app: App,
-    response_cache: spin::Mutex<ResponseCache>,
-    application_completions: spin::Mutex<BTreeMap<LogIndex, completion::ApplicationCompletion>>,
-    kernel_completions: spin::Mutex<BTreeMap<LogIndex, completion::KernelCompletion>>,
+    response_cache: ResponseCache,
+    application_completions: BTreeMap<LogIndex, completion::ApplicationCompletion>,
+    kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
 }
 
-#[derive(derive_more::Deref, Clone)]
-pub struct StateMachine(pub Arc<Inner>);
-impl StateMachine {
-    pub fn new(storage: storage::LogStore, app: App) -> Self {
-        let inner = Inner {
-            app,
-            write_sequencer: tokio::sync::Semaphore::new(1),
-            kernel_pointer: AtomicU64::new(0),
-            application_pointer: AtomicU64::new(0),
-            snapshot_pointer: AtomicU64::new(0),
-            storage,
-            application_completions: spin::Mutex::new(BTreeMap::new()),
-            kernel_completions: spin::Mutex::new(BTreeMap::new()),
-            response_cache: spin::Mutex::new(ResponseCache::new()),
-        };
-        Self(inner.into())
-    }
+pub type CommandLogActor = Arc<tokio::sync::RwLock<CommandLog>>;
+
+pub fn new_actor(storage: storage::LogStore, app: App) -> CommandLogActor {
+    Arc::new(tokio::sync::RwLock::new(CommandLog {
+        storage,
+        kernel_pointer: 0,
+        application_pointer: 0,
+        snapshot_pointer: 0,
+        app,
+        response_cache: ResponseCache::new(),
+        application_completions: BTreeMap::new(),
+        kernel_completions: BTreeMap::new(),
+    }))
 }
 
-impl Inner {
-    async fn insert_snapshot(&self, e: Entry) -> Result<()> {
+impl CommandLog {
+    async fn insert_snapshot(&mut self, e: Entry) -> Result<()> {
         let new_snapshot_index = e.this_clock.index;
 
         self.storage.insert_entry(new_snapshot_index, e).await?;
@@ -53,12 +47,9 @@ impl Inner {
         // In other words, even if we set commit_pointer 0 here, the correct commit_pointer
         // will be transferred from the leader again.
 
-        self.kernel_pointer
-            .store(new_snapshot_index - 1, Ordering::SeqCst);
-        self.application_pointer
-            .store(new_snapshot_index - 1, Ordering::SeqCst);
-        self.snapshot_pointer
-            .store(new_snapshot_index, Ordering::SeqCst);
+        self.kernel_pointer = new_snapshot_index - 1;
+        self.application_pointer = new_snapshot_index - 1;
+        self.snapshot_pointer = new_snapshot_index;
 
         info!("inserted a new snapshot@{new_snapshot_index}");
         Ok(())
@@ -82,7 +73,7 @@ impl Inner {
         Ok(entry.unwrap())
     }
 
-    async fn insert_entry(&self, e: Entry) -> Result<()> {
+    async fn insert_entry(&mut self, e: Entry) -> Result<()> {
         self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
     }
@@ -125,29 +116,14 @@ impl Inner {
         }
     }
 
-    pub fn register_completion(&self, index: LogIndex, completion: Completion) {
+    pub fn register_completion(&mut self, index: LogIndex, completion: Completion) {
         match completion {
             Completion::Application(completion) => {
-                self.application_completions
-                    .lock()
-                    .insert(index, completion);
+                self.application_completions.insert(index, completion);
             }
             Completion::Kernel(completion) => {
-                self.kernel_completions.lock().insert(index, completion);
+                self.kernel_completions.insert(index, completion);
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_fetch_max_monotonic() {
-        let n = AtomicU64::new(50);
-        n.fetch_max(10, Ordering::SeqCst);
-        assert_eq!(n.load(Ordering::SeqCst), 50);
-        n.fetch_max(100, Ordering::SeqCst);
-        assert_eq!(n.load(Ordering::SeqCst), 100);
     }
 }

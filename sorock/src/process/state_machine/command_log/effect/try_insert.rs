@@ -15,14 +15,12 @@ pub enum TryInsertResult {
     },
 }
 
-pub struct Effect {
-    pub state_machine: StateMachine,
+pub struct Effect<'a> {
+    pub command_log: &'a mut CommandLog,
     pub driver: RaftHandle,
 }
-impl Effect {
+impl Effect<'_> {
     pub async fn exec(self, entry: Entry, sender_id: NodeAddress) -> Result<TryInsertResult> {
-        let _g = self.state_machine.write_sequencer.try_acquire()?;
-
         // If the entry is snapshot then we should insert this entry without consistency checks.
         // Old entries before the new snapshot will be garbage collected.
         match Command::deserialize(&entry.command) {
@@ -38,7 +36,7 @@ impl Effect {
 
                 // Invariant: snapshot entry exists => snapshot exists
                 if let Err(e) = self
-                    .state_machine
+                    .command_log
                     .app
                     .fetch_snapshot(snapshot_index, sender_id.clone(), self.driver)
                     .await
@@ -50,7 +48,7 @@ impl Effect {
                     return Err(e);
                 }
 
-                self.state_machine.insert_snapshot(entry).await?;
+                self.command_log.insert_snapshot(entry).await?;
 
                 return Ok(TryInsertResult::Inserted);
             }
@@ -62,7 +60,7 @@ impl Effect {
             index: prev_index,
         } = entry.prev_clock;
         if let Some(prev_clock) = self
-            .state_machine
+            .command_log
             .storage
             .get_entry(prev_index)
             .await?
@@ -82,7 +80,7 @@ impl Effect {
 
                 // optimization to skip actual insertion.
                 if let Some(old_clock) = self
-                    .state_machine
+                    .command_log
                     .storage
                     .get_entry(this_index)
                     .await?
@@ -95,17 +93,13 @@ impl Effect {
                     }
                 }
 
-                self.state_machine.insert_entry(entry).await?;
+                self.command_log.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.state_machine
+                self.command_log
                     .application_completions
-                    .lock()
                     .split_off(&this_index);
-                self.state_machine
-                    .kernel_completions
-                    .lock()
-                    .split_off(&this_index);
+                self.command_log.kernel_completions.split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)
             }

@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
-    pub state_machine: StateMachine,
+    pub command_log: CommandLogActor,
 }
 impl Effect<'_> {
     /// Try to become a leader.
@@ -78,8 +78,10 @@ impl Effect<'_> {
         };
 
         let log_last_clock = {
-            let last_log_index = self.state_machine.get_log_last_index().await?;
-            self.state_machine
+            let last_log_index = self.command_log.read().await.get_log_last_index().await?;
+            self.command_log
+                .read()
+                .await
                 .get_entry(last_log_index)
                 .await?
                 .this_clock
@@ -121,8 +123,8 @@ impl Effect<'_> {
             info!("got enough votes from the cluster. promoted to leader");
 
             // As soon as the node becomes the leader, replicate noop entries with term.
-            let index = state_machine::effect::append_entry::Effect {
-                state_machine: self.state_machine.clone(),
+            let index = command_log::effect::append_entry::Effect {
+                command_log: &mut *self.command_log.write().await,
             }
             .exec(
                 Command::serialize(Command::Barrier(vote_term)),

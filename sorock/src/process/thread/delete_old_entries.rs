@@ -2,12 +2,12 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_machine: StateMachine,
+    command_log: Read<CommandLogActor>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        state_machine::effect::delete_old_entries::Effect {
-            state_machine: self.state_machine.clone(),
+        command_log::effect::delete_old_entries::Effect {
+            command_log: &*self.command_log.read().await,
         }
         .exec()
         .await
@@ -26,6 +26,6 @@ impl Thread {
     }
 }
 
-pub fn new(state_machine: StateMachine) -> ThreadHandle {
-    Thread { state_machine }.do_loop()
+pub fn new(command_log: Read<CommandLogActor>) -> ThreadHandle {
+    Thread { command_log }.do_loop()
 }
