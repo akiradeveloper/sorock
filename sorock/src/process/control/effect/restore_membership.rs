@@ -6,22 +6,26 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn state_machine(&self) -> &Read<StateMachine> {
-        &self.ctrl.state_machine
+    fn command_log(&self) -> &Read<CommandLogActor> {
+        &self.ctrl.command_log
     }
 
     /// Restore the membership from the state of the log.
     pub async fn exec(self) -> Result<()> {
-        let log_last_index = self.state_machine().get_log_last_index().await?;
+        let log_last_index = self.command_log().read().await.get_log_last_index().await?;
         let last_membership_index = self
-            .state_machine()
+            .command_log()
+            .read()
+            .await
             .find_last_membership_index(log_last_index)
             .await?;
 
         if let Some(last_membership_index) = last_membership_index {
             let last_membership = {
                 let entry = self
-                    .state_machine()
+                    .command_log()
+                    .read()
+                    .await
                     .get_entry(last_membership_index)
                     .await?;
                 match Command::deserialize(&entry.command) {

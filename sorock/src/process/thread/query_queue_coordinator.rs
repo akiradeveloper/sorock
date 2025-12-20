@@ -1,8 +1,8 @@
 use super::*;
 
 struct Thread {
-    pending_queue: query_processing::PendingQueue,
-    exec_queue: query_processing::ReadyQueue,
+    pending_queue: query_queue::PendingQueue,
+    exec_queue: query_queue::ReadyQueue,
     driver: node::RaftHandle,
 }
 
@@ -37,8 +37,8 @@ impl Thread {
 }
 
 pub fn new(
-    pending_queue: query_processing::PendingQueue,
-    exec_queue: query_processing::ReadyQueue,
+    pending_queue: query_queue::PendingQueue,
+    exec_queue: query_queue::ReadyQueue,
     driver: node::RaftHandle,
 ) -> ThreadHandle {
     Thread {

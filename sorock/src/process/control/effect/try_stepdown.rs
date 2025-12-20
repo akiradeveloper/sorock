@@ -4,8 +4,8 @@ pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
 }
 impl Effect<'_> {
-    fn state_machine(&self) -> &Read<StateMachine> {
-        &self.ctrl.state_machine
+    fn command_log(&self) -> &Read<CommandLogActor> {
+        &self.ctrl.command_log
     }
 
     /// If the latest config doesn't contain itself, then it steps down
@@ -25,7 +25,9 @@ impl Effect<'_> {
         };
 
         let config = self
-            .state_machine()
+            .command_log()
+            .read()
+            .await
             .try_read_membership(last_membership_change_index)
             .await?
             .context(Error::BadLogState)?;

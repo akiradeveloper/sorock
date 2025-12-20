@@ -6,23 +6,23 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn state_machine(&self) -> &Read<StateMachine> {
-        &self.ctrl.state_machine
+    fn command_log(&self) -> &Read<CommandLogActor> {
+        &self.ctrl.command_log
     }
 
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
         selfid: NodeAddress,
         term: Term,
-        state_machine: Read<StateMachine>,
+        command_log: Read<CommandLogActor>,
         l: LogIndex,
         r: LogIndex,
     ) -> Result<request::ReplicationStream> {
-        let head = state_machine.get_entry(l).await?;
+        let head = command_log.read().await.get_entry(l).await?;
 
         let st = async_stream::stream! {
             for idx in l..r {
-                let x = state_machine.get_entry(idx).await;
+                let x = command_log.read().await.get_entry(idx).await;
                 let e = match x {
                     Ok(x) => Some(request::ReplicationStreamElem {
                         this_clock: x.this_clock,
@@ -48,14 +48,14 @@ impl Effect<'_> {
         let cur_progress = *self.progress;
 
         let old_progress = cur_progress;
-        let cur_last_log_index = self.state_machine().get_log_last_index().await?;
+        let cur_last_log_index = self.command_log().read().await.get_log_last_index().await?;
 
         // More entries to send?
         ensure!(old_progress.next_index <= cur_last_log_index);
 
         // The entries to be sent may be deleted due to a previous compaction.
         // In this case, replication will reset from the current snapshot index.
-        let cur_snapshot_index = self.state_machine().snapshot_pointer.load(Ordering::SeqCst);
+        let cur_snapshot_index = self.command_log().read().await.snapshot_pointer;
         if old_progress.next_index < cur_snapshot_index {
             warn!(
                 "entry not found at next_index (idx={}) for {}",
@@ -73,7 +73,7 @@ impl Effect<'_> {
         let out_stream = Self::prepare_replication_stream(
             self.ctrl.driver.self_node_id(),
             cur_term,
-            self.state_machine().clone(),
+            self.command_log().clone(),
             old_progress.next_index,
             old_progress.next_index + n,
         )

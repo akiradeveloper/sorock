@@ -2,12 +2,12 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    state_machine: StateMachine,
+    command_log: CommandLogActor,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        state_machine::effect::advance_snapshot::Effect {
-            state_machine: self.state_machine.clone(),
+        command_log::effect::advance_snapshot::Effect {
+            command_log: &mut *self.command_log.write().await,
         }
         .exec()
         .await?;
@@ -28,6 +28,6 @@ impl Thread {
     }
 }
 
-pub fn new(state_machine: StateMachine) -> ThreadHandle {
-    Thread { state_machine }.do_loop()
+pub fn new(command_log: CommandLogActor) -> ThreadHandle {
+    Thread { command_log }.do_loop()
 }

@@ -1,19 +1,16 @@
 use super::*;
 
-pub struct Effect {
-    pub state_machine: StateMachine,
+pub struct Effect<'a> {
+    pub command_log: &'a mut CommandLog,
 }
 
-impl Effect {
+impl Effect<'_> {
     pub async fn exec(self) -> Result<()> {
-        let cur_app_index = self
-            .state_machine
-            .application_pointer
-            .load(Ordering::SeqCst);
-        ensure!(cur_app_index < self.state_machine.kernel_pointer.load(Ordering::SeqCst));
+        let cur_app_index = self.command_log.application_pointer;
+        ensure!(cur_app_index < self.command_log.kernel_pointer);
 
         let process_index = cur_app_index + 1;
-        let e = self.state_machine.get_entry(process_index).await?;
+        let e = self.command_log.get_entry(process_index).await?;
         let command = Command::deserialize(&e.command);
 
         let do_process = match command {
@@ -24,11 +21,11 @@ impl Effect {
         };
 
         if do_process {
-            let mut response_cache = self.state_machine.response_cache.lock();
+            let response_cache = &mut self.command_log.response_cache;
             debug!("process user@{process_index}");
             match command {
                 Command::Snapshot { .. } => {
-                    self.state_machine.app.apply_snapshot(process_index).await?;
+                    self.command_log.app.apply_snapshot(process_index).await?;
                 }
                 Command::ExecuteRequest {
                     message,
@@ -36,7 +33,7 @@ impl Effect {
                 } => {
                     if response_cache.should_execute(&request_id) {
                         let resp = self
-                            .state_machine
+                            .command_log
                             .app
                             .process_write(message, process_index)
                             .await?;
@@ -45,9 +42,8 @@ impl Effect {
 
                     // Leader may have the completion for the request.
                     let app_completion = self
-                        .state_machine
+                        .command_log
                         .application_completions
-                        .lock()
                         .remove(&process_index);
                     if let Some(app_completion) = app_completion {
                         if let Some(resp) = response_cache.get_response(&request_id) {
@@ -61,8 +57,8 @@ impl Effect {
                                 // This should be queued and replicated to the followers.
                                 // Otherwise followers will never know the request is completed and the context will never be terminated.
                                 let command = Command::CompleteRequest { request_id };
-                                state_machine::effect::append_entry::Effect {
-                                    state_machine: self.state_machine.clone(),
+                                command_log::effect::append_entry::Effect {
+                                    command_log: self.command_log,
                                 }
                                 .exec(Command::serialize(command), None)
                                 .await
@@ -78,9 +74,7 @@ impl Effect {
             }
         }
 
-        self.state_machine
-            .application_pointer
-            .store(process_index, Ordering::SeqCst);
+        self.command_log.application_pointer = process_index;
 
         Ok(())
     }

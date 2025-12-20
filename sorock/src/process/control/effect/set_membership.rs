@@ -5,8 +5,8 @@ pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
 }
 impl Effect<'_> {
-    fn state_machine(&self) -> &Read<StateMachine> {
-        &self.ctrl.state_machine
+    fn command_log(&self) -> &Read<CommandLogActor> {
+        &self.ctrl.command_log
     }
 
     async fn add_peer(&mut self, id: NodeAddress) -> Result<()> {
@@ -19,7 +19,7 @@ impl Effect<'_> {
         }
 
         let init_progress = {
-            let last_log_index = self.state_machine().get_log_last_index().await?;
+            let last_log_index = self.command_log().read().await.get_log_last_index().await?;
             Arc::new(tokio::sync::Mutex::new(ReplicationProgress::new(
                 last_log_index,
             )))
