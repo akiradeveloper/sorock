@@ -129,6 +129,7 @@ impl Effect<'_> {
             .exec(
                 Command::serialize(Command::Barrier(vote_term)),
                 Some(vote_term),
+                None,
             )
             .await?;
 
