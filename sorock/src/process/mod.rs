@@ -128,6 +128,111 @@ struct ThreadHandles {
     stepdown_handle: ThreadHandle,
 }
 
+struct Gateway {
+    command_log: CommandLogActor,
+    ctrl: ControlActor,
+    driver: node::RaftHandle,
+    queue_tx: EventProducer<QueueEvent>,
+}
+
+impl Gateway {
+    /// Process configuration change if the command contains configuration.
+    /// Configuration should be applied as soon as it is inserted into the log because doing so
+    /// guarantees that majority of the servers move to the configuration when the entry is committed.
+    /// Without this property, servers may still be in some old configuration which may cause split-brain
+    /// by electing two leaders in a single term which is not allowed in Raft.
+    async fn process_configuration_command(
+        &mut self,
+        command: &[u8],
+        index: LogIndex,
+    ) -> Result<()> {
+        let config0 = match Command::deserialize(command) {
+            Command::Snapshot { membership } => Some(membership),
+            Command::ClusterConfiguration { membership } => Some(membership),
+            _ => None,
+        };
+        if let Some(config) = config0 {
+            control::effect::set_membership::Effect {
+                ctrl_actor: Read(self.ctrl.clone()),
+                ctrl: &mut *self.ctrl.write().await,
+            }
+            .exec(config, index)
+            .await?;
+        }
+        Ok(())
+    }
+
+    async fn queue_new_entry(&mut self, command: Bytes, completion: Completion) -> Result<()> {
+        ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
+
+        let append_index = command_log::effect::append_entry::Effect {
+            command_log: &mut *self.command_log.write().await,
+        }
+        .exec(command.clone(), None, Some(completion))
+        .await?;
+
+        self.process_configuration_command(&command, append_index)
+            .await?;
+
+        self.queue_tx.push_event(QueueEvent);
+
+        Ok(())
+    }
+
+    async fn queue_received_entries(&mut self, mut req: request::ReplicationStream) -> Result<u64> {
+        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
+        ensure!(
+            cur_term <= req.sender_term,
+            "received replication stream from stale leader (term={} < cur_term={})",
+            req.sender_term,
+            cur_term
+        );
+
+        let mut prev_clock = req.prev_clock;
+        let mut n_inserted = 0;
+        while let Some(Some(cur)) = req.entries.next().await {
+            let entry = Entry {
+                prev_clock,
+                this_clock: cur.this_clock,
+                command: cur.command,
+            };
+            let insert_index = entry.this_clock.index;
+            let command = entry.command.clone();
+
+            use command_log::effect::try_insert::TryInsertResult;
+
+            let insert_result = command_log::effect::try_insert::Effect {
+                command_log: &mut *self.command_log.write().await,
+                driver: self.driver.clone(),
+            }
+            .exec(entry, req.sender_id.clone())
+            .await?;
+
+            match insert_result {
+                TryInsertResult::Inserted => {
+                    self.process_configuration_command(&command, insert_index)
+                        .await?;
+                }
+                TryInsertResult::SkippedInsertion => {}
+                TryInsertResult::InconsistentInsertion { want, found } => {
+                    warn!("rejected append entry (clock={:?}) for inconsisntency (want:{want:?} != found:{found:?}", cur.this_clock);
+                    break;
+                }
+                TryInsertResult::LeapInsertion { want } => {
+                    debug!(
+                        "rejected append entry (clock={:?}) for leap insertion (want={want:?})",
+                        cur.this_clock
+                    );
+                    break;
+                }
+            }
+            prev_clock = cur.this_clock;
+            n_inserted += 1;
+        }
+        Ok(n_inserted)
+    }
+}
+
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
 /// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
@@ -138,8 +243,7 @@ pub struct RaftProcess {
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
 
-    queue_tx: EventProducer<QueueEvent>,
-    replication_tx: EventProducer<ReplicationEvent>,
+    gateway: Arc<tokio::sync::Mutex<Gateway>>,
 }
 
 impl RaftProcess {
@@ -209,6 +313,13 @@ impl RaftProcess {
             stepdown_handle: control::thread::stepdown::new(ctrl.clone()),
         };
 
+        let gateway = Arc::new(tokio::sync::Mutex::new(Gateway {
+            command_log: command_log.clone(),
+            ctrl: ctrl.clone(),
+            driver: driver.clone(),
+            queue_tx: queue_tx.clone(),
+        }));
+
         Ok(Self {
             command_log,
             ctrl,
@@ -217,103 +328,8 @@ impl RaftProcess {
             app,
             _thread_handles,
 
-            queue_tx,
-            replication_tx,
+            gateway,
         })
-    }
-
-    /// Process configuration change if the command contains configuration.
-    /// Configuration should be applied as soon as it is inserted into the log because doing so
-    /// guarantees that majority of the servers move to the configuration when the entry is committed.
-    /// Without this property, servers may still be in some old configuration which may cause split-brain
-    /// by electing two leaders in a single term which is not allowed in Raft.
-    async fn process_configuration_command(&self, command: &[u8], index: LogIndex) -> Result<()> {
-        let config0 = match Command::deserialize(command) {
-            Command::Snapshot { membership } => Some(membership),
-            Command::ClusterConfiguration { membership } => Some(membership),
-            _ => None,
-        };
-        if let Some(config) = config0 {
-            control::effect::set_membership::Effect {
-                ctrl_actor: Read(self.ctrl.clone()),
-                ctrl: &mut *self.ctrl.write().await,
-            }
-            .exec(config, index)
-            .await?;
-        }
-        Ok(())
-    }
-
-    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<()> {
-        ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
-
-        let append_index = command_log::effect::append_entry::Effect {
-            command_log: &mut *self.command_log.write().await,
-        }
-        .exec(command.clone(), None, Some(completion))
-        .await?;
-
-        self.process_configuration_command(&command, append_index)
-            .await?;
-
-        self.queue_tx.push_event(QueueEvent);
-        self.replication_tx.push_event(ReplicationEvent);
-
-        Ok(())
-    }
-
-    async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
-        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
-        ensure!(
-            cur_term <= req.sender_term,
-            "received replication stream from stale leader (term={} < cur_term={})",
-            req.sender_term,
-            cur_term
-        );
-
-        let mut prev_clock = req.prev_clock;
-        let mut n_inserted = 0;
-        while let Some(Some(cur)) = req.entries.next().await {
-            let entry = Entry {
-                prev_clock,
-                this_clock: cur.this_clock,
-                command: cur.command,
-            };
-            let insert_index = entry.this_clock.index;
-            let command = entry.command.clone();
-
-            use command_log::effect::try_insert::TryInsertResult;
-
-            let insert_result = command_log::effect::try_insert::Effect {
-                command_log: &mut *self.command_log.write().await,
-                driver: self.driver.clone(),
-            }
-            .exec(entry, req.sender_id.clone())
-            .await?;
-
-            match insert_result {
-                TryInsertResult::Inserted => {
-                    self.process_configuration_command(&command, insert_index)
-                        .await?;
-                }
-                TryInsertResult::SkippedInsertion => {}
-                TryInsertResult::InconsistentInsertion { want, found } => {
-                    warn!("rejected append entry (clock={:?}) for inconsisntency (want:{want:?} != found:{found:?}", cur.this_clock);
-                    break;
-                }
-                TryInsertResult::LeapInsertion { want } => {
-                    debug!(
-                        "rejected append entry (clock={:?}) for leap insertion (want={want:?})",
-                        cur.this_clock
-                    );
-                    break;
-                }
-            }
-            prev_clock = cur.this_clock;
-            n_inserted += 1;
-        }
-
-        Ok(n_inserted)
     }
 
     /// Forming a new cluster with a single node is called "cluster bootstrapping".
@@ -378,7 +394,12 @@ impl RaftProcess {
         &self,
         req: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
-        let n_inserted = self.queue_received_entries(req).await?;
+        let n_inserted = self
+            .gateway
+            .lock()
+            .await
+            .queue_received_entries(req)
+            .await?;
 
         let resp = response::ReplicationStream {
             n_inserted,
@@ -412,11 +433,14 @@ impl RaftProcess {
                 }
             };
             ensure!(self.ctrl.read().await.allow_queue_new_membership());
-            self.queue_new_entry(
-                Command::serialize(command),
-                Completion::Kernel(kern_completion),
-            )
-            .await?;
+            self.gateway
+                .lock()
+                .await
+                .queue_new_entry(
+                    Command::serialize(command),
+                    Completion::Kernel(kern_completion),
+                )
+                .await?;
 
             rx.await?;
         } else {
@@ -465,11 +489,14 @@ impl RaftProcess {
                 request_id: req.request_id,
             };
 
-            self.queue_new_entry(
-                Command::serialize(command),
-                Completion::Application(app_completion),
-            )
-            .await?;
+            self.gateway
+                .lock()
+                .await
+                .queue_new_entry(
+                    Command::serialize(command),
+                    Completion::Application(app_completion),
+                )
+                .await?;
 
             rx.await?
         } else {
