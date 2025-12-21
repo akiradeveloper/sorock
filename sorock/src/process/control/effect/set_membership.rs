@@ -1,8 +1,8 @@
 use super::*;
 
 pub struct Effect<'a> {
-    pub ctrl_actor: Read<ControlActor>,
     pub ctrl: &'a mut Control,
+    pub ctrl_actor: Read<ControlActor>,
 }
 impl Effect<'_> {
     fn command_log(&self) -> &Read<CommandLogActor> {

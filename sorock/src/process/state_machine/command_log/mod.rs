@@ -5,7 +5,7 @@ pub mod effect;
 pub use command::Command;
 mod response_cache;
 use response_cache::ResponseCache;
-mod restore;
+mod init;
 
 pub struct CommandLog {
     storage: storage::LogStore,

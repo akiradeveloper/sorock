@@ -265,7 +265,7 @@ impl RaftProcess {
         let exec_queue = query_queue::ReadyQueue::new(Read(app.clone()));
 
         let command_log = command_log::new_actor(log_store, app.clone());
-        command_log.write().await.restore_state().await?;
+        command_log.write().await.init().await?;
 
         let ctrl = control::new_actor(
             ballot_store,
@@ -274,7 +274,7 @@ impl RaftProcess {
             replication_tx.clone(),
             driver.clone(),
         );
-        ctrl.write().await.restore_state(Read(ctrl.clone())).await?;
+        ctrl.write().await.init(Read(ctrl.clone())).await?;
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(

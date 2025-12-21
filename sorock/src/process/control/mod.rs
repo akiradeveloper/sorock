@@ -2,6 +2,7 @@ use super::*;
 
 pub mod effect;
 mod failure_detector;
+mod init;
 mod quorum;
 pub mod thread;
 
@@ -90,42 +91,6 @@ pub fn new_actor(
     Arc::new(tokio::sync::RwLock::new(raw))
 }
 impl Control {
-    /// Restore the membership from the state of the log.
-    pub async fn restore_state(&mut self, ctrl_actor: Read<ControlActor>) -> Result<()> {
-        let log_last_index = self.command_log.read().await.get_log_last_index().await?;
-        let last_membership_index = self
-            .command_log
-            .read()
-            .await
-            .find_last_membership_index(log_last_index)
-            .await?;
-
-        if let Some(last_membership_index) = last_membership_index {
-            let last_membership = {
-                let entry = self
-                    .command_log
-                    .read()
-                    .await
-                    .get_entry(last_membership_index)
-                    .await?;
-                match Command::deserialize(&entry.command) {
-                    Command::Snapshot { membership } => membership,
-                    Command::ClusterConfiguration { membership } => membership,
-                    _ => unreachable!(),
-                }
-            };
-
-            effect::set_membership::Effect {
-                ctrl: self,
-                ctrl_actor,
-            }
-            .exec(last_membership, last_membership_index)
-            .await?;
-        };
-
-        Ok(())
-    }
-
     pub fn read_election_state(&self) -> ElectionState {
         self.state
     }
