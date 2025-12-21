@@ -148,6 +148,12 @@ impl RaftProcess {
         storage: &storage::RaftStorage,
         driver: node::RaftHandle,
     ) -> Result<Self> {
+        let (queue_tx, queue_rx) = thread::notify();
+        let (replication_tx, replication_rx) = thread::notify();
+        let (commit_tx, commit_rx) = thread::notify();
+        let (kern_tx, kern_rx) = thread::notify();
+        let (app_tx, app_rx) = thread::notify();
+
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
@@ -155,12 +161,7 @@ impl RaftProcess {
         let exec_queue = query_queue::ReadyQueue::new(Read(app.clone()));
 
         let command_log = command_log::new_actor(log_store, app.clone());
-
-        let (queue_tx, queue_rx) = thread::notify();
-        let (replication_tx, replication_rx) = thread::notify();
-        let (commit_tx, commit_rx) = thread::notify();
-        let (kern_tx, kern_rx) = thread::notify();
-        let (app_tx, app_rx) = thread::notify();
+        command_log.write().await.restore_state().await?;
 
         let ctrl = control::new_actor(
             ballot_store,
@@ -169,19 +170,7 @@ impl RaftProcess {
             replication_tx.clone(),
             driver.clone(),
         );
-
-        command_log::effect::restore_state::Effect {
-            command_log: &mut *command_log.write().await,
-        }
-        .exec()
-        .await?;
-
-        control::effect::restore_membership::Effect {
-            ctrl_actor: Read(ctrl.clone()),
-            ctrl: &mut *ctrl.write().await,
-        }
-        .exec()
-        .await?;
+        ctrl.write().await.restore_state(Read(ctrl.clone())).await?;
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
