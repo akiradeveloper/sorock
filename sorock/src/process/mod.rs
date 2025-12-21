@@ -244,7 +244,7 @@ impl RaftProcess {
         Ok(())
     }
 
-    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<LogIndex> {
+    async fn queue_new_entry(&self, command: Bytes, completion: Completion) -> Result<()> {
         ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
 
         let append_index = command_log::effect::append_entry::Effect {
@@ -259,7 +259,7 @@ impl RaftProcess {
         self.queue_tx.push_event(QueueEvent);
         self.replication_tx.push_event(ReplicationEvent);
 
-        Ok(append_index)
+        Ok(())
     }
 
     async fn queue_received_entries(&self, mut req: request::ReplicationStream) -> Result<u64> {
