@@ -6,5 +6,4 @@ pub mod try_promote;
 pub mod try_stepdown;
 
 pub mod advance_replication;
-pub mod reset_replication_state;
 pub mod set_membership;

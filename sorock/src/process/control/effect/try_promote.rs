@@ -136,9 +136,7 @@ impl Effect<'_> {
             info!("noop barrier is queued at index({index}) (term={vote_term})");
 
             // Initialize replication progress
-            control::effect::reset_replication_state::Effect { ctrl: self.ctrl }
-                .exec(index)
-                .await;
+            self.reset_replication_state(index).await;
 
             self.ctrl.write_election_state(ElectionState::Leader);
         } else {
@@ -146,5 +144,11 @@ impl Effect<'_> {
             self.ctrl.write_election_state(ElectionState::Follower);
         }
         Ok(())
+    }
+
+    async fn reset_replication_state(&mut self, init_next_index: LogIndex) {
+        for (_, cur_progress) in &mut self.ctrl.replication_progresses {
+            *cur_progress.lock().await = ReplicationProgress::new(init_next_index);
+        }
     }
 }
