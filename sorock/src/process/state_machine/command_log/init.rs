@@ -1,7 +1,7 @@
 use super::*;
 
 impl CommandLog {
-    pub async fn restore_state(&mut self) -> Result<()> {
+    pub async fn init(&mut self) -> Result<()> {
         let snapshot_index = match self.find_last_snapshot_index().await? {
             Some(x) => {
                 info!("restore state: found snapshot_index={x}");
@@ -9,6 +9,7 @@ impl CommandLog {
             }
             None => {
                 // If the log is new, insert an initial snapshot entry.
+                // This ensures an invariant that there is always at least one snapshot in the log.
                 let init_command = Command::serialize(Command::Snapshot {
                     membership: HashSet::new(),
                 });
