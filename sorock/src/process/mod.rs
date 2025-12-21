@@ -323,14 +323,21 @@ impl RaftProcess {
         let mut membership = HashSet::new();
         membership.insert(self.driver.self_node_id());
 
-        let command = Command::serialize(Command::ClusterConfiguration { membership });
+        let command = Command::serialize(Command::ClusterConfiguration {
+            membership: membership.clone(),
+        });
         command_log::effect::append_entry::Effect {
             command_log: &mut *self.command_log.write().await,
         }
         .exec(command.clone(), None, None)
         .await?;
 
-        self.process_configuration_command(&command, 2).await?;
+        control::effect::set_membership::Effect {
+            ctrl: &mut *self.ctrl.write().await,
+            ctrl_actor: Read(self.ctrl.clone()),
+        }
+        .exec(membership, 2)
+        .await?;
 
         // After this function is called
         // this server should immediately become the leader by self-vote and advance commit index.
