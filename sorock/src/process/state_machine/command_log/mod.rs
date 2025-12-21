@@ -5,6 +5,7 @@ pub mod effect;
 pub use command::Command;
 mod response_cache;
 use response_cache::ResponseCache;
+mod restore;
 
 pub struct CommandLog {
     storage: storage::LogStore,
@@ -56,36 +57,6 @@ impl CommandLog {
         Ok(())
     }
 
-    pub async fn restore_state(&mut self) -> Result<()> {
-        let log_last_index = self.get_log_last_index().await?;
-        let snapshot_index = match self.find_last_snapshot_index(log_last_index).await? {
-            Some(x) => {
-                info!("restore state: found snapshot_index={x}");
-                x
-            }
-            None => {
-                // If the log is new, insert an initial snapshot entry.
-                let init_command = Command::serialize(Command::Snapshot {
-                    membership: HashSet::new(),
-                });
-                let snapshot = Entry {
-                    prev_clock: Clock { term: 0, index: 0 },
-                    this_clock: Clock { term: 0, index: 1 },
-                    command: init_command.clone(),
-                };
-                self.insert_entry(snapshot).await?;
-                1
-            }
-        };
-
-        self.kernel_pointer = snapshot_index - 1;
-        self.application_pointer = snapshot_index - 1;
-        self.snapshot_pointer = snapshot_index;
-
-        info!("restore state: snapshot_index={snapshot_index}");
-        Ok(())
-    }
-
     pub async fn get_log_head_index(&self) -> Result<LogIndex> {
         let head_log_index = self.storage.get_head_index().await?;
         Ok(head_log_index)
@@ -107,18 +78,6 @@ impl CommandLog {
     async fn insert_entry(&mut self, e: Entry) -> Result<()> {
         self.storage.insert_entry(e.this_clock.index, e).await?;
         Ok(())
-    }
-
-    /// Find the last last snapshot in `[, to]`.
-    pub async fn find_last_snapshot_index(&self, to: LogIndex) -> Result<Option<LogIndex>> {
-        for i in (1..=to).rev() {
-            let e = self.get_entry(i).await?;
-            match Command::deserialize(&e.command) {
-                Command::Snapshot { .. } => return Ok(Some(i)),
-                _ => {}
-            }
-        }
-        Ok(None)
     }
 
     /// Find the last configuration in `[, to]`.

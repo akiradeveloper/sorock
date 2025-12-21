@@ -48,13 +48,16 @@ impl LogStore {
 
     pub async fn insert_entry(&self, i: LogIndex, e: Entry) -> Result<()> {
         self.view.insert_entry(i, value::ser(e)).await?;
-
         Ok(())
     }
 
     pub async fn delete_entries_before(&self, i: LogIndex) -> Result<()> {
         self.view.delete_entries_before(i).await?;
+        Ok(())
+    }
 
+    pub async fn delete_entries_after(&self, i: LogIndex) -> Result<()> {
+        self.view.delete_entries_after(i).await?;
         Ok(())
     }
 

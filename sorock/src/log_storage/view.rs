@@ -54,6 +54,16 @@ impl LogShardView {
         Ok(())
     }
 
+    pub async fn delete_entries_after(&self, i: u64) -> Result<()> {
+        let tx = self.db.begin_write()?;
+        {
+            let mut tbl = tx.open_table(table_def(&self.space))?;
+            tbl.retain_in((i + 1).., |_, _| false)?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub async fn get_entry(&self, i: u64) -> Result<Option<Vec<u8>>> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
