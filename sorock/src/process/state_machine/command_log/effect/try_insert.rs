@@ -96,9 +96,7 @@ impl Effect<'_> {
                 self.command_log.insert_entry(entry).await?;
 
                 // discard [this_index, )
-                self.command_log
-                    .application_completions
-                    .split_off(&this_index);
+                self.command_log.app_completions.split_off(&this_index);
                 self.command_log.kernel_completions.split_off(&this_index);
 
                 Ok(TryInsertResult::Inserted)

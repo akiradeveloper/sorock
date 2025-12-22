@@ -4,6 +4,7 @@ pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
     pub command_log: Actor<CommandLog>,
 }
+
 impl Effect<'_> {
     /// Try to become a leader.
     pub async fn exec(mut self, force_vote: bool) -> Result<()> {
@@ -148,7 +149,7 @@ impl Effect<'_> {
 
     async fn reset_replication_state(&mut self, init_next_index: LogIndex) {
         for (_, cur_progress) in &mut self.ctrl.replication_progresses {
-            *cur_progress.write().await = ReplicationProgress::new(init_next_index);
+            *cur_progress.write().await = Replication::new(init_next_index);
         }
     }
 }

@@ -4,31 +4,15 @@ pub mod effect;
 mod failure_detector;
 mod init;
 mod quorum;
+mod replication;
 pub mod thread;
+use replication::Replication;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ElectionState {
     Leader,
     Candidate,
     Follower,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct ReplicationProgress {
-    /// The log entries `[0, match_index]` are replicated with this node.
-    match_index: LogIndex,
-    /// In the next replication, log entrires `[next_index, next_index + next_max_cnt)` will be sent.
-    next_index: LogIndex,
-    next_max_cnt: LogIndex,
-}
-impl ReplicationProgress {
-    fn new(init_next_index: LogIndex) -> Self {
-        Self {
-            match_index: 0,
-            next_index: init_next_index,
-            next_max_cnt: 1,
-        }
-    }
 }
 
 #[allow(dead_code)]
@@ -47,7 +31,7 @@ pub struct Control {
 
     // peers
     membership: HashSet<NodeAddress>,
-    replication_progresses: HashMap<NodeAddress, Actor<ReplicationProgress>>,
+    replication_progresses: HashMap<NodeAddress, Actor<Replication>>,
     peer_threads: HashMap<NodeAddress, ThreadHandles>,
     queue_rx: EventConsumer<QueueEvent>,
     replication_tx: EventProducer<ReplicationEvent>,

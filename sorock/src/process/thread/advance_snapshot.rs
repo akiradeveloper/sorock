@@ -1,13 +1,13 @@
 use super::*;
 
-#[derive(Clone)]
 pub struct Thread {
-    command_log: Actor<CommandLog>,
+    command_log_actor: Actor<CommandLog>,
 }
+
 impl Thread {
     async fn run_once(&self) -> Result<()> {
         command_log::effect::advance_snapshot::Effect {
-            command_log: &mut *self.command_log.write().await,
+            command_log: &mut *self.command_log_actor.write().await,
         }
         .exec()
         .await?;
@@ -29,5 +29,8 @@ impl Thread {
 }
 
 pub fn new(command_log: Actor<CommandLog>) -> ThreadHandle {
-    Thread { command_log }.do_loop()
+    Thread {
+        command_log_actor: command_log,
+    }
+    .do_loop()
 }

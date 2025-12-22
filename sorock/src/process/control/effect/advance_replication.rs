@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct Effect<'a> {
-    pub progress: &'a mut ReplicationProgress,
+    pub progress: &'a mut Replication,
     pub ctrl: &'a Control,
 }
 
@@ -61,7 +61,7 @@ impl Effect<'_> {
                 "entry not found at next_index (idx={}) for {}",
                 old_progress.next_index, follower_id,
             );
-            let new_progress = ReplicationProgress::new(cur_snapshot_index);
+            let new_progress = Replication::new(cur_snapshot_index);
             *self.progress = new_progress;
             return Ok(());
         }
@@ -89,12 +89,12 @@ impl Effect<'_> {
             response::ReplicationStream {
                 n_inserted: 0,
                 log_last_index: last_log_index,
-            } => ReplicationProgress {
+            } => Replication {
                 match_index: old_progress.match_index,
                 next_index: std::cmp::min(old_progress.next_index - 1, last_log_index + 1),
                 next_max_cnt: 1,
             },
-            response::ReplicationStream { n_inserted, .. } => ReplicationProgress {
+            response::ReplicationStream { n_inserted, .. } => Replication {
                 match_index: old_progress.next_index + n_inserted - 1,
                 next_index: old_progress.next_index + n_inserted,
                 // If all entries are successfully inserted, then it is safe to double

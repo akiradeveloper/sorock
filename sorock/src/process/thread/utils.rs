@@ -63,7 +63,10 @@ pub struct ReplicationEvent;
 pub struct CommitEvent;
 
 #[derive(Clone)]
-pub struct KernEvent;
+pub struct KernelQueueEvent;
 
 #[derive(Clone)]
-pub struct ApplicationEvent;
+pub struct AppQueueEvent;
+
+#[derive(Clone)]
+pub struct AppliedEvent;

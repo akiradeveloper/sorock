@@ -1,13 +1,13 @@
 use super::*;
 
-#[derive(Clone)]
 pub struct Thread {
-    command_log: Read<Actor<CommandLog>>,
+    command_log_actor: Read<Actor<CommandLog>>,
     app: App,
 }
+
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let cur_snapshot_index = self.command_log.read().await.snapshot_pointer;
+        let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
         self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
@@ -26,5 +26,9 @@ impl Thread {
 }
 
 pub fn new(app: App, command_log: Read<Actor<CommandLog>>) -> ThreadHandle {
-    Thread { command_log, app }.do_loop()
+    Thread {
+        command_log_actor: command_log,
+        app,
+    }
+    .do_loop()
 }

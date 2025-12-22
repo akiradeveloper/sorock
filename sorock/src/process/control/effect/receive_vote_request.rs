@@ -3,6 +3,7 @@ use super::*;
 pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
 }
+
 impl Effect<'_> {
     fn command_log(&self) -> &Read<Actor<CommandLog>> {
         &self.ctrl.command_log

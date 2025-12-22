@@ -3,12 +3,12 @@ use super::*;
 use tokio::sync::oneshot;
 
 pub enum Completion {
-    Application(ApplicationCompletion),
+    Application(AppCompletion),
     Kernel(KernelCompletion),
 }
 
-pub struct ApplicationCompletion(oneshot::Sender<Bytes>);
-impl ApplicationCompletion {
+pub struct AppCompletion(oneshot::Sender<Bytes>);
+impl AppCompletion {
     pub fn complete_with(self, data: Bytes) -> Result<(), Bytes> {
         self.0.send(data)
     }
@@ -26,7 +26,7 @@ pub fn prepare_kernel_completion() -> (KernelCompletion, oneshot::Receiver<()>) 
     (KernelCompletion(tx), rx)
 }
 
-pub fn prepare_application_completion() -> (ApplicationCompletion, oneshot::Receiver<Bytes>) {
+pub fn prepare_application_completion() -> (AppCompletion, oneshot::Receiver<Bytes>) {
     let (tx, rx) = oneshot::channel::<Bytes>();
-    (ApplicationCompletion(tx), rx)
+    (AppCompletion(tx), rx)
 }

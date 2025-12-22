@@ -1,14 +1,13 @@
 use super::*;
 
-#[derive(Clone)]
 pub struct Thread {
-    ctrl: Actor<Control>,
+    ctrl_actor: Actor<Control>,
 }
 
 impl Thread {
     pub async fn run_once(&self) -> Result<()> {
         control::effect::try_stepdown::Effect {
-            ctrl: &mut *self.ctrl.write().await,
+            ctrl: &mut *self.ctrl_actor.write().await,
         }
         .exec()
         .await?;
@@ -29,6 +28,6 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: Actor<Control>) -> ThreadHandle {
-    Thread { ctrl }.do_loop()
+pub fn new(ctrl_actor: Actor<Control>) -> ThreadHandle {
+    Thread { ctrl_actor }.do_loop()
 }
