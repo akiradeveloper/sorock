@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    ctrl: Read<ControlActor>,
+    ctrl: Read<Actor<Control>>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -34,6 +34,6 @@ impl Thread {
     }
 }
 
-pub fn new(follower_id: NodeAddress, ctrl: Read<ControlActor>) -> ThreadHandle {
+pub fn new(follower_id: NodeAddress, ctrl: Read<Actor<Control>>) -> ThreadHandle {
     Thread { follower_id, ctrl }.do_loop()
 }

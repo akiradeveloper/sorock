@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
-    pub command_log: CommandLogActor,
+    pub command_log: Actor<CommandLog>,
 }
 impl Effect<'_> {
     /// Try to become a leader.
@@ -148,7 +148,7 @@ impl Effect<'_> {
 
     async fn reset_replication_state(&mut self, init_next_index: LogIndex) {
         for (_, cur_progress) in &mut self.ctrl.replication_progresses {
-            *cur_progress.lock().await = ReplicationProgress::new(init_next_index);
+            *cur_progress.write().await = ReplicationProgress::new(init_next_index);
         }
     }
 }

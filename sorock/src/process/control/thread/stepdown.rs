@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    ctrl: ControlActor,
+    ctrl: Actor<Control>,
 }
 
 impl Thread {
@@ -29,6 +29,6 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: ControlActor) -> ThreadHandle {
+pub fn new(ctrl: Actor<Control>) -> ThreadHandle {
     Thread { ctrl }.do_loop()
 }

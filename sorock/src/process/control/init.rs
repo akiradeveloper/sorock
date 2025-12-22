@@ -2,7 +2,7 @@ use super::*;
 
 impl Control {
     /// Restore the membership from the state of the log.
-    pub async fn init(&mut self, ctrl_actor: Read<ControlActor>) -> Result<()> {
+    pub async fn init(&mut self, ctrl_actor: Read<Actor<Control>>) -> Result<()> {
         let log_last_index = self.command_log.read().await.get_log_last_index().await?;
 
         // It is ensured that at least one configuration can be found.

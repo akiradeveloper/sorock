@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    ctrl: ControlActor,
+    ctrl: Actor<Control>,
     consumer: EventConsumer<ReplicationEvent>,
     producer: EventProducer<CommitEvent>,
 }
@@ -43,7 +43,7 @@ impl Thread {
 }
 
 pub fn new(
-    ctrl: ControlActor,
+    ctrl: Actor<Control>,
     consume: EventConsumer<ReplicationEvent>,
     produce: EventProducer<CommitEvent>,
 ) -> ThreadHandle {

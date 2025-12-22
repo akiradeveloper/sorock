@@ -6,7 +6,7 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Read<CommandLogActor> {
+    fn command_log(&self) -> &Read<Actor<CommandLog>> {
         &self.ctrl.command_log
     }
 
@@ -14,7 +14,7 @@ impl Effect<'_> {
     async fn prepare_replication_stream(
         selfid: NodeAddress,
         term: Term,
-        command_log: Read<CommandLogActor>,
+        command_log: Read<Actor<CommandLog>>,
         l: LogIndex,
         r: LogIndex,
     ) -> Result<request::ReplicationStream> {

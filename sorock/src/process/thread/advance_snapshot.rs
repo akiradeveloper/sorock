@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLogActor,
+    command_log: Actor<CommandLog>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -28,6 +28,6 @@ impl Thread {
     }
 }
 
-pub fn new(command_log: CommandLogActor) -> ThreadHandle {
+pub fn new(command_log: Actor<CommandLog>) -> ThreadHandle {
     Thread { command_log }.do_loop()
 }

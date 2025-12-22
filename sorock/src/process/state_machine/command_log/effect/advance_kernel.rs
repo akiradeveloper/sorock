@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Effect<'a> {
     pub command_log: &'a mut CommandLog,
-    pub ctrl: ControlActor,
+    pub ctrl_actor: Actor<Control>,
 }
 
 impl Effect<'_> {
@@ -15,7 +15,7 @@ impl Effect<'_> {
         //
         // try-promote    : LOCK(Control)  LOCK(CommandLog)
         // advance-kernel :       LOCK(CommandLog)   LOCK(Control)
-        ensure!(cur_kern_index < self.ctrl.try_read()?.commit_pointer);
+        ensure!(cur_kern_index < self.ctrl_actor.try_read()?.commit_pointer);
 
         let process_index = cur_kern_index + 1;
         let e = self.command_log.get_entry(process_index).await?;
@@ -31,7 +31,7 @@ impl Effect<'_> {
             debug!("process kern@{process_index}");
             match command {
                 Command::Barrier(term) => {
-                    self.ctrl.try_write()?.commit_safe_term(term);
+                    self.ctrl_actor.try_write()?.commit_safe_term(term);
                 }
                 Command::ClusterConfiguration { .. } => {}
                 _ => {}
