@@ -13,8 +13,6 @@ pub enum ElectionState {
     Follower,
 }
 
-type ReplicationProgressActor = Arc<tokio::sync::Mutex<ReplicationProgress>>;
-
 #[derive(Clone, Copy, Debug)]
 pub struct ReplicationProgress {
     /// The log entries `[0, match_index]` are replicated with this node.
@@ -49,7 +47,7 @@ pub struct Control {
 
     // peers
     membership: HashSet<NodeAddress>,
-    replication_progresses: HashMap<NodeAddress, ReplicationProgressActor>,
+    replication_progresses: HashMap<NodeAddress, Actor<ReplicationProgress>>,
     peer_threads: HashMap<NodeAddress, ThreadHandles>,
     queue_rx: EventConsumer<QueueEvent>,
     replication_tx: EventProducer<ReplicationEvent>,
@@ -58,39 +56,38 @@ pub struct Control {
     /// new membership changes are not allowed to be queued.
     membership_pointer: u64,
 
-    command_log: Read<CommandLogActor>,
+    command_log: Read<Actor<CommandLog>>,
 
     driver: RaftHandle,
 }
 
-pub type ControlActor = Arc<tokio::sync::RwLock<Control>>;
-pub fn new_actor(
-    ballot_store: storage::BallotStore,
-    command_log: Read<CommandLogActor>,
-    queue_rx: EventConsumer<QueueEvent>,
-    replication_tx: EventProducer<ReplicationEvent>,
-    driver: RaftHandle,
-) -> ControlActor {
-    let raw = Control {
-        state: ElectionState::Follower,
-        ballot: ballot_store,
-        safe_term: 0,
-        leader_failure_detector: failure_detector::FailureDetector::new(),
-        commit_pointer: 0,
-
-        membership_pointer: 0,
-        membership: HashSet::new(),
-        replication_progresses: HashMap::new(),
-        peer_threads: HashMap::new(),
-        queue_rx,
-        replication_tx,
-
-        command_log,
-        driver,
-    };
-    Arc::new(tokio::sync::RwLock::new(raw))
-}
 impl Control {
+    pub fn new(
+        ballot_store: storage::BallotStore,
+        command_log: Read<Actor<CommandLog>>,
+        queue_rx: EventConsumer<QueueEvent>,
+        replication_tx: EventProducer<ReplicationEvent>,
+        driver: RaftHandle,
+    ) -> Self {
+        Self {
+            state: ElectionState::Follower,
+            ballot: ballot_store,
+            safe_term: 0,
+            leader_failure_detector: failure_detector::FailureDetector::new(),
+            commit_pointer: 0,
+
+            membership_pointer: 0,
+            membership: HashSet::new(),
+            replication_progresses: HashMap::new(),
+            peer_threads: HashMap::new(),
+            queue_rx,
+            replication_tx,
+
+            command_log,
+            driver,
+        }
+    }
+
     pub fn read_election_state(&self) -> ElectionState {
         self.state
     }
@@ -159,7 +156,7 @@ impl Control {
         for (_, peer) in &self.replication_progresses {
             let peer = peer.clone();
             // We use try_lock here to avoid waiting for slow followers.
-            let match_index = peer.try_lock().map(|p| p.match_index).unwrap_or(0);
+            let match_index = peer.try_read().map(|p| p.match_index).unwrap_or(0);
             match_indices.push(match_index);
         }
 
@@ -180,7 +177,7 @@ impl Control {
         let mut xs = {
             let mut out = vec![];
             for (id, peer) in &self.replication_progresses {
-                let progress = peer.lock().await;
+                let progress = peer.read().await;
                 out.push((id.clone(), progress.match_index));
             }
             out

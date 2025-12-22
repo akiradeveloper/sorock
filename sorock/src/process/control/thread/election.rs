@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    ctrl: ControlActor,
-    command_log: CommandLogActor,
+    ctrl: Actor<Control>,
+    command_log: Actor<CommandLog>,
 }
 impl Thread {
     async fn run_once(&self) -> Result<()> {
@@ -48,6 +48,6 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: ControlActor, command_log: CommandLogActor) -> ThreadHandle {
+pub fn new(ctrl: Actor<Control>, command_log: Actor<CommandLog>) -> ThreadHandle {
     Thread { ctrl, command_log }.do_loop()
 }

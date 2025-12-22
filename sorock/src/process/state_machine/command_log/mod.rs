@@ -23,22 +23,20 @@ pub struct CommandLog {
     response_cache: ResponseCache,
 }
 
-pub type CommandLogActor = Arc<tokio::sync::RwLock<CommandLog>>;
-
-pub fn new_actor(storage: storage::LogStore, app: App) -> CommandLogActor {
-    Arc::new(tokio::sync::RwLock::new(CommandLog {
-        storage,
-        kernel_pointer: 0,
-        application_pointer: 0,
-        snapshot_pointer: 0,
-        app,
-        response_cache: ResponseCache::new(),
-        application_completions: BTreeMap::new(),
-        kernel_completions: BTreeMap::new(),
-    }))
-}
-
 impl CommandLog {
+    pub fn new(storage: storage::LogStore, app: App) -> Self {
+        Self {
+            storage,
+            kernel_pointer: 0,
+            application_pointer: 0,
+            snapshot_pointer: 0,
+            app,
+            response_cache: ResponseCache::new(),
+            application_completions: BTreeMap::new(),
+            kernel_completions: BTreeMap::new(),
+        }
+    }
+
     async fn insert_snapshot(&mut self, e: Entry) -> Result<()> {
         let new_snapshot_index = e.this_clock.index;
 

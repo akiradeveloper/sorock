@@ -1,23 +1,26 @@
 use super::*;
 
 struct Thread {
-    pending_queue: query_queue::PendingQueue,
-    exec_queue: query_queue::ReadyQueue,
+    pending_queue: query_queue::QueryQueue,
+    exec_queue: Actor<query_queue::QueryExecutor>,
     driver: node::RaftHandle,
 }
 
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let current_pending_qs = self.pending_queue.drain();
+        let current_pending_qs = self.pending_queue.lock().drain();
         if current_pending_qs.is_empty() {
             return Ok(());
         }
 
         let conn = self.driver.connect(self.driver.self_node_id.clone());
         if let Some(read_index) = conn.issue_read_index().await? {
-            self.exec_queue.register(read_index, current_pending_qs);
+            self.exec_queue
+                .write()
+                .await
+                .register(read_index, current_pending_qs);
         } else {
-            self.pending_queue.requeue(current_pending_qs);
+            self.pending_queue.lock().requeue(current_pending_qs);
         }
 
         Ok(())
@@ -37,8 +40,8 @@ impl Thread {
 }
 
 pub fn new(
-    pending_queue: query_queue::PendingQueue,
-    exec_queue: query_queue::ReadyQueue,
+    pending_queue: query_queue::QueryQueue,
+    exec_queue: Actor<query_queue::QueryExecutor>,
     driver: node::RaftHandle,
 ) -> ThreadHandle {
     Thread {

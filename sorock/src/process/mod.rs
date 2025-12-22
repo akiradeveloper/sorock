@@ -4,6 +4,7 @@ use anyhow::Result;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
 mod storage;
@@ -11,13 +12,12 @@ pub use storage::RaftStorage;
 mod api;
 pub(super) use api::*;
 mod control;
-use control::ControlActor;
+use control::Control;
 use node::RaftHandle;
 
 mod state_machine;
+use command_log::{Command, CommandLog};
 use state_machine::command_log;
-use state_machine::command_log::Command;
-use state_machine::command_log::CommandLogActor;
 use state_machine::completion;
 use state_machine::query_queue;
 use state_machine::App;
@@ -76,6 +76,8 @@ impl Ballot {
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
+pub type Actor<T> = Arc<RwLock<T>>;
+
 // This is only a marker that indicates the owner doesn't mutate the object.
 // This is only to improve the readability.
 // Compile-time or even runtime checking is more preferable.
@@ -129,10 +131,10 @@ struct ThreadHandles {
 }
 
 struct Gateway {
-    command_log: CommandLogActor,
-    ctrl: ControlActor,
+    command_log_actor: Actor<CommandLog>,
+    ctrl_actor: Actor<Control>,
     driver: node::RaftHandle,
-    queue_tx: EventProducer<QueueEvent>,
+    queue_evt_tx: EventProducer<QueueEvent>,
 }
 
 impl Gateway {
@@ -153,8 +155,8 @@ impl Gateway {
         };
         if let Some(config) = config0 {
             control::effect::set_membership::Effect {
-                ctrl_actor: Read(self.ctrl.clone()),
-                ctrl: &mut *self.ctrl.write().await,
+                ctrl: &mut *self.ctrl_actor.write().await,
+                ctrl_actor: Read(self.ctrl_actor.clone()),
             }
             .exec(config, index)
             .await?;
@@ -163,10 +165,10 @@ impl Gateway {
     }
 
     async fn queue_new_entry(&mut self, command: Bytes, completion: Completion) -> Result<()> {
-        ensure!(self.ctrl.read().await.allow_queue_new_entry().await?);
+        ensure!(self.ctrl_actor.read().await.allow_queue_new_entry().await?);
 
         let append_index = command_log::effect::append_entry::Effect {
-            command_log: &mut *self.command_log.write().await,
+            command_log: &mut *self.command_log_actor.write().await,
         }
         .exec(command.clone(), None, Some(completion))
         .await?;
@@ -174,13 +176,13 @@ impl Gateway {
         self.process_configuration_command(&command, append_index)
             .await?;
 
-        self.queue_tx.push_event(QueueEvent);
+        self.queue_evt_tx.push_event(QueueEvent);
 
         Ok(())
     }
 
     async fn queue_received_entries(&mut self, mut req: request::ReplicationStream) -> Result<u64> {
-        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
+        let cur_term = self.ctrl_actor.read().await.read_ballot().await?.cur_term;
         ensure!(
             cur_term <= req.sender_term,
             "received replication stream from stale leader (term={} < cur_term={})",
@@ -202,7 +204,7 @@ impl Gateway {
             use command_log::effect::try_insert::TryInsertResult;
 
             let insert_result = command_log::effect::try_insert::Effect {
-                command_log: &mut *self.command_log.write().await,
+                command_log: &mut *self.command_log_actor.write().await,
                 driver: self.driver.clone(),
             }
             .exec(entry, req.sender_id.clone())
@@ -236,14 +238,14 @@ impl Gateway {
 /// `RaftProcess` is a implementation of Raft process in `RaftNode`.
 /// `RaftProcess` is agnostic to the I/O implementation and focuses on pure Raft algorithm.
 pub struct RaftProcess {
-    command_log: CommandLogActor,
-    ctrl: ControlActor,
-    query_queue: query_queue::PendingQueue,
+    command_log_actor: Actor<CommandLog>,
+    ctrl_actor: Actor<Control>,
+    query_queue: query_queue::QueryQueue,
     app: state_machine::App,
     driver: node::RaftHandle,
     _thread_handles: ThreadHandles,
 
-    gateway: Arc<tokio::sync::Mutex<Gateway>>,
+    gateway: Arc<Mutex<Gateway>>,
 }
 
 impl RaftProcess {
@@ -252,54 +254,66 @@ impl RaftProcess {
         storage: &storage::RaftStorage,
         driver: node::RaftHandle,
     ) -> Result<Self> {
-        let (queue_tx, queue_rx) = thread::notify();
-        let (replication_tx, replication_rx) = thread::notify();
-        let (commit_tx, commit_rx) = thread::notify();
-        let (kern_tx, kern_rx) = thread::notify();
-        let (app_tx, app_rx) = thread::notify();
+        let (queue_evt_tx, queue_evt_rx) = thread::notify();
+        let (replication_evt_tx, replication_evt_rx) = thread::notify();
+        let (commit_evt_tx, commit_evt_rx) = thread::notify();
+        let (kern_evt_tx, kern_evt_rx) = thread::notify();
+        let (app_evt_tx, app_evt_rx) = thread::notify();
 
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
-        let query_queue = query_queue::PendingQueue::new();
-        let exec_queue = query_queue::ReadyQueue::new(Read(app.clone()));
+        let query_queue = Arc::new(spin::Mutex::new(query_queue::QueryQueueRaw::new()));
+        let exec_queue = Arc::new(RwLock::new(query_queue::QueryExecutor::new(Read(
+            app.clone(),
+        ))));
 
-        let command_log = command_log::new_actor(log_store, app.clone());
-        command_log.write().await.init().await?;
+        let mut command_log = CommandLog::new(log_store, app.clone());
+        command_log.init().await?;
 
-        let ctrl = control::new_actor(
+        let command_log_actor = Arc::new(RwLock::new(command_log));
+
+        let ctrl = Control::new(
             ballot_store,
-            Read(command_log.clone()),
-            queue_rx.clone(),
-            replication_tx.clone(),
+            Read(command_log_actor.clone()),
+            queue_evt_rx.clone(),
+            replication_evt_tx.clone(),
             driver.clone(),
         );
-        ctrl.write().await.init(Read(ctrl.clone())).await?;
+        let ctrl_actor = Arc::new(RwLock::new(ctrl));
+        ctrl_actor
+            .write()
+            .await
+            .init(Read(ctrl_actor.clone()))
+            .await?;
 
         let _thread_handles = ThreadHandles {
             advance_kernel_handle: thread::advance_kernel::new(
-                command_log.clone(),
-                ctrl.clone(),
-                commit_rx.clone(),
-                kern_tx.clone(),
+                command_log_actor.clone(),
+                ctrl_actor.clone(),
+                commit_evt_rx.clone(),
+                kern_evt_tx.clone(),
             ),
             advance_application_handle: thread::advance_application::new(
-                command_log.clone(),
-                kern_rx.clone(),
-                app_tx.clone(),
+                command_log_actor.clone(),
+                kern_evt_rx.clone(),
+                app_evt_tx.clone(),
             ),
-            advance_snapshot_handle: thread::advance_snapshot::new(command_log.clone()),
+            advance_snapshot_handle: thread::advance_snapshot::new(command_log_actor.clone()),
             advance_commit_handle: control::thread::advance_commit::new(
-                ctrl.clone(),
-                replication_rx.clone(),
-                commit_tx.clone(),
+                ctrl_actor.clone(),
+                replication_evt_rx.clone(),
+                commit_evt_tx.clone(),
             ),
-            election_handle: control::thread::election::new(ctrl.clone(), command_log.clone()),
-            log_compaction_handle: thread::delete_old_entries::new(Read(command_log.clone())),
+            election_handle: control::thread::election::new(
+                ctrl_actor.clone(),
+                command_log_actor.clone(),
+            ),
+            log_compaction_handle: thread::delete_old_entries::new(Read(command_log_actor.clone())),
             query_execution_handle: thread::query_execution::new(
                 exec_queue.clone(),
-                Read(command_log.clone()),
-                app_rx.clone(),
+                Read(command_log_actor.clone()),
+                app_evt_rx.clone(),
             ),
             query_queue_coordinator_handle: thread::query_queue_coordinator::new(
                 query_queue.clone(),
@@ -308,21 +322,21 @@ impl RaftProcess {
             ),
             snapshot_deleter_handle: thread::delete_old_snapshots::new(
                 app.clone(),
-                Read(command_log.clone()),
+                Read(command_log_actor.clone()),
             ),
-            stepdown_handle: control::thread::stepdown::new(ctrl.clone()),
+            stepdown_handle: control::thread::stepdown::new(ctrl_actor.clone()),
         };
 
-        let gateway = Arc::new(tokio::sync::Mutex::new(Gateway {
-            command_log: command_log.clone(),
-            ctrl: ctrl.clone(),
+        let gateway = Arc::new(Mutex::new(Gateway {
+            command_log_actor: command_log_actor.clone(),
+            ctrl_actor: ctrl_actor.clone(),
             driver: driver.clone(),
-            queue_tx: queue_tx.clone(),
+            queue_evt_tx: queue_evt_tx.clone(),
         }));
 
         Ok(Self {
-            command_log,
-            ctrl,
+            command_log_actor,
+            ctrl_actor,
             query_queue,
             driver,
             app,
@@ -343,14 +357,14 @@ impl RaftProcess {
             membership: membership.clone(),
         });
         command_log::effect::append_entry::Effect {
-            command_log: &mut *self.command_log.write().await,
+            command_log: &mut *self.command_log_actor.write().await,
         }
         .exec(command.clone(), None, None)
         .await?;
 
         control::effect::set_membership::Effect {
-            ctrl: &mut *self.ctrl.write().await,
-            ctrl_actor: Read(self.ctrl.clone()),
+            ctrl: &mut *self.ctrl_actor.write().await,
+            ctrl_actor: Read(self.ctrl_actor.clone()),
         }
         .exec(membership, 2)
         .await?;
@@ -365,7 +379,7 @@ impl RaftProcess {
     }
 
     pub(super) async fn add_server(&self, req: request::AddServer) -> Result<()> {
-        if self.ctrl.read().await.read_membership().is_empty()
+        if self.ctrl_actor.read().await.read_membership().is_empty()
             && req.server_id == self.driver.self_node_id()
         {
             self.bootstrap_cluster().await?;
@@ -403,36 +417,41 @@ impl RaftProcess {
 
         let resp = response::ReplicationStream {
             n_inserted,
-            log_last_index: self.command_log.read().await.get_log_last_index().await?,
+            log_last_index: self
+                .command_log_actor
+                .read()
+                .await
+                .get_log_last_index()
+                .await?,
         };
         Ok(resp)
     }
 
     pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
-        let ballot = self.ctrl.read().await.read_ballot().await?;
+        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read().await.read_election_state(),
+            self.ctrl_actor.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
             let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
                 kernel_message::KernelMessage::AddServer(id) => {
-                    let mut membership = self.ctrl.read().await.read_membership();
+                    let mut membership = self.ctrl_actor.read().await.read_membership();
                     membership.insert(id);
                     Command::ClusterConfiguration { membership }
                 }
                 kernel_message::KernelMessage::RemoveServer(id) => {
-                    let mut membership = self.ctrl.read().await.read_membership();
+                    let mut membership = self.ctrl_actor.read().await.read_membership();
                     membership.remove(&id);
                     Command::ClusterConfiguration { membership }
                 }
             };
-            ensure!(self.ctrl.read().await.allow_queue_new_membership());
+            ensure!(self.ctrl_actor.read().await.allow_queue_new_membership());
             self.gateway
                 .lock()
                 .await
@@ -462,7 +481,7 @@ impl RaftProcess {
             message: req.message,
             app_completion,
         };
-        self.query_queue.queue(query)?;
+        self.query_queue.lock().queue(query)?;
 
         let resp = rx.await?;
         Ok(resp)
@@ -472,14 +491,14 @@ impl RaftProcess {
         &self,
         req: request::ApplicationWriteRequest,
     ) -> Result<Bytes> {
-        let ballot = self.ctrl.read().await.read_ballot().await?;
+        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         let resp = if std::matches!(
-            self.ctrl.read().await.read_election_state(),
+            self.ctrl_actor.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let (app_completion, rx) = completion::prepare_application_completion();
@@ -517,7 +536,7 @@ impl RaftProcess {
         let leader_commit = req.leader_commit_index;
 
         control::effect::receive_heartbeat::Effect {
-            ctrl: &mut *self.ctrl.write().await,
+            ctrl: &mut *self.ctrl_actor.write().await,
         }
         .exec(leader_id, term, leader_commit)
         .await?;
@@ -526,7 +545,7 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
-        let cur_snapshot_index = self.command_log.read().await.snapshot_pointer;
+        let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
         ensure!(index == cur_snapshot_index);
         let st = self.app.open_snapshot(index).await?;
         Ok(st)
@@ -535,8 +554,8 @@ impl RaftProcess {
     pub(super) async fn send_timeout_now(&self) -> Result<()> {
         info!("received TimeoutNow. try to become a leader.");
         control::effect::try_promote::Effect {
-            ctrl: &mut *self.ctrl.write().await,
-            command_log: self.command_log.clone(),
+            ctrl: &mut *self.ctrl_actor.write().await,
+            command_log: self.command_log_actor.clone(),
         }
         .exec(true)
         .await?;
@@ -555,7 +574,7 @@ impl RaftProcess {
             // Two processes time out and try to become a leader simultaneously.
             // Both of them send vote requests to each other but neither of them can
             // process the request because both of them are already holding the write lock.
-            ctrl: &mut *self.ctrl.try_write()?,
+            ctrl: &mut *self.ctrl_actor.try_write()?,
         }
         .exec(
             candidate_term,
@@ -571,28 +590,38 @@ impl RaftProcess {
 
     pub(super) async fn get_log_state(&self) -> Result<response::LogState> {
         let out = response::LogState {
-            head_index: self.command_log.read().await.get_log_head_index().await?,
-            last_index: self.command_log.read().await.get_log_last_index().await?,
-            snapshot_index: self.command_log.read().await.snapshot_pointer,
-            application_index: self.command_log.read().await.application_pointer,
-            commit_index: self.ctrl.read().await.commit_pointer,
+            head_index: self
+                .command_log_actor
+                .read()
+                .await
+                .get_log_head_index()
+                .await?,
+            last_index: self
+                .command_log_actor
+                .read()
+                .await
+                .get_log_last_index()
+                .await?,
+            snapshot_index: self.command_log_actor.read().await.snapshot_pointer,
+            application_index: self.command_log_actor.read().await.application_pointer,
+            commit_index: self.ctrl_actor.read().await.commit_pointer,
         };
         Ok(out)
     }
 
     pub(super) async fn get_membership(&self) -> Result<response::Membership> {
-        let ballot = self.ctrl.read().await.read_ballot().await?;
+        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read().await.read_election_state(),
+            self.ctrl_actor.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
             let out = response::Membership {
-                members: self.ctrl.read().await.read_membership(),
+                members: self.ctrl_actor.read().await.read_membership(),
             };
             Ok(out)
         } else {
@@ -605,22 +634,22 @@ impl RaftProcess {
     }
 
     pub async fn compare_term(&self, term: Term) -> Result<bool> {
-        let cur_term = self.ctrl.read().await.read_ballot().await?.cur_term;
+        let cur_term = self.ctrl_actor.read().await.read_ballot().await?.cur_term;
         Ok(term >= cur_term)
     }
 
     pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
-        let ballot = self.ctrl.read().await.read_ballot().await?;
+        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
 
         let Some(leader_id) = ballot.voted_for else {
             bail!(Error::LeaderUnknown)
         };
 
         if std::matches!(
-            self.ctrl.read().await.read_election_state(),
+            self.ctrl_actor.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
-            let read_index = self.ctrl.read().await.find_read_index().await?;
+            let read_index = self.ctrl_actor.read().await.find_read_index().await?;
             Ok(read_index)
         } else {
             // Avoid looping.

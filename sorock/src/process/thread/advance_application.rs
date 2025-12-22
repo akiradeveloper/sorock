@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLogActor,
+    command_log: Actor<CommandLog>,
     consumer: EventConsumer<KernEvent>,
     producer: EventProducer<ApplicationEvent>,
 }
@@ -33,7 +33,7 @@ impl Thread {
 }
 
 pub fn new(
-    command_log: CommandLogActor,
+    command_log: Actor<CommandLog>,
     consumer: EventConsumer<KernEvent>,
     producer: EventProducer<ApplicationEvent>,
 ) -> ThreadHandle {

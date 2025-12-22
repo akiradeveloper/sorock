@@ -3,8 +3,8 @@ use super::*;
 #[derive(Clone)]
 pub struct Thread {
     follower_id: NodeAddress,
-    progress: ReplicationProgressActor,
-    ctrl_actor: Read<ControlActor>,
+    progress: Actor<ReplicationProgress>,
+    ctrl_actor: Read<Actor<Control>>,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 }
@@ -16,7 +16,7 @@ impl Thread {
         }
 
         control::effect::advance_replication::Effect {
-            progress: &mut *self.progress.lock().await,
+            progress: &mut *self.progress.write().await,
             ctrl: &*self.ctrl_actor.read().await,
         }
         .exec(self.follower_id.clone())
@@ -43,8 +43,8 @@ impl Thread {
 
 pub fn new(
     follower_id: NodeAddress,
-    progress: ReplicationProgressActor,
-    ctrl: Read<ControlActor>,
+    progress: Actor<ReplicationProgress>,
+    ctrl: Read<Actor<Control>>,
     consumer: EventConsumer<QueueEvent>,
     producer: EventProducer<ReplicationEvent>,
 ) -> ThreadHandle {

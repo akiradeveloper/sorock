@@ -2,15 +2,15 @@ use super::*;
 
 #[derive(Clone)]
 struct Thread {
-    ready_queue: query_queue::ReadyQueue,
-    command_log: Read<CommandLogActor>,
+    ready_queue: Actor<query_queue::QueryExecutor>,
+    command_log: Read<Actor<CommandLog>>,
     consumer: EventConsumer<ApplicationEvent>,
 }
 
 impl Thread {
     async fn advance_once(&self) -> bool {
         let last_applied = self.command_log.read().await.application_pointer;
-        self.ready_queue.process(last_applied).await > 0
+        self.ready_queue.write().await.process(last_applied).await > 0
     }
 
     fn do_loop(self) -> ThreadHandle {
@@ -28,8 +28,8 @@ impl Thread {
 }
 
 pub fn new(
-    query_queue: query_queue::ReadyQueue,
-    command_log: Read<CommandLogActor>,
+    query_queue: Actor<query_queue::QueryExecutor>,
+    command_log: Read<Actor<CommandLog>>,
     consumer: EventConsumer<ApplicationEvent>,
 ) -> ThreadHandle {
     Thread {

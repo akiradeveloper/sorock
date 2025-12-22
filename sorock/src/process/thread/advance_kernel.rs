@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Thread {
-    command_log: CommandLogActor,
-    ctrl: ControlActor,
+    command_log: Actor<CommandLog>,
+    ctrl: Actor<Control>,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
 }
@@ -11,7 +11,7 @@ impl Thread {
     async fn advance_once(&self) -> Result<()> {
         command_log::effect::advance_kernel::Effect {
             command_log: &mut *self.command_log.write().await,
-            ctrl: self.ctrl.clone(),
+            ctrl_actor: self.ctrl.clone(),
         }
         .exec()
         .await
@@ -34,8 +34,8 @@ impl Thread {
 }
 
 pub fn new(
-    command_log: CommandLogActor,
-    ctrl: ControlActor,
+    command_log: Actor<CommandLog>,
+    ctrl: Actor<Control>,
     consumer: EventConsumer<CommitEvent>,
     producer: EventProducer<KernEvent>,
 ) -> ThreadHandle {
