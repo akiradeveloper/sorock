@@ -4,6 +4,7 @@ pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
     pub ctrl_actor: Read<Actor<Control>>,
 }
+
 impl Effect<'_> {
     fn command_log(&self) -> &Read<Actor<CommandLog>> {
         &self.ctrl.command_log
@@ -20,7 +21,7 @@ impl Effect<'_> {
 
         let init_progress = {
             let last_log_index = self.command_log().read().await.get_log_last_index().await?;
-            Arc::new(RwLock::new(ReplicationProgress::new(last_log_index)))
+            Arc::new(RwLock::new(Replication::new(last_log_index)))
         };
 
         self.ctrl

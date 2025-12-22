@@ -11,14 +11,13 @@ pub struct CommandLog {
     storage: storage::LogStore,
 
     // Pointers in the log.
-    // Invariant: kernel_pointer >= application_pointer >= snapshot_pointer
+    // Invariant: kernel_pointer >= app_pointer >= snapshot_pointer
     pub kernel_pointer: u64,
-    pub application_pointer: u64,
+    pub app_pointer: u64,
     pub snapshot_pointer: u64,
 
-    application_completions: BTreeMap<LogIndex, completion::ApplicationCompletion>,
+    app_completions: BTreeMap<LogIndex, completion::AppCompletion>,
     kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
-
     app: App,
     response_cache: ResponseCache,
 }
@@ -28,11 +27,11 @@ impl CommandLog {
         Self {
             storage,
             kernel_pointer: 0,
-            application_pointer: 0,
+            app_pointer: 0,
             snapshot_pointer: 0,
             app,
             response_cache: ResponseCache::new(),
-            application_completions: BTreeMap::new(),
+            app_completions: BTreeMap::new(),
             kernel_completions: BTreeMap::new(),
         }
     }
@@ -48,7 +47,7 @@ impl CommandLog {
         // will be transferred from the leader again.
 
         self.kernel_pointer = new_snapshot_index - 1;
-        self.application_pointer = new_snapshot_index - 1;
+        self.app_pointer = new_snapshot_index - 1;
         self.snapshot_pointer = new_snapshot_index;
 
         info!("inserted a new snapshot@{new_snapshot_index}");
@@ -107,7 +106,7 @@ impl CommandLog {
     fn register_completion(&mut self, index: LogIndex, completion: Completion) {
         match completion {
             Completion::Application(completion) => {
-                self.application_completions.insert(index, completion);
+                self.app_completions.insert(index, completion);
             }
             Completion::Kernel(completion) => {
                 self.kernel_completions.insert(index, completion);

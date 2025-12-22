@@ -17,6 +17,8 @@ use node::RaftHandle;
 
 mod state_machine;
 use command_log::{Command, CommandLog};
+use state_machine::command_exec;
+use state_machine::command_exec::{AppExec, KernelExec};
 use state_machine::command_log;
 use state_machine::completion;
 use state_machine::query_queue;
@@ -118,14 +120,16 @@ pub trait RaftApp: Sync + Send + 'static {
 
 #[allow(dead_code)]
 struct ThreadHandles {
-    advance_kernel_handle: ThreadHandle,
-    advance_application_handle: ThreadHandle,
+    prepare_kernel_exec_handle: ThreadHandle,
+    prepare_app_exec_handle: ThreadHandle,
+    run_kernel_exec_handle: ThreadHandle,
+    run_app_exec_handle: ThreadHandle,
     advance_snapshot_handle: ThreadHandle,
     advance_commit_handle: ThreadHandle,
     election_handle: ThreadHandle,
     log_compaction_handle: ThreadHandle,
-    query_execution_handle: ThreadHandle,
-    query_queue_coordinator_handle: ThreadHandle,
+    run_query_exec_handle: ThreadHandle,
+    prepare_query_exec_handle: ThreadHandle,
     snapshot_deleter_handle: ThreadHandle,
     stepdown_handle: ThreadHandle,
 }
@@ -257,16 +261,16 @@ impl RaftProcess {
         let (queue_evt_tx, queue_evt_rx) = thread::notify();
         let (replication_evt_tx, replication_evt_rx) = thread::notify();
         let (commit_evt_tx, commit_evt_rx) = thread::notify();
-        let (kern_evt_tx, kern_evt_rx) = thread::notify();
-        let (app_evt_tx, app_evt_rx) = thread::notify();
+        let (kernel_queue_evt_tx, kernel_queue_evt_rx) = thread::notify();
+        let (app_queue_evt_tx, app_queue_evt_rx) = thread::notify();
+        let (applied_evt_tx, applied_evt_rx) = thread::notify();
 
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
         let query_queue = Arc::new(parking_lot::Mutex::new(query_queue::QueryQueueRaw::new()));
-        let exec_queue = Arc::new(RwLock::new(query_queue::QueryExecutor::new(Read(
-            app.clone(),
-        ))));
+        let query_exec_actor =
+            Arc::new(RwLock::new(query_queue::QueryExec::new(Read(app.clone()))));
 
         let mut command_log = CommandLog::new(log_store, app.clone());
         command_log.init().await?;
@@ -287,17 +291,45 @@ impl RaftProcess {
             .init(Read(ctrl_actor.clone()))
             .await?;
 
+        let app_exec_actor = Arc::new(RwLock::new(AppExec::new(
+            app.clone(),
+            command_log_actor.clone(),
+        )));
+
+        let kernel_exec_actor = Arc::new(RwLock::new(KernelExec::new(ctrl_actor.clone())));
+
         let _thread_handles = ThreadHandles {
-            advance_kernel_handle: thread::advance_kernel::new(
+            prepare_kernel_exec_handle: thread::prepare_kernel_exec::new(
                 command_log_actor.clone(),
                 ctrl_actor.clone(),
+                kernel_exec_actor.clone(),
                 commit_evt_rx.clone(),
-                kern_evt_tx.clone(),
+                kernel_queue_evt_tx.clone(),
             ),
-            advance_application_handle: thread::advance_application::new(
+            run_kernel_exec_handle: thread::run_kernel_exec::new(
+                kernel_exec_actor.clone(),
+                kernel_queue_evt_rx.clone(),
+            ),
+            prepare_app_exec_handle: thread::prepare_app_exec::new(
                 command_log_actor.clone(),
-                kern_evt_rx.clone(),
-                app_evt_tx.clone(),
+                app_exec_actor.clone(),
+                kernel_queue_evt_rx.clone(),
+                app_queue_evt_tx.clone(),
+            ),
+            run_app_exec_handle: thread::run_app_exec::new(
+                app_exec_actor.clone(),
+                app_queue_evt_rx.clone(),
+                applied_evt_tx.clone(),
+            ),
+            prepare_query_exec_handle: thread::prepare_query_exec::new(
+                query_queue.clone(),
+                query_exec_actor.clone(),
+                driver.clone(),
+            ),
+            run_query_exec_handle: thread::run_query_exec::new(
+                query_exec_actor,
+                app_exec_actor.clone(),
+                applied_evt_rx.clone(),
             ),
             advance_snapshot_handle: thread::advance_snapshot::new(command_log_actor.clone()),
             advance_commit_handle: control::thread::advance_commit::new(
@@ -310,16 +342,6 @@ impl RaftProcess {
                 command_log_actor.clone(),
             ),
             log_compaction_handle: thread::delete_old_entries::new(Read(command_log_actor.clone())),
-            query_execution_handle: thread::query_execution::new(
-                exec_queue.clone(),
-                Read(command_log_actor.clone()),
-                app_evt_rx.clone(),
-            ),
-            query_queue_coordinator_handle: thread::query_queue_coordinator::new(
-                query_queue.clone(),
-                exec_queue,
-                driver.clone(),
-            ),
             snapshot_deleter_handle: thread::delete_old_snapshots::new(
                 app.clone(),
                 Read(command_log_actor.clone()),
@@ -603,7 +625,7 @@ impl RaftProcess {
                 .get_log_last_index()
                 .await?,
             snapshot_index: self.command_log_actor.read().await.snapshot_pointer,
-            application_index: self.command_log_actor.read().await.application_pointer,
+            application_index: self.command_log_actor.read().await.app_pointer,
             commit_index: self.ctrl_actor.read().await.commit_pointer,
         };
         Ok(out)

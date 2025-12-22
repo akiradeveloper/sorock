@@ -1,13 +1,13 @@
 use super::*;
 
-#[derive(Clone)]
 pub struct Thread {
-    command_log: Read<Actor<CommandLog>>,
+    command_log_actor: Read<Actor<CommandLog>>,
 }
+
 impl Thread {
     async fn run_once(&self) -> Result<()> {
         command_log::effect::delete_old_entries::Effect {
-            command_log: &*self.command_log.read().await,
+            command_log: &*self.command_log_actor.read().await,
         }
         .exec()
         .await
@@ -27,5 +27,8 @@ impl Thread {
 }
 
 pub fn new(command_log: Read<Actor<CommandLog>>) -> ThreadHandle {
-    Thread { command_log }.do_loop()
+    Thread {
+        command_log_actor: command_log,
+    }
+    .do_loop()
 }

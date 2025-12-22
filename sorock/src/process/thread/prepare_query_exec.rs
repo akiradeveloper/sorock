@@ -2,7 +2,7 @@ use super::*;
 
 struct Thread {
     pending_queue: query_queue::QueryQueue,
-    exec_queue: Actor<query_queue::QueryExecutor>,
+    query_exec_actor: Actor<query_queue::QueryExec>,
     driver: node::RaftHandle,
 }
 
@@ -15,7 +15,7 @@ impl Thread {
 
         let conn = self.driver.connect(self.driver.self_node_id.clone());
         if let Some(read_index) = conn.issue_read_index().await? {
-            self.exec_queue
+            self.query_exec_actor
                 .write()
                 .await
                 .register(read_index, current_pending_qs);
@@ -41,12 +41,12 @@ impl Thread {
 
 pub fn new(
     pending_queue: query_queue::QueryQueue,
-    exec_queue: Actor<query_queue::QueryExecutor>,
+    exec_queue: Actor<query_queue::QueryExec>,
     driver: node::RaftHandle,
 ) -> ThreadHandle {
     Thread {
         pending_queue,
-        exec_queue,
+        query_exec_actor: exec_queue,
         driver,
     }
     .do_loop()

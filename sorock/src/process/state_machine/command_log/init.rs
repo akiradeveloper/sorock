@@ -24,7 +24,7 @@ impl CommandLog {
         };
 
         self.kernel_pointer = snapshot_index - 1;
-        self.application_pointer = snapshot_index - 1;
+        self.app_pointer = snapshot_index - 1;
         self.snapshot_pointer = snapshot_index;
 
         // Normalize the log by deleting invalid entries.

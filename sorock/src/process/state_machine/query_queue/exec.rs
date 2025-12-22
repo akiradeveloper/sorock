@@ -33,11 +33,11 @@ impl<T> WaitQueue<T> {
     }
 }
 
-pub struct QueryExecutor {
+pub struct QueryExec {
     app: Read<App>,
     wait_queue: WaitQueue<Query>,
 }
-impl QueryExecutor {
+impl QueryExec {
     pub fn new(app: Read<App>) -> Self {
         Self {
             app,
