@@ -23,13 +23,13 @@ http-serde = "2.1"
 itertools = "0.14"
 moka = { version = "0.12", features = ["sync"] }
 oneshot = "0.1"
+parking_lot.workspace = true
 phi-detector = "0.4"
 prost.workspace = true
 rand.workspace = true
 redb.workspace = true
 serde.workspace = true
 serde_bytes.workspace = true
-spin.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt"] }
 tokio-util = "0.7"
@@ -39,6 +39,7 @@ tonic-reflection = "0.14"
 tracing.workspace = true
 
 [dev-dependencies]
+spin.workspace = true
 tabled = "0.20.0"
 tempfile = "3"
 tokio = { workspace = true, features = ["full"] }

@@ -155,7 +155,7 @@ pub struct Env {
     n_shards: u32,
     allocated_ports: HashMap<u8, u16>,
     nodes: HashMap<u8, Node>,
-    conn_cache: spin::Mutex<HashMap<u8, Channel>>,
+    conn_cache: parking_lot::Mutex<HashMap<u8, Channel>>,
     penv: Option<PersistentEnv>,
 }
 impl Env {
@@ -183,7 +183,7 @@ impl Env {
             n_shards,
             nodes: HashMap::new(),
             allocated_ports: HashMap::new(),
-            conn_cache: spin::Mutex::new(HashMap::new()),
+            conn_cache: parking_lot::Mutex::new(HashMap::new()),
             penv,
         }
     }

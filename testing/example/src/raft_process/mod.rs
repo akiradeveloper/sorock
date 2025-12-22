@@ -4,7 +4,6 @@ use anyhow::ensure;
 use bytes::Bytes;
 use futures::TryStreamExt;
 use sorock::process::*;
-use spin::{Mutex, RwLock};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
@@ -182,8 +181,8 @@ struct InnerState {
     counter: u64,
 }
 struct AppMain {
-    state: RwLock<InnerState>,
-    snapshots: Mutex<Snapshots>,
+    state: spin::RwLock<InnerState>,
+    snapshots: parking_lot::Mutex<Snapshots>,
 }
 impl AppMain {
     pub fn new(snap_file: Option<impl AsRef<Path>>) -> Self {
@@ -194,8 +193,8 @@ impl AppMain {
         let file = snap_file.map(|p| OpenOptions::new().read(true).write(true).open(p).unwrap());
         let snapshots = Snapshots::new(file);
         Self {
-            state: RwLock::new(init_state),
-            snapshots: Mutex::new(snapshots),
+            state: spin::RwLock::new(init_state),
+            snapshots: parking_lot::Mutex::new(snapshots),
         }
     }
 }

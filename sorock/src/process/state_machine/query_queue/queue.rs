@@ -1,6 +1,6 @@
 use super::*;
 
-pub type QueryQueue = Arc<spin::Mutex<QueryQueueRaw>>;
+pub type QueryQueue = Arc<parking_lot::Mutex<QueryQueueRaw>>;
 
 pub struct QueryQueueRaw {
     inner: Vec<Query>,

@@ -18,7 +18,7 @@ impl Inner {
     }
 }
 pub struct FailureDetector {
-    inner: spin::RwLock<Inner>,
+    inner: parking_lot::RwLock<Inner>,
 }
 impl FailureDetector {
     pub fn new() -> Self {
