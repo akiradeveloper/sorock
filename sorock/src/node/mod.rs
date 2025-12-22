@@ -9,7 +9,7 @@ use std::collections::HashMap;
 pub struct RaftNode {
     pub self_node_id: NodeAddress,
     cache: moka::sync::Cache<NodeAddress, RaftConnection>,
-    process_map: spin::RwLock<HashMap<ShardIndex, Arc<process::RaftProcess>>>,
+    process_map: parking_lot::RwLock<HashMap<ShardIndex, Arc<process::RaftProcess>>>,
 }
 
 impl RaftNode {

@@ -11,6 +11,7 @@ async-trait.workspace = true
 bincode.workspace = true
 bytes.workspace = true
 futures.workspace = true
+parking_lot.workspace = true
 serde.workspace = true
 spin.workspace = true
 tempfile = "3.13.0"

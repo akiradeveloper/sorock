@@ -263,7 +263,7 @@ impl RaftProcess {
         let app = App::new(app);
         let (log_store, ballot_store) = storage.get(driver.shard_index)?;
 
-        let query_queue = Arc::new(spin::Mutex::new(query_queue::QueryQueueRaw::new()));
+        let query_queue = Arc::new(parking_lot::Mutex::new(query_queue::QueryQueueRaw::new()));
         let exec_queue = Arc::new(RwLock::new(query_queue::QueryExecutor::new(Read(
             app.clone(),
         ))));

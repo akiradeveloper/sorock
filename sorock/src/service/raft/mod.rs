@@ -15,7 +15,7 @@ mod stream;
 
 /// Create a Raft service backed by a `RaftNode`.
 pub fn new(node: Arc<node::RaftNode>) -> RaftServer<impl Raft> {
-    let mapping = Arc::new(spin::RwLock::new(shard_table::ShardTable::new()));
+    let mapping = Arc::new(parking_lot::RwLock::new(shard_table::ShardTable::new()));
     let conn_cache = moka::sync::Cache::builder()
         .initial_capacity(3)
         .time_to_idle(Duration::from_secs(60))
@@ -31,7 +31,7 @@ pub fn new(node: Arc<node::RaftNode>) -> RaftServer<impl Raft> {
 #[doc(hidden)]
 pub struct RaftService {
     node: Arc<node::RaftNode>,
-    mapping: Arc<spin::RwLock<shard_table::ShardTable>>,
+    mapping: Arc<parking_lot::RwLock<shard_table::ShardTable>>,
     conn_cache: moka::sync::Cache<NodeAddress, RaftClient>,
 }
 
@@ -70,7 +70,8 @@ impl raft::raft_server::Raft for RaftService {
         }
 
         // Fallback to some existing replica
-        if let Some(replica) = self.mapping.read().choose_one_replica(shard_index) {
+        let replica0 = self.mapping.read().choose_one_replica(shard_index);
+        if let Some(replica) = replica0 {
             return self.connect(&replica).write(req).await;
         }
 
@@ -94,7 +95,8 @@ impl raft::raft_server::Raft for RaftService {
         }
 
         // Fallback to some existing replica
-        if let Some(replica) = self.mapping.read().choose_one_replica(shard_index) {
+        let replica0 = self.mapping.read().choose_one_replica(shard_index);
+        if let Some(replica) = replica0 {
             return self.connect(&replica).read(req).await;
         }
 
@@ -116,7 +118,8 @@ impl raft::raft_server::Raft for RaftService {
             return Ok(tonic::Response::new(()));
         }
 
-        if let Some(replica) = self.mapping.read().choose_one_replica(shard_index) {
+        let replica0 = self.mapping.read().choose_one_replica(shard_index);
+        if let Some(replica) = replica0 {
             return self
                 .connect(&replica)
                 .add_server(raft::AddServerRequest {
@@ -144,7 +147,8 @@ impl raft::raft_server::Raft for RaftService {
             return Ok(tonic::Response::new(()));
         }
 
-        if let Some(replica) = self.mapping.read().choose_one_replica(shard_index) {
+        let replica0 = self.mapping.read().choose_one_replica(shard_index);
+        if let Some(replica) = replica0 {
             return self
                 .connect(&replica)
                 .remove_server(raft::RemoveServerRequest {
@@ -174,7 +178,8 @@ impl raft::raft_server::Raft for RaftService {
         }
 
         // Fallback to some existing replica
-        if let Some(replica) = self.mapping.read().choose_one_replica(shard_index) {
+        let replica0 = self.mapping.read().choose_one_replica(shard_index);
+        if let Some(replica) = replica0 {
             return self
                 .connect(&replica)
                 .get_membership(raft::Shard { id: shard_index })
