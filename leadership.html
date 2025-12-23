@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dbe9e845.js";
+            window.path_to_searchindex_js = "searchindex-4a505407.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-91a7bdf6.js"></script>
+        <script src="toc-ea9a7c28.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -203,7 +203,7 @@ leader until a new leader is elected which causes downtime.</p>
 <p>To mitigate this problem, the admin client can send a TimeoutNow command to
 any other Raft processes to forcibly start a new election (by promoting to a candidate).</p>
 <pre><code class="language-proto">message TimeoutNow {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
 }
 </code></pre>
 

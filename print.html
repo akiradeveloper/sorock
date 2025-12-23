@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dbe9e845.js";
+            window.path_to_searchindex_js = "searchindex-4a505407.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-91a7bdf6.js"></script>
+        <script src="toc-ea9a7c28.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -314,15 +314,15 @@ Since the Raft process doesn’t know about the IO,
 we call it <strong>Pure Raft</strong>.</p>
 <p><img src="images/raft-process.png" alt=""></p>
 <p>To make Raft process to communicate with other Raft processes
-through network, <code>RaftHandle</code> must be provided.
-Everything about actual on-network communication is encapsulated under <code>RaftHandle</code>.</p>
+through network, <code>RaftIO</code> must be provided.
+Everything about actual on-network communication is encapsulated under <code>RaftIO</code>.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
         storage: &amp;RaftStorage,
-        handle: RaftHandle,
+        io: RaftIO,
     ) -&gt; Result&lt;Self&gt; {
 <span class="boring">}</span></code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -362,7 +362,7 @@ The R/O command is called <strong>query</strong> and queries can be processed in
 <p>R/W command is a normal application command which is inserted into the log to be applied later.</p>
 <p>You can send a R/W command to the cluster with this API.</p>
 <pre><code class="language-proto">message WriteRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
   string request_id = 3;
 }
@@ -383,7 +383,7 @@ commit index at time of query is applied. This is called <strong>read_index</str
 <p>When <code>read_locally</code> is set to true, the request isn’t proxied to the leader but
 processed locally.</p>
 <pre><code class="language-proto">message ReadRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
   bool read_locally = 3;
 }
@@ -399,12 +399,12 @@ and therefore can be implemented as an extension of the normal log replication
 by defining <code>AddServer</code> and <code>RemoveServer</code> commands.
 From the admin client, the following API will add or remove a Raft process in the cluster.</p>
 <pre><code class="language-proto">message AddServerRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   string server_id = 2;
 }
 
 message RemoveServerRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   string server_id = 2;
 }
 </code></pre>
@@ -442,7 +442,7 @@ leader until a new leader is elected which causes downtime.</p>
 <p>To mitigate this problem, the admin client can send a TimeoutNow command to
 any other Raft processes to forcibly start a new election (by promoting to a candidate).</p>
 <pre><code class="language-proto">message TimeoutNow {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>

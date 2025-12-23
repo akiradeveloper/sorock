@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dbe9e845.js";
+            window.path_to_searchindex_js = "searchindex-4a505407.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-91a7bdf6.js"></script>
+        <script src="toc-ea9a7c28.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,15 +186,15 @@ Since the Raft process doesn’t know about the IO,
 we call it <strong>Pure Raft</strong>.</p>
 <p><img src="images/raft-process.png" alt=""></p>
 <p>To make Raft process to communicate with other Raft processes
-through network, <code>RaftHandle</code> must be provided.
-Everything about actual on-network communication is encapsulated under <code>RaftHandle</code>.</p>
+through network, <code>RaftIO</code> must be provided.
+Everything about actual on-network communication is encapsulated under <code>RaftIO</code>.</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
         storage: &amp;RaftStorage,
-        handle: RaftHandle,
+        io: RaftIO,
     ) -&gt; Result&lt;Self&gt; {
 <span class="boring">}</span></code></pre>
 
