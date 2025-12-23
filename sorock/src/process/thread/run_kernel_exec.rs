@@ -10,7 +10,7 @@ impl Thread {
         self.kernel_exec_actor.write().await.process_once().await
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.kernel_queue_evt_rx
@@ -24,7 +24,7 @@ impl Thread {
     }
 }
 
-pub fn new(
+pub fn run(
     kernel_exec_actor: Actor<KernelExec>,
     kernel_queue_evt_rx: EventConsumer<KernelQueueEvent>,
 ) -> ThreadHandle {
@@ -32,5 +32,5 @@ pub fn new(
         kernel_exec_actor,
         kernel_queue_evt_rx,
     }
-    .do_loop()
+    .run_loop()
 }

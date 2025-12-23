@@ -1,9 +1,9 @@
 use super::*;
 
 pub struct Thread {
-    follower_id: NodeAddress,
+    follower_id: ServerAddress,
     replication_actor: Actor<Replication>,
-    ctrl_actor: Read<Actor<Control>>,
+    ctrl_actor: Actor<Control>,
     queue_evt_rx: EventConsumer<QueueEvent>,
     replication_evt_tx: EventProducer<ReplicationEvent>,
 }
@@ -25,7 +25,7 @@ impl Thread {
         Ok(true)
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.queue_evt_rx
@@ -41,10 +41,10 @@ impl Thread {
     }
 }
 
-pub fn new(
-    follower_id: NodeAddress,
+pub fn run(
+    follower_id: ServerAddress,
     progress: Actor<Replication>,
-    ctrl: Read<Actor<Control>>,
+    ctrl: Actor<Control>,
     queue_evt_rx: EventConsumer<QueueEvent>,
     replication_evt_tx: EventProducer<ReplicationEvent>,
 ) -> ThreadHandle {
@@ -55,5 +55,5 @@ pub fn new(
         queue_evt_rx,
         replication_evt_tx,
     }
-    .do_loop()
+    .run_loop()
 }

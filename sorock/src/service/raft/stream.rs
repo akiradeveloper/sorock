@@ -2,22 +2,22 @@ use super::*;
 
 pub async fn into_internal_replication_stream(
     mut out_stream: tonic::Streaming<raft::ReplicationStreamChunk>,
-) -> Result<(ShardIndex, request::ReplicationStream)> {
+) -> Result<(ShardId, request::ReplicationStream)> {
     use raft::replication_stream_chunk::Elem as ChunkElem;
 
     // Get the header of the stream
-    let (shard_index, sender_id, sender_term, prev_clock) =
+    let (shard_id, sender_id, sender_term, prev_clock) =
         if let Some(Ok(chunk)) = out_stream.next().await {
             let e = chunk.elem.context(Error::BadReplicationStream)?;
             if let ChunkElem::Header(raft::ReplicationStreamHeader {
-                shard_index,
+                shard_id,
                 sender_id,
                 sender_term,
                 prev_clock: Some(prev_clock),
             }) = e
             {
                 (
-                    shard_index,
+                    shard_id,
                     sender_id,
                     sender_term,
                     Clock {
@@ -57,7 +57,7 @@ pub async fn into_internal_replication_stream(
         entries: Box::pin(entries),
     };
 
-    Ok((shard_index, st))
+    Ok((shard_id, st))
 }
 
 pub type SnapshotStreamOut = std::pin::Pin<

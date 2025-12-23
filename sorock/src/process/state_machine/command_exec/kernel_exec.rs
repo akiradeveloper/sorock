@@ -30,7 +30,7 @@ impl KernelExec {
 
         match self.do_process_once(kernel_command).await {
             Ok(()) => true,
-            Err(e) => false,
+            Err(_) => false,
         }
     }
 
@@ -46,7 +46,7 @@ impl KernelExec {
         debug!("process kernel@{index}");
 
         match command {
-            Command::Barrier(term) => {
+            Command::TermBarrier(term) => {
                 self.ctrl_actor.write().await.commit_safe_term(term);
             }
             Command::ClusterConfiguration { .. } => {}

@@ -3,8 +3,8 @@ use super::*;
 use std::collections::{HashMap, HashSet};
 
 pub struct ShardTable {
-    fwd: HashMap<NodeAddress, HashSet<ShardIndex>>,
-    back: HashMap<ShardIndex, HashSet<NodeAddress>>,
+    fwd: HashMap<ServerAddress, HashSet<ShardId>>,
+    back: HashMap<ShardId, HashSet<ServerAddress>>,
 }
 
 impl ShardTable {
@@ -15,7 +15,7 @@ impl ShardTable {
         }
     }
 
-    fn remove_mapping(&mut self, node_id: &NodeAddress) {
+    fn remove_mapping(&mut self, node_id: &ServerAddress) {
         if let Some(shards) = self.fwd.remove(node_id) {
             for shard in shards {
                 if let Some(nodes) = self.back.get_mut(&shard) {
@@ -28,7 +28,7 @@ impl ShardTable {
         }
     }
 
-    pub fn update_mapping(&mut self, node_id: NodeAddress, mapping: Vec<ShardIndex>) {
+    pub fn update_mapping(&mut self, node_id: ServerAddress, mapping: Vec<ShardId>) {
         self.remove_mapping(&node_id);
 
         self.fwd
@@ -44,9 +44,9 @@ impl ShardTable {
         }
     }
 
-    pub fn choose_one_replica(&self, shard_index: ShardIndex) -> Option<NodeAddress> {
+    pub fn choose_one_replica(&self, shard_id: ShardId) -> Option<ServerAddress> {
         self.back
-            .get(&shard_index)
+            .get(&shard_id)
             .and_then(|nodes| nodes.iter().next().cloned())
     }
 }

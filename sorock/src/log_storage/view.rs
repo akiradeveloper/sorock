@@ -11,10 +11,10 @@ pub struct LogShardView {
 impl LogShardView {
     pub(super) fn new(
         db: Arc<redb::Database>,
-        shard_index: u32,
+        shard_id: u32,
         q: crossbeam::channel::Sender<LazyInsert>,
     ) -> Result<Self> {
-        let space = format!("log.{shard_index}");
+        let space = format!("log.{shard_id}");
 
         let tx = db.begin_write()?;
         {

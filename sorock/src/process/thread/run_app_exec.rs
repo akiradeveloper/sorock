@@ -11,7 +11,7 @@ impl Thread {
         self.app_exec_actor.write().await.process_once().await
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.app_queue_evt_rx
@@ -27,7 +27,7 @@ impl Thread {
     }
 }
 
-pub fn new(
+pub fn run(
     app_exec_actor: Actor<AppExec>,
     app_queue_evt_rx: EventConsumer<AppQueueEvent>,
     applied_evt_tx: EventProducer<AppliedEvent>,
@@ -37,5 +37,5 @@ pub fn new(
         app_queue_evt_rx,
         applied_evt_tx,
     }
-    .do_loop()
+    .run_loop()
 }

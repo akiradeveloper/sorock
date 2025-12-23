@@ -15,8 +15,8 @@ impl Effect<'_> {
 
         let command = Command::deserialize(&e.command);
         let will_process = match command {
-            Command::ExecuteRequest { .. } => true,
-            Command::CompleteRequest { .. } => true,
+            Command::ExecuteWriteRequest { .. } => true,
+            Command::CompleteWriteRequest { .. } => true,
             Command::Snapshot { .. } => true,
             _ => false,
         };

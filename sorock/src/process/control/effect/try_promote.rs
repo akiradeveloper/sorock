@@ -33,7 +33,7 @@ impl Effect<'_> {
 
             // Vote to itself
             new_ballot.cur_term = vote_term;
-            new_ballot.voted_for = Some(self.ctrl.driver.self_node_id());
+            new_ballot.voted_for = Some(self.ctrl.io.self_server_id());
             self.ctrl.write_ballot(new_ballot).await?;
 
             // Becoming Candidate avoids this node starts another election during this election.
@@ -64,12 +64,12 @@ impl Effect<'_> {
     ) -> Result<bool> {
         let (others, remaining) = {
             let membership = self.ctrl.read_membership();
-            ensure!(membership.contains(&self.ctrl.driver.self_node_id()));
+            ensure!(membership.contains(&self.ctrl.io.self_server_id()));
 
             let n = membership.len();
             let mut others = vec![];
             for id in membership {
-                if id != self.ctrl.driver.self_node_id() {
+                if id != self.ctrl.io.self_server_id() {
                     others.push(id);
                 }
             }
@@ -91,8 +91,8 @@ impl Effect<'_> {
         // Get remaining votes from others.
         let mut vote_requests = vec![];
         for endpoint in others {
-            let selfid = self.ctrl.driver.self_node_id();
-            let conn = self.ctrl.driver.connect(endpoint);
+            let selfid = self.ctrl.io.self_server_id();
+            let conn = self.ctrl.io.connect(endpoint);
             vote_requests.push(async move {
                 let req = request::RequestVote {
                     candidate_id: selfid,
@@ -128,7 +128,7 @@ impl Effect<'_> {
                 command_log: &mut *self.command_log.write().await,
             }
             .exec(
-                Command::serialize(Command::Barrier(vote_term)),
+                Command::serialize(Command::TermBarrier(vote_term)),
                 Some(vote_term),
                 None,
             )

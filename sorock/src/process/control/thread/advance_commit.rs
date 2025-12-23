@@ -28,7 +28,7 @@ impl Thread {
         Ok(())
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.replication_evt_rx
@@ -42,15 +42,15 @@ impl Thread {
     }
 }
 
-pub fn new(
+pub fn run(
     ctrl: Actor<Control>,
-    consume: EventConsumer<ReplicationEvent>,
-    produce: EventProducer<CommitEvent>,
+    replication_evt_rx: EventConsumer<ReplicationEvent>,
+    commit_evt_tx: EventProducer<CommitEvent>,
 ) -> ThreadHandle {
     Thread {
         ctrl_actor: ctrl,
-        replication_evt_rx: consume,
-        commit_evt_tx: produce,
+        replication_evt_rx,
+        commit_evt_tx,
     }
-    .do_loop()
+    .run_loop()
 }

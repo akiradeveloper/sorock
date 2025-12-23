@@ -30,28 +30,28 @@ pub struct Control {
     pub commit_pointer: u64,
 
     // peers
-    membership: HashSet<NodeAddress>,
-    replication_progresses: HashMap<NodeAddress, Actor<Replication>>,
-    peer_threads: HashMap<NodeAddress, ThreadHandles>,
-    queue_rx: EventConsumer<QueueEvent>,
-    replication_tx: EventProducer<ReplicationEvent>,
+    membership: HashSet<ServerAddress>,
+    replication_progresses: HashMap<ServerAddress, Actor<Replication>>,
+    peer_threads: HashMap<ServerAddress, ThreadHandles>,
+    queue_evt_rx: EventConsumer<QueueEvent>,
+    replication_evt_tx: EventProducer<ReplicationEvent>,
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
     membership_pointer: u64,
 
-    command_log: Read<Actor<CommandLog>>,
+    command_log_actor: Actor<CommandLog>,
 
-    driver: RaftHandle,
+    io: RaftIO,
 }
 
 impl Control {
     pub fn new(
         ballot_store: storage::BallotStore,
-        command_log: Read<Actor<CommandLog>>,
-        queue_rx: EventConsumer<QueueEvent>,
-        replication_tx: EventProducer<ReplicationEvent>,
-        driver: RaftHandle,
+        command_log: Actor<CommandLog>,
+        queue_evt_rx: EventConsumer<QueueEvent>,
+        replication_evt_tx: EventProducer<ReplicationEvent>,
+        io: RaftIO,
     ) -> Self {
         Self {
             state: ElectionState::Follower,
@@ -64,11 +64,11 @@ impl Control {
             membership: HashSet::new(),
             replication_progresses: HashMap::new(),
             peer_threads: HashMap::new(),
-            queue_rx,
-            replication_tx,
+            queue_evt_rx,
+            replication_evt_tx,
 
-            command_log,
-            driver,
+            command_log_actor: command_log,
+            io,
         }
     }
 
@@ -109,32 +109,37 @@ impl Control {
         // This is an optimization to avoid unnecessary election.
         // If the node doesn't contain itself in its membership,
         // it can't become a new leader anyway.
-        if !self.read_membership().contains(&self.driver.self_node_id()) {
+        if !self.read_membership().contains(&self.io.self_server_id()) {
             return None;
         }
         self.leader_failure_detector.get_election_timeout()
     }
 
-    async fn send_heartbeat(&self, follower_id: NodeAddress) -> Result<()> {
+    async fn send_heartbeat(&self, follower_id: ServerAddress) -> Result<()> {
         let ballot = self.read_ballot().await?;
-        let leader_commit_index = self.commit_pointer;
+        let cur_commit_index = self.commit_pointer;
         let req = request::Heartbeat {
-            leader_term: ballot.cur_term,
-            leader_commit_index,
+            sender_term: ballot.cur_term,
+            sender_commit_index: cur_commit_index,
         };
-        let conn = self.driver.connect(follower_id);
+        let conn = self.io.connect(follower_id);
         conn.queue_heartbeat(req);
         Ok(())
     }
 
-    pub fn read_membership(&self) -> HashSet<NodeAddress> {
+    pub fn read_membership(&self) -> HashSet<ServerAddress> {
         self.membership.clone()
     }
 
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
-        let last_log_index = self.command_log.read().await.get_log_last_index().await?;
+        let last_log_index = self
+            .command_log_actor
+            .read()
+            .await
+            .get_log_last_index()
+            .await?;
         match_indices.push(last_log_index);
 
         for (_, peer) in &self.replication_progresses {
@@ -171,7 +176,7 @@ impl Control {
 
         if let Some(new_leader) = xs.pop() {
             info!("transfer leadership to {}", new_leader.0);
-            let conn = self.driver.connect(new_leader.0.clone());
+            let conn = self.io.connect(new_leader.0.clone());
             conn.send_timeout_now().await?;
         }
 
@@ -197,7 +202,7 @@ impl Control {
         // This ensures that this node has maintained leadership when commit-index was saved.
         let mut futs = vec![];
         for peer in peers {
-            let conn = self.driver.connect(peer.clone());
+            let conn = self.io.connect(peer.clone());
             let fut = async move {
                 let resp = conn.compare_term(cur_term).await;
                 // Treat errors as NACK.

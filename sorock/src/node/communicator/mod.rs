@@ -27,7 +27,7 @@ pub struct RaftConnection {
     _abort_hdl: Arc<HandleDrop>,
 }
 impl RaftConnection {
-    pub fn new(self_node_id: NodeAddress, dest_node_id: NodeAddress) -> Self {
+    pub fn new(self_node_id: ServerAddress, dest_node_id: ServerAddress) -> Self {
         let client = {
             let endpoint = tonic::transport::Endpoint::from(dest_node_id.0.clone())
                 // (http2) Send ping to keep connection (default: disabled)
@@ -54,18 +54,18 @@ impl RaftConnection {
 
 pub struct Communicator {
     conn: RaftConnection,
-    shard_index: ShardIndex,
+    shard_id: ShardId,
 }
 impl Communicator {
-    pub fn new(conn: RaftConnection, shard_index: ShardIndex) -> Self {
-        Self { conn, shard_index }
+    pub fn new(conn: RaftConnection, shard_id: ShardId) -> Self {
+        Self { conn, shard_id }
     }
 }
 
 impl Communicator {
     pub async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
         let req = raft::GetSnapshotRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             index,
         };
         let st = self
@@ -80,15 +80,15 @@ impl Communicator {
     }
 
     pub fn queue_heartbeat(&self, req: request::Heartbeat) {
-        self.conn.heartbeat_buffer.push(self.shard_index, req);
+        self.conn.heartbeat_buffer.push(self.shard_id, req);
     }
 
     pub async fn process_application_write_request(
         &self,
-        req: request::ApplicationWriteRequest,
+        req: request::AppWriteRequest,
     ) -> Result<Bytes> {
         let req = raft::WriteRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             message: req.message,
             request_id: req.request_id,
         };
@@ -98,10 +98,10 @@ impl Communicator {
 
     pub async fn process_application_read_request(
         &self,
-        req: request::ApplicationReadRequest,
+        req: request::AppReadRequest,
     ) -> Result<Bytes> {
         let req = raft::ReadRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             message: req.message,
         };
         let resp = self.conn.client.clone().read(req).await?.into_inner();
@@ -110,7 +110,7 @@ impl Communicator {
 
     pub async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         let req = raft::KernelRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             message: req.message,
         };
         self.conn.client.clone().process_kernel_request(req).await?;
@@ -119,7 +119,7 @@ impl Communicator {
 
     pub async fn send_timeout_now(&self) -> Result<()> {
         let req = raft::TimeoutNow {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
         };
         self.conn.client.clone().send_timeout_now(req).await?;
         Ok(())
@@ -129,7 +129,7 @@ impl Communicator {
         &self,
         st: request::ReplicationStream,
     ) -> Result<response::ReplicationStream> {
-        let st = stream::into_external_replication_stream(self.shard_index, st);
+        let st = stream::into_external_replication_stream(self.shard_id, st);
         let resp = self
             .conn
             .client
@@ -145,7 +145,7 @@ impl Communicator {
 
     pub async fn request_vote(&self, req: request::RequestVote) -> Result<bool> {
         let req = raft::VoteRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             candidate_id: req.candidate_id.to_string(),
             candidate_clock: {
                 let e = req.candidate_clock;
@@ -170,7 +170,7 @@ impl Communicator {
 
     pub async fn compare_term(&self, term: Term) -> Result<bool> {
         let req = raft::CompareTermRequest {
-            shard_index: self.shard_index,
+            shard_id: self.shard_id,
             sender_term: term,
         };
         let resp = self
@@ -185,7 +185,7 @@ impl Communicator {
 
     pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
         let req = raft::Shard {
-            id: self.shard_index,
+            shard_id: self.shard_id,
         };
         let resp = self
             .conn
@@ -198,9 +198,9 @@ impl Communicator {
         Ok(resp.read_index)
     }
 
-    pub async fn get_membership(&self) -> Result<HashSet<NodeAddress>> {
+    pub async fn get_membership(&self) -> Result<HashSet<ServerAddress>> {
         let req = raft::Shard {
-            id: self.shard_index,
+            shard_id: self.shard_id,
         };
         let resp = self
             .conn

@@ -3,7 +3,7 @@ use super::*;
 use std::collections::HashMap;
 
 pub struct HeartbeatBuffer {
-    buf: crossbeam::queue::SegQueue<(ShardIndex, request::Heartbeat)>,
+    buf: crossbeam::queue::SegQueue<(ShardId, request::Heartbeat)>,
 }
 impl HeartbeatBuffer {
     pub fn new() -> Self {
@@ -12,11 +12,11 @@ impl HeartbeatBuffer {
         }
     }
 
-    pub fn push(&self, shard_index: ShardIndex, req: request::Heartbeat) {
-        self.buf.push((shard_index, req));
+    pub fn push(&self, shard_id: ShardId, req: request::Heartbeat) {
+        self.buf.push((shard_id, req));
     }
 
-    fn drain(&self) -> HashMap<ShardIndex, request::Heartbeat> {
+    fn drain(&self) -> HashMap<ShardId, request::Heartbeat> {
         let mut out = HashMap::new();
         let n = self.buf.len();
         for _ in 0..n {
@@ -27,7 +27,11 @@ impl HeartbeatBuffer {
     }
 }
 
-pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node_id: NodeAddress) {
+pub async fn run(
+    buf: Arc<HeartbeatBuffer>,
+    mut cli: raft::RaftClient,
+    self_server_id: ServerAddress,
+) {
     loop {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
@@ -35,19 +39,19 @@ pub async fn run(buf: Arc<HeartbeatBuffer>, mut cli: raft::RaftClient, self_node
 
         let states = {
             let mut out = HashMap::new();
-            for (shard_index, heartbeat) in heartbeats {
-                let state = raft::LeaderCommitState {
-                    leader_term: heartbeat.leader_term,
-                    leader_commit_index: heartbeat.leader_commit_index,
+            for (shard_id, heartbeat) in heartbeats {
+                let state = raft::CommitState {
+                    sender_term: heartbeat.sender_term,
+                    sender_commit_index: heartbeat.sender_commit_index,
                 };
-                out.insert(shard_index, state);
+                out.insert(shard_id, state);
             }
             out
         };
 
         let req = raft::Heartbeat {
-            leader_id: self_node_id.to_string(),
-            leader_commit_states: states,
+            sender_id: self_server_id.to_string(),
+            sender_commit_states: states,
         };
         cli.send_heartbeat(req).await.ok();
     }

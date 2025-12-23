@@ -5,8 +5,8 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Read<Actor<CommandLog>> {
-        &self.ctrl.command_log
+    fn command_log(&self) -> &Actor<CommandLog> {
+        &self.ctrl.command_log_actor
     }
 
     /// If the latest config doesn't contain itself, then it steps down
@@ -32,7 +32,7 @@ impl Effect<'_> {
             .try_read_membership(last_membership_change_index)
             .await?
             .context(Error::BadLogState)?;
-        ensure!(!config.contains(&self.ctrl.driver.self_node_id()));
+        ensure!(!config.contains(&self.ctrl.io.self_server_id()));
 
         info!("step down");
         self.ctrl

@@ -19,7 +19,7 @@ use std::sync::Arc;
 #[derive(Subcommand, Debug)]
 enum Sub {
     #[clap(about = "Monitoring a real shard in a cluster.")]
-    Connect { node: Uri, shard_index: u32 },
+    Connect { node: Uri, shard_id: u32 },
     #[clap(about = "Test monitoring with test data. (0 -> static, 1 -> mock)")]
     Test { number: u8 },
 }
@@ -32,8 +32,8 @@ pub struct CommandArgs {
 
 pub async fn run(args: CommandArgs) -> Result<()> {
     let model = match args.sub {
-        Sub::Connect { node, shard_index } => {
-            let node = real::connect_real_node(node, shard_index);
+        Sub::Connect { node, shard_id } => {
+            let node = real::connect_real_node(node, shard_id);
             model::Model::new(node).await
         }
         Sub::Test { number: 0 } => model::Model::test(),
@@ -136,7 +136,7 @@ impl StatefulWidget for &App {
                     name: uri.to_string(),
                     head_index: log_state.head_index,
                     snapshot_index: log_state.snapshot_index,
-                    application_index: log_state.application_index,
+                    app_index: log_state.app_index,
                     commit_index: log_state.commit_index,
                     last_index: log_state.last_index,
                     min_max: ui::node_list::IndexRange {

@@ -69,29 +69,29 @@ impl Cluster {
     }
 
     /// Request node `to` to add a node `id`.
-    pub async fn add_server(&self, shard_index: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn add_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(AddServerRequest {
-                shard_index,
+                shard_id,
                 server_id: self.env.address(id).to_string(),
             })
             .await?;
         // Make sure the newly added server knows the current leader.
-        self.user(id).fetch_add(shard_index, 0).await?;
+        self.user(id).fetch_add(shard_id, 0).await?;
         Ok(())
     }
 
     /// Request node `to` to remove a node `id`.
-    pub async fn remove_server(&self, shard_index: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn remove_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .remove_server(RemoveServerRequest {
-                shard_index,
+                shard_id,
                 server_id: self.env.address(id).to_string(),
             })
             .await?;
         eprintln!("removed node(id={id})");
         // Make sure consensus can be made after removing the server.
-        self.user(to).fetch_add(shard_index, 0).await?;
+        self.user(to).fetch_add(shard_id, 0).await?;
         Ok(())
     }
 }

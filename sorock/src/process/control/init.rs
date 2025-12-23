@@ -2,12 +2,17 @@ use super::*;
 
 impl Control {
     /// Restore the membership from the state of the log.
-    pub async fn init(&mut self, ctrl_actor: Read<Actor<Control>>) -> Result<()> {
-        let log_last_index = self.command_log.read().await.get_log_last_index().await?;
+    pub async fn init(&mut self, ctrl_actor: Actor<Control>) -> Result<()> {
+        let log_last_index = self
+            .command_log_actor
+            .read()
+            .await
+            .get_log_last_index()
+            .await?;
 
         // It is ensured that at least one configuration can be found.
         let last_config_index = self
-            .command_log
+            .command_log_actor
             .read()
             .await
             .find_last_membership_index(log_last_index)
@@ -16,7 +21,7 @@ impl Control {
 
         let last_membership = {
             let entry = self
-                .command_log
+                .command_log_actor
                 .read()
                 .await
                 .get_entry(last_config_index)

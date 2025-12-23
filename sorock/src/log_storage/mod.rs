@@ -29,10 +29,10 @@ impl LogStorage {
         Self { db, tx, _kill_tx }
     }
 
-    pub fn get_shard(&self, shard_index: u32) -> Result<LogShardView> {
+    pub fn get_shard(&self, shard_id: u32) -> Result<LogShardView> {
         Ok(LogShardView::new(
             self.db.clone(),
-            shard_index,
+            shard_id,
             self.tx.clone(),
         )?)
     }

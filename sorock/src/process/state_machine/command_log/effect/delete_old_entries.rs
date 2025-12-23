@@ -4,6 +4,7 @@ use super::*;
 pub struct Effect<'a> {
     pub command_log: &'a CommandLog,
 }
+
 impl Effect<'_> {
     pub async fn exec(self) -> Result<()> {
         let cur_snapshot_index = self.command_log.snapshot_pointer;

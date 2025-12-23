@@ -31,13 +31,13 @@ use tonic::transport::Uri;
 #[derive(
     serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash, Debug, Display, FromStr,
 )]
-pub struct NodeAddress(#[serde(with = "http_serde::uri")] Uri);
+pub struct ServerAddress(#[serde(with = "http_serde::uri")] Uri);
 
-impl NodeAddress {
+impl ServerAddress {
     pub fn new(uri: Uri) -> Self {
         Self(uri)
     }
 }
 
 /// Identifier of Shard.
-pub type ShardIndex = u32;
+pub type ShardId = u32;

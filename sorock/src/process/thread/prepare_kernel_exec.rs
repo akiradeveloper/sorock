@@ -24,7 +24,7 @@ impl Thread {
         Ok(())
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.commit_evt_rx
@@ -40,7 +40,7 @@ impl Thread {
     }
 }
 
-pub fn new(
+pub fn run(
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
     kernel_exec: Actor<KernelExec>,
@@ -54,5 +54,5 @@ pub fn new(
         commit_evt_rx,
         kernel_queue_evt_tx: kernel_evt_tx,
     }
-    .do_loop()
+    .run_loop()
 }

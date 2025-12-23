@@ -43,7 +43,7 @@ impl AppExec {
 
         match self.do_process_once(app_command).await {
             Ok(()) => true,
-            Err(e) => false,
+            Err(_) => false,
         }
     }
 
@@ -63,7 +63,7 @@ impl AppExec {
             Command::Snapshot { .. } => {
                 self.app.apply_snapshot(index).await?;
             }
-            Command::ExecuteRequest {
+            Command::ExecuteWriteRequest {
                 message,
                 request_id,
             } => {
@@ -86,7 +86,7 @@ impl AppExec {
                             // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
                             // This should be queued and replicated to the followers.
                             // Otherwise followers will never know the request is completed and the context will never be terminated.
-                            let command = Command::CompleteRequest { request_id };
+                            let command = Command::CompleteWriteRequest { request_id };
                             command_log::effect::append_entry::Effect {
                                 command_log: &mut *self.command_log_actor.write().await,
                             }
@@ -97,7 +97,7 @@ impl AppExec {
                     }
                 }
             }
-            Command::CompleteRequest { request_id } => {
+            Command::CompleteWriteRequest { request_id } => {
                 self.response_cache.complete_response(&request_id);
             }
             _ => {}

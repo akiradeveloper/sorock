@@ -2,9 +2,10 @@ use super::*;
 
 #[derive(Serialize, Deserialize, std::fmt::Debug)]
 pub enum KernelMessage {
-    AddServer(NodeAddress),
-    RemoveServer(NodeAddress),
+    AddServer(ServerAddress),
+    RemoveServer(ServerAddress),
 }
+
 impl KernelMessage {
     pub fn serialize(self) -> Bytes {
         bincode::serialize(&self).unwrap().into()
