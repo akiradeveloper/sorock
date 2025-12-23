@@ -12,14 +12,14 @@ we call it **Pure Raft**.
 ![](images/raft-process.png)
 
 To make Raft process to communicate with other Raft processes
-through network, `RaftHandle` must be provided.
-Everything about actual on-network communication is encapsulated under `RaftHandle`.
+through network, `RaftIO` must be provided.
+Everything about actual on-network communication is encapsulated under `RaftIO`.
 
 ```rust
 impl RaftProcess {
     pub async fn new(
         app: impl RaftApp,
         storage: &RaftStorage,
-        handle: RaftHandle,
+        io: RaftIO,
     ) -> Result<Self> {
 ```

@@ -20,7 +20,7 @@ impl Thread {
         Ok(())
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             loop {
                 self.kernel_queue_evt_rx
@@ -36,7 +36,7 @@ impl Thread {
     }
 }
 
-pub fn new(
+pub fn run(
     command_log: Actor<CommandLog>,
     app_exec: Actor<AppExec>,
     kernel_evt_rx: EventConsumer<KernelQueueEvent>,
@@ -48,5 +48,5 @@ pub fn new(
         kernel_queue_evt_rx: kernel_evt_rx,
         app_queue_evt_tx: app_evt_tx,
     }
-    .do_loop()
+    .run_loop()
 }

@@ -6,15 +6,15 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Read<Actor<CommandLog>> {
-        &self.ctrl.command_log
+    fn command_log(&self) -> &Actor<CommandLog> {
+        &self.ctrl.command_log_actor
     }
 
     /// Prepare a replication stream from the log entries `[l, r)`.
     async fn prepare_replication_stream(
-        selfid: NodeAddress,
+        selfid: ServerAddress,
         term: Term,
-        command_log: Read<Actor<CommandLog>>,
+        command_log: Actor<CommandLog>,
         l: LogIndex,
         r: LogIndex,
     ) -> Result<request::ReplicationStream> {
@@ -42,7 +42,7 @@ impl Effect<'_> {
         })
     }
 
-    pub async fn exec(self, follower_id: NodeAddress) -> Result<()> {
+    pub async fn exec(self, follower_id: ServerAddress) -> Result<()> {
         let cur_term = self.ctrl.read_ballot().await?.cur_term;
 
         let cur_progress = *self.progress;
@@ -71,7 +71,7 @@ impl Effect<'_> {
         ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.ctrl.driver.self_node_id(),
+            self.ctrl.io.self_server_id(),
             cur_term,
             self.command_log().clone(),
             old_progress.next_index,
@@ -79,7 +79,7 @@ impl Effect<'_> {
         )
         .await?;
 
-        let conn = self.ctrl.driver.connect(follower_id.clone());
+        let conn = self.ctrl.io.connect(follower_id.clone());
 
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.

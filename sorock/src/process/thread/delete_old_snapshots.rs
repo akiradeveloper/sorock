@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct Thread {
-    command_log_actor: Read<Actor<CommandLog>>,
+    command_log_actor: Actor<CommandLog>,
     app: App,
 }
 
@@ -12,7 +12,7 @@ impl Thread {
         Ok(())
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
@@ -25,10 +25,10 @@ impl Thread {
     }
 }
 
-pub fn new(app: App, command_log: Read<Actor<CommandLog>>) -> ThreadHandle {
+pub fn run(app: App, command_log: Actor<CommandLog>) -> ThreadHandle {
     Thread {
         command_log_actor: command_log,
         app,
     }
-    .do_loop()
+    .run_loop()
 }

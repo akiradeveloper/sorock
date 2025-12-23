@@ -47,12 +47,12 @@ async fn main() -> anyhow::Result<()> {
 
     let t = Instant::now();
     let mut futs = vec![];
-    for shard_index in 0..opts.num_shards {
+    for shard_id in 0..opts.num_shards {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_index, 0, 0).await?;
+            cluster.add_server(shard_id, 0, 0).await?;
             for node_id in 1..opts.num_nodes {
-                cluster.add_server(shard_index, 0, node_id).await?;
+                cluster.add_server(shard_id, 0, node_id).await?;
             }
             Ok::<(), anyhow::Error>(())
         };
@@ -68,12 +68,12 @@ async fn main() -> anyhow::Result<()> {
         let fail_w = Arc::new(AtomicU64::new(0));
         let fail_r = Arc::new(AtomicU64::new(0));
         let mut futs = vec![];
-        for shard_index in 0..opts.num_shards {
+        for shard_id in 0..opts.num_shards {
             for _ in 0..opts.n_batch_writes {
                 let error_counter = fail_w.clone();
                 let mut cli = cluster.user(0);
                 let fut = async move {
-                    if let Err(_) = cli.fetch_add(shard_index, opts.io_size as u64).await {
+                    if let Err(_) = cli.fetch_add(shard_id, opts.io_size as u64).await {
                         error_counter.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -81,12 +81,12 @@ async fn main() -> anyhow::Result<()> {
                 futs.push(fut);
             }
         }
-        for shard_index in 0..opts.num_shards {
+        for shard_id in 0..opts.num_shards {
             for _ in 0..opts.n_batch_reads {
                 let error_counter = fail_r.clone();
                 let cli = cluster.user(0);
                 let fut = async move {
-                    if let Err(_) = cli.read(shard_index).await {
+                    if let Err(_) = cli.read(shard_id).await {
                         error_counter.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -107,9 +107,9 @@ async fn main() -> anyhow::Result<()> {
         if cycle % opts.compaction_cycle == 0 {
             let mut futs = vec![];
             for node_id in 0..opts.num_nodes {
-                for shard_index in 0..opts.num_shards {
+                for shard_id in 0..opts.num_shards {
                     let cli = cluster.user(node_id);
-                    let fut = async move { cli.make_snapshot(shard_index).await };
+                    let fut = async move { cli.make_snapshot(shard_id).await };
                     futs.push(fut);
                 }
             }

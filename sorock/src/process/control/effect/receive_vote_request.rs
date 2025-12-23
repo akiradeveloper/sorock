@@ -5,15 +5,15 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Read<Actor<CommandLog>> {
-        &self.ctrl.command_log
+    fn command_log(&self) -> &Actor<CommandLog> {
+        &self.ctrl.command_log_actor
     }
 
     /// Returns grated or not on vote.
     pub async fn exec(
         self,
         candidate_term: Term,
-        candidate_id: NodeAddress,
+        candidate_id: ServerAddress,
         candidate_last_log_clock: Clock,
         force_vote: bool,
         pre_vote: bool,

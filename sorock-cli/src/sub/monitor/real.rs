@@ -4,25 +4,22 @@ use futures::StreamExt;
 use std::{pin::Pin, time::Duration};
 use tonic::transport::Uri;
 
-pub fn connect_real_node(uri: Uri, shard_index: u32) -> impl model::stream::Node {
+pub fn connect_real_node(uri: Uri, shard_id: u32) -> impl model::stream::Node {
     let chan = Endpoint::from(uri).connect_lazy();
     let client = sorock::RaftClient::new(chan);
-    RealNode {
-        client,
-        shard_index,
-    }
+    RealNode { client, shard_id }
 }
 
 struct RealNode {
     client: sorock::RaftClient,
-    shard_index: u32,
+    shard_id: u32,
 }
 
 #[async_trait::async_trait]
 impl model::stream::Node for RealNode {
     async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = sorock::Membership> + Send>> {
         let shard = sorock::Shard {
-            id: self.shard_index,
+            shard_id: self.shard_id,
         };
         let mut client = self.client.clone();
         let st = async_stream::stream! {
@@ -48,7 +45,7 @@ impl model::stream::Node for RealNode {
         _: Uri,
     ) -> Pin<Box<dyn Stream<Item = sorock::LogMetrics> + Send>> {
         let shard = sorock::Shard {
-            id: self.shard_index,
+            shard_id: self.shard_id,
         };
         let mut client = self.client.clone();
         let st = async_stream::stream! {

@@ -14,9 +14,9 @@ pub enum Error {
     #[error("leader is unknown")]
     LeaderUnknown,
     #[error("peer (node_id={0}) not found")]
-    PeerNotFound(NodeAddress),
-    #[error("process not found (shard_index={0})")]
-    ProcessNotFound(ShardIndex),
-    #[error("shard not reachable (shard_index={0})")]
-    ShardUnreachable(ShardIndex),
+    PeerNotFound(ServerAddress),
+    #[error("process not found (shard_id={0})")]
+    ProcessNotFound(ShardId),
+    #[error("shard not reachable (shard_id={0})")]
+    ShardUnreachable(ShardId),
 }

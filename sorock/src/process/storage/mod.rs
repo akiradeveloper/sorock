@@ -25,14 +25,11 @@ impl RaftStorage {
         Self { db, log_storage }
     }
 
-    pub(super) fn get(
-        &self,
-        shard_index: ShardIndex,
-    ) -> Result<(log::LogStore, ballot::BallotStore)> {
-        let view = self.log_storage.get_shard(shard_index)?;
+    pub(super) fn get(&self, shard_id: ShardId) -> Result<(log::LogStore, ballot::BallotStore)> {
+        let view = self.log_storage.get_shard(shard_id)?;
         let log = log::LogStore::new(view);
 
-        let ballot = ballot::BallotStore::new(self.db.clone(), shard_index)?;
+        let ballot = ballot::BallotStore::new(self.db.clone(), shard_id)?;
 
         Ok((log, ballot))
     }
@@ -122,9 +119,9 @@ mod tests {
 
         futures::future::join_all(futs).await;
 
-        for shard_index in 0..100 {
+        for shard_id in 0..100 {
             for i in 1..=100 {
-                let (log, _) = db.get(shard_index).unwrap();
+                let (log, _) = db.get(shard_id).unwrap();
                 let e = log.get_entry(i).await.unwrap().unwrap();
                 assert_eq!(e.this_clock.index, i);
             }

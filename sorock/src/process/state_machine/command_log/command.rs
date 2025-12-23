@@ -6,19 +6,19 @@ pub enum Command<'a> {
     /// reached up to the barrier entry which is queued by the current leader.
     /// This ensures committed entries will not be reverted as described in Figure 3.7
     /// by allowing only who owns the barrier entry can be elected as a new leader.
-    Barrier(Term),
+    TermBarrier(Term),
     ClusterConfiguration {
-        membership: HashSet<NodeAddress>,
+        membership: HashSet<ServerAddress>,
     },
     Snapshot {
-        membership: HashSet<NodeAddress>,
+        membership: HashSet<ServerAddress>,
     },
-    ExecuteRequest {
+    ExecuteWriteRequest {
         #[serde(with = "serde_bytes")]
         message: &'a [u8],
         request_id: String,
     },
-    CompleteRequest {
+    CompleteWriteRequest {
         request_id: String,
     },
 }

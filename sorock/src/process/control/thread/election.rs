@@ -35,7 +35,7 @@ impl Thread {
         Ok(())
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
@@ -48,10 +48,10 @@ impl Thread {
     }
 }
 
-pub fn new(ctrl: Actor<Control>, command_log: Actor<CommandLog>) -> ThreadHandle {
+pub fn run(ctrl: Actor<Control>, command_log: Actor<CommandLog>) -> ThreadHandle {
     Thread {
         ctrl_actor: ctrl,
         command_log,
     }
-    .do_loop()
+    .run_loop()
 }

@@ -13,7 +13,7 @@ You can send a R/W command to the cluster with this API.
 
 ```proto
 message WriteRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
   string request_id = 3;
 }
@@ -41,7 +41,7 @@ processed locally.
 
 ```proto
 message ReadRequest {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
   bytes message = 2;
   bool read_locally = 3;
 }

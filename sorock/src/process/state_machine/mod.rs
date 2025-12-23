@@ -15,16 +15,16 @@ impl App {
     pub async fn fetch_snapshot(
         &self,
         snapshot_index: LogIndex,
-        owner: NodeAddress,
-        driver: RaftHandle,
+        owner: ServerAddress,
+        io: RaftIO,
     ) -> Result<()> {
-        if owner == driver.self_node_id() {
+        if owner == io.self_server_id() {
             return Ok(());
         }
         if snapshot_index == 1 {
             return Ok(());
         }
-        let conn = driver.connect(owner);
+        let conn = io.connect(owner);
         let st = conn.get_snapshot(snapshot_index).await?;
         self.save_snapshot(st, snapshot_index).await?;
         Ok(())

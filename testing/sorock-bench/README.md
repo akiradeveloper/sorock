@@ -8,9 +8,9 @@ A benchmark program for sorock.
 cluster = create_cluster(num_nodes, num_shards)
 while elapsed < du:
   io_batch = []
-  for shard_index in [0, num_shards)
-    io_batch <- num_batch_writes * cluster[0].shard[shard_index].write(io_size)
-    io_batch <- num_batch_reads * cluster[0].shard[shard_index].read()
+  for shard_id in [0, num_shards)
+    io_batch <- num_batch_writes * cluster[0].shard[shard_id].write(io_size)
+    io_batch <- num_batch_reads * cluster[0].shard[shard_id].read()
   par_execute(io_batch)
 ```
 

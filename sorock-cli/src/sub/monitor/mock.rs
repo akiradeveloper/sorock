@@ -52,7 +52,7 @@ impl model::stream::Node for MockNode {
                 let metrics = sorock::LogMetrics {
                     head_index: f(x),
                     snapshot_index: f(x+1),
-                    application_index: f(x+2),
+                    app_index: f(x+2),
                     commit_index: f(x+3),
                     last_index: f(x+4),
                 };

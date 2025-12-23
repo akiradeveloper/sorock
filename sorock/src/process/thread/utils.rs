@@ -4,6 +4,7 @@ use tokio::task::AbortHandle;
 
 /// Wrapper around a `AbortHandle` that aborts it is dropped.
 pub struct ThreadHandle(pub AbortHandle);
+
 impl Drop for ThreadHandle {
     fn drop(&mut self) {
         self.0.abort();
@@ -19,6 +20,7 @@ pub struct EventProducer<T> {
     inner: Arc<Notify>,
     phantom: PhantomData<T>,
 }
+
 impl<T> EventProducer<T> {
     pub fn push_event(&self, _: T) {
         self.inner.notify_one();
@@ -30,6 +32,7 @@ pub struct EventConsumer<T> {
     inner: Arc<Notify>,
     phantom: PhantomData<T>,
 }
+
 impl<T> EventConsumer<T> {
     /// Return if events are produced or timeout.
     pub async fn consume_events(&self, timeout: Duration) {

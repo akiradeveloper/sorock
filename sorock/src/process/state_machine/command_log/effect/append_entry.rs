@@ -3,6 +3,7 @@ use super::*;
 pub struct Effect<'a> {
     pub command_log: &'a mut CommandLog,
 }
+
 impl Effect<'_> {
     /// Append a new entry to the log.
     ///

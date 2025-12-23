@@ -37,6 +37,6 @@ any other Raft processes to forcibly start a new election (by promoting to a can
 
 ```proto
 message TimeoutNow {
-  uint32 shard_index = 1;
+  uint32 shard_id = 1;
 }
 ```

@@ -23,7 +23,7 @@ impl Effect<'_> {
 
         let command = Command::deserialize(&e.command);
         let will_process = match command {
-            Command::Barrier { .. } => true,
+            Command::TermBarrier { .. } => true,
             Command::ClusterConfiguration { .. } => true,
             _ => false,
         };

@@ -1,8 +1,8 @@
 use super::*;
 
 pub struct Thread {
-    follower_id: NodeAddress,
-    ctrl_actor: Read<Actor<Control>>,
+    follower_id: ServerAddress,
+    ctrl_actor: Actor<Control>,
 }
 
 impl Thread {
@@ -20,7 +20,7 @@ impl Thread {
             .await
     }
 
-    fn do_loop(self) -> ThreadHandle {
+    fn run_loop(self) -> ThreadHandle {
         let fut = async move {
             let mut interval = tokio::time::interval(Duration::from_millis(300));
             loop {
@@ -34,10 +34,10 @@ impl Thread {
     }
 }
 
-pub fn new(follower_id: NodeAddress, ctrl: Read<Actor<Control>>) -> ThreadHandle {
+pub fn run(follower_id: ServerAddress, ctrl: Actor<Control>) -> ThreadHandle {
     Thread {
         follower_id,
         ctrl_actor: ctrl,
     }
-    .do_loop()
+    .run_loop()
 }

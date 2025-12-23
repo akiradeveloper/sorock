@@ -65,7 +65,7 @@ async fn n1_exec_once() -> Result<()> {
     let cli = RaftClient::new(chan);
 
     let req = WriteRequest {
-        shard_index: 0,
+        shard_id: 0,
         message: example::AppWriteRequest::FetchAdd {
             bytes: vec![1u8; 1].into(),
         }

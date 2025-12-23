@@ -2,16 +2,16 @@ use super::*;
 
 pub struct Effect<'a> {
     pub ctrl: &'a mut Control,
-    pub ctrl_actor: Read<Actor<Control>>,
+    pub ctrl_actor: Actor<Control>,
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Read<Actor<CommandLog>> {
-        &self.ctrl.command_log
+    fn command_log(&self) -> &Actor<CommandLog> {
+        &self.ctrl.command_log_actor
     }
 
-    async fn add_peer(&mut self, id: NodeAddress) -> Result<()> {
-        if id == self.ctrl.driver.self_node_id() {
+    async fn add_peer(&mut self, id: ServerAddress) -> Result<()> {
+        if id == self.ctrl.io.self_server_id() {
             return Ok(());
         }
 
@@ -29,26 +29,26 @@ impl Effect<'_> {
             .insert(id.clone(), init_progress.clone());
 
         let thread_handles = ThreadHandles {
-            replicator_handle: thread::replication::new(
+            replicator_handle: thread::replication::run(
                 id.clone(),
                 init_progress,
                 self.ctrl_actor.clone(),
-                self.ctrl.queue_rx.clone(),
-                self.ctrl.replication_tx.clone(),
+                self.ctrl.queue_evt_rx.clone(),
+                self.ctrl.replication_evt_tx.clone(),
             ),
-            heartbeater_handle: thread::heartbeat::new(id.clone(), self.ctrl_actor.clone()),
+            heartbeater_handle: thread::heartbeat::run(id.clone(), self.ctrl_actor.clone()),
         };
         self.ctrl.peer_threads.insert(id, thread_handles);
 
         Ok(())
     }
 
-    fn remove_peer(&mut self, id: NodeAddress) {
+    fn remove_peer(&mut self, id: ServerAddress) {
         self.ctrl.peer_threads.remove(&id);
         self.ctrl.replication_progresses.remove(&id);
     }
 
-    pub async fn exec(mut self, config: HashSet<NodeAddress>, index: LogIndex) -> Result<()> {
+    pub async fn exec(mut self, config: HashSet<ServerAddress>, index: LogIndex) -> Result<()> {
         let cur = self.ctrl.read_membership();
 
         let add_peers = {
