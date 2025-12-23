@@ -3,7 +3,7 @@ use super::*;
 struct Thread {
     query_exec_actor: Actor<query_queue::QueryExec>,
     app_exec_actor: Actor<AppExec>,
-    app_evt_rx: EventConsumer<AppliedEvent>,
+    app_evt_rx: EventWaiter<AppliedEvent>,
 }
 
 impl Thread {
@@ -34,7 +34,7 @@ impl Thread {
 pub fn run(
     query_queue: Actor<query_queue::QueryExec>,
     app_exec: Actor<AppExec>,
-    app_evt_rx: EventConsumer<AppliedEvent>,
+    app_evt_rx: EventWaiter<AppliedEvent>,
 ) -> ThreadHandle {
     Thread {
         query_exec_actor: query_queue,

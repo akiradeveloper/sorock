@@ -3,8 +3,8 @@ use super::*;
 pub struct Thread {
     command_log_actor: Actor<CommandLog>,
     app_exec_actor: Actor<AppExec>,
-    kernel_queue_evt_rx: EventConsumer<KernelQueueEvent>,
-    app_queue_evt_tx: EventProducer<AppQueueEvent>,
+    kernel_queue_evt_rx: EventWaiter<KernelQueueEvent>,
+    app_queue_evt_tx: EventNotifier<AppQueueEvent>,
 }
 
 impl Thread {
@@ -39,8 +39,8 @@ impl Thread {
 pub fn run(
     command_log: Actor<CommandLog>,
     app_exec: Actor<AppExec>,
-    kernel_evt_rx: EventConsumer<KernelQueueEvent>,
-    app_evt_tx: EventProducer<AppQueueEvent>,
+    kernel_evt_rx: EventWaiter<KernelQueueEvent>,
+    app_evt_tx: EventNotifier<AppQueueEvent>,
 ) -> ThreadHandle {
     Thread {
         command_log_actor: command_log,

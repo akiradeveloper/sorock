@@ -132,7 +132,7 @@ struct Gateway {
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
     io: node::RaftIO,
-    queue_evt_tx: EventProducer<QueueEvent>,
+    queue_evt_tx: EventNotifier<QueueEvent>,
 }
 
 impl Gateway {

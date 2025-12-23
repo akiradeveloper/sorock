@@ -4,8 +4,8 @@ pub struct Thread {
     follower_id: ServerAddress,
     replication_actor: Actor<Replication>,
     ctrl_actor: Actor<Control>,
-    queue_evt_rx: EventConsumer<QueueEvent>,
-    replication_evt_tx: EventProducer<ReplicationEvent>,
+    queue_evt_rx: EventWaiter<QueueEvent>,
+    replication_evt_tx: EventNotifier<ReplicationEvent>,
 }
 
 impl Thread {
@@ -45,8 +45,8 @@ pub fn run(
     follower_id: ServerAddress,
     progress: Actor<Replication>,
     ctrl: Actor<Control>,
-    queue_evt_rx: EventConsumer<QueueEvent>,
-    replication_evt_tx: EventProducer<ReplicationEvent>,
+    queue_evt_rx: EventWaiter<QueueEvent>,
+    replication_evt_tx: EventNotifier<ReplicationEvent>,
 ) -> ThreadHandle {
     Thread {
         follower_id,

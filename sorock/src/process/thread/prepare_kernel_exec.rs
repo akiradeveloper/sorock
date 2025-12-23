@@ -4,8 +4,8 @@ pub struct Thread {
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
     kernel_exec_actor: Actor<KernelExec>,
-    commit_evt_rx: EventConsumer<CommitEvent>,
-    kernel_queue_evt_tx: EventProducer<KernelQueueEvent>,
+    commit_evt_rx: EventWaiter<CommitEvent>,
+    kernel_queue_evt_tx: EventNotifier<KernelQueueEvent>,
 }
 
 impl Thread {
@@ -44,8 +44,8 @@ pub fn run(
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
     kernel_exec: Actor<KernelExec>,
-    commit_evt_rx: EventConsumer<CommitEvent>,
-    kernel_evt_tx: EventProducer<KernelQueueEvent>,
+    commit_evt_rx: EventWaiter<CommitEvent>,
+    kernel_evt_tx: EventNotifier<KernelQueueEvent>,
 ) -> ThreadHandle {
     Thread {
         command_log_actor,

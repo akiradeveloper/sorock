@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Thread {
     pub kernel_exec_actor: Actor<KernelExec>,
-    pub kernel_queue_evt_rx: EventConsumer<KernelQueueEvent>,
+    pub kernel_queue_evt_rx: EventWaiter<KernelQueueEvent>,
 }
 
 impl Thread {
@@ -26,7 +26,7 @@ impl Thread {
 
 pub fn run(
     kernel_exec_actor: Actor<KernelExec>,
-    kernel_queue_evt_rx: EventConsumer<KernelQueueEvent>,
+    kernel_queue_evt_rx: EventWaiter<KernelQueueEvent>,
 ) -> ThreadHandle {
     Thread {
         kernel_exec_actor,

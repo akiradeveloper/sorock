@@ -16,24 +16,24 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 
 #[derive(Clone)]
-pub struct EventProducer<T> {
+pub struct EventNotifier<T> {
     inner: Arc<Notify>,
     phantom: PhantomData<T>,
 }
 
-impl<T> EventProducer<T> {
+impl<T> EventNotifier<T> {
     pub fn push_event(&self, _: T) {
-        self.inner.notify_one();
+        self.inner.notify_waiters();
     }
 }
 
 #[derive(Clone)]
-pub struct EventConsumer<T> {
+pub struct EventWaiter<T> {
     inner: Arc<Notify>,
     phantom: PhantomData<T>,
 }
 
-impl<T> EventConsumer<T> {
+impl<T> EventWaiter<T> {
     /// Return if events are produced or timeout.
     pub async fn consume_events(&self, timeout: Duration) {
         tokio::time::timeout(timeout, self.inner.notified())
@@ -42,14 +42,14 @@ impl<T> EventConsumer<T> {
     }
 }
 
-pub fn notify<T>() -> (EventProducer<T>, EventConsumer<T>) {
+pub fn notify<T>() -> (EventNotifier<T>, EventWaiter<T>) {
     let inner = Arc::new(Notify::new());
     (
-        EventProducer {
+        EventNotifier {
             inner: inner.clone(),
             phantom: PhantomData,
         },
-        EventConsumer {
+        EventWaiter {
             inner,
             phantom: PhantomData,
         },

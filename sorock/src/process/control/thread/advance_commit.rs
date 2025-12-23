@@ -2,8 +2,8 @@ use super::*;
 
 pub struct Thread {
     ctrl_actor: Actor<Control>,
-    replication_evt_rx: EventConsumer<ReplicationEvent>,
-    commit_evt_tx: EventProducer<CommitEvent>,
+    replication_evt_rx: EventWaiter<ReplicationEvent>,
+    commit_evt_tx: EventNotifier<CommitEvent>,
 }
 
 impl Thread {
@@ -44,8 +44,8 @@ impl Thread {
 
 pub fn run(
     ctrl: Actor<Control>,
-    replication_evt_rx: EventConsumer<ReplicationEvent>,
-    commit_evt_tx: EventProducer<CommitEvent>,
+    replication_evt_rx: EventWaiter<ReplicationEvent>,
+    commit_evt_tx: EventNotifier<CommitEvent>,
 ) -> ThreadHandle {
     Thread {
         ctrl_actor: ctrl,

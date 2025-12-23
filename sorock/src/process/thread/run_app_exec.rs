@@ -2,8 +2,8 @@ use super::*;
 
 pub struct Thread {
     pub app_exec_actor: Actor<AppExec>,
-    pub app_queue_evt_rx: EventConsumer<AppQueueEvent>,
-    pub applied_evt_tx: EventProducer<AppliedEvent>,
+    pub app_queue_evt_rx: EventWaiter<AppQueueEvent>,
+    pub applied_evt_tx: EventNotifier<AppliedEvent>,
 }
 
 impl Thread {
@@ -29,8 +29,8 @@ impl Thread {
 
 pub fn run(
     app_exec_actor: Actor<AppExec>,
-    app_queue_evt_rx: EventConsumer<AppQueueEvent>,
-    applied_evt_tx: EventProducer<AppliedEvent>,
+    app_queue_evt_rx: EventWaiter<AppQueueEvent>,
+    applied_evt_tx: EventNotifier<AppliedEvent>,
 ) -> ThreadHandle {
     Thread {
         app_exec_actor,

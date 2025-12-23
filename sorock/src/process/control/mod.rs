@@ -33,8 +33,8 @@ pub struct Control {
     membership: HashSet<ServerAddress>,
     replication_progresses: HashMap<ServerAddress, Actor<Replication>>,
     peer_threads: HashMap<ServerAddress, ThreadHandles>,
-    queue_evt_rx: EventConsumer<QueueEvent>,
-    replication_evt_tx: EventProducer<ReplicationEvent>,
+    queue_evt_rx: EventWaiter<QueueEvent>,
+    replication_evt_tx: EventNotifier<ReplicationEvent>,
     /// The index of the last membership.
     /// Unless `commit_pointer` >= membership_pointer`,
     /// new membership changes are not allowed to be queued.
@@ -49,8 +49,8 @@ impl Control {
     pub fn new(
         ballot_store: storage::BallotStore,
         command_log: Actor<CommandLog>,
-        queue_evt_rx: EventConsumer<QueueEvent>,
-        replication_evt_tx: EventProducer<ReplicationEvent>,
+        queue_evt_rx: EventWaiter<QueueEvent>,
+        replication_evt_tx: EventNotifier<ReplicationEvent>,
         io: RaftIO,
     ) -> Self {
         Self {
