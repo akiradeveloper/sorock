@@ -200,7 +200,7 @@ impl AppMain {
 }
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
-    async fn process_write(&mut self, bytes: &[u8], entry_index: LogIndex) -> Result<Bytes> {
+    async fn process_write(&self, bytes: &[u8], entry_index: LogIndex) -> Result<Bytes> {
         let mut cur_state = self.state.write();
 
         let req = AppWriteRequest::deserialize(bytes);
@@ -233,7 +233,7 @@ impl RaftApp for AppMain {
         Ok(AppState(cur_state.counter).serialize())
     }
 
-    async fn install_snapshot(&mut self, snapshot_index: LogIndex) -> Result<()> {
+    async fn install_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
         ensure!(self.snapshots.lock().contains_key(&snapshot_index));
         let snapshot = self.snapshots.lock().get(&snapshot_index).unwrap();
 
@@ -244,7 +244,7 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn save_snapshot(&mut self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()> {
+    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots.lock().insert(snapshot_index, snap.0);
         Ok(())
@@ -258,7 +258,7 @@ impl RaftApp for AppMain {
         Ok(Some(st))
     }
 
-    async fn delete_snapshots_before(&mut self, x: LogIndex) -> Result<()> {
+    async fn delete_snapshots_before(&self, x: LogIndex) -> Result<()> {
         let mut snapshots = self.snapshots.lock();
         snapshots.delete_before(&x);
         Ok(())

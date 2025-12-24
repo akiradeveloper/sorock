@@ -1,9 +1,8 @@
 use super::*;
 
-#[derive(Deref, DerefMut)]
+#[derive(Deref)]
 pub struct App {
     #[deref]
-    #[deref_mut]
     app: Box<dyn RaftApp>,
 
     io: RaftIO,
@@ -18,7 +17,7 @@ impl App {
     }
 
     pub async fn fetch_snapshot(
-        &mut self,
+        &self,
         snapshot_index: LogIndex,
         owner: ServerAddress,
     ) -> Result<()> {
@@ -37,7 +36,7 @@ impl App {
         Ok(())
     }
 
-    pub async fn apply_snapshot(&mut self, snapshot_index: LogIndex) -> Result<()> {
+    pub async fn apply_snapshot(&self, snapshot_index: LogIndex) -> Result<()> {
         // The initial snapshot is implicit.
         // The state machine should be initialized accordingly.
         if snapshot_index == 1 {

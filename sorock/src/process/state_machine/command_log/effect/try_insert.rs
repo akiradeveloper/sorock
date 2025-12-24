@@ -38,8 +38,6 @@ impl Effect<'_> {
                 if let Err(e) = self
                     .command_log
                     .app
-                    .write()
-                    .await
                     .fetch_snapshot(snapshot_index, sender_id.clone())
                     .await
                 {

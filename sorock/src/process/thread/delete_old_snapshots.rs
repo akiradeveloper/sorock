@@ -2,15 +2,13 @@ use super::*;
 
 pub struct Thread {
     command_log_actor: Actor<CommandLog>,
-    app: Actor<App>,
+    app: Arc<App>,
 }
 
 impl Thread {
     async fn run_once(&self) -> Result<()> {
         let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
         self.app
-            .write()
-            .await
             .delete_snapshots_before(cur_snapshot_index)
             .await?;
         Ok(())
@@ -29,7 +27,7 @@ impl Thread {
     }
 }
 
-pub fn run(app: Actor<App>, command_log: Actor<CommandLog>) -> ThreadHandle {
+pub fn run(app: Arc<App>, command_log: Actor<CommandLog>) -> ThreadHandle {
     Thread {
         command_log_actor: command_log,
         app,

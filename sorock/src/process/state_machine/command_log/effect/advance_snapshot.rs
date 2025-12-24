@@ -10,8 +10,6 @@ impl Effect<'_> {
         let proposed_snapshot_index = self
             .command_log
             .app
-            .read()
-            .await
             .get_latest_snapshot()
             .await?;
         let cur_snapshot_index = self.command_log.snapshot_pointer;

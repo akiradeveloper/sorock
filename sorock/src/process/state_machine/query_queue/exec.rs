@@ -34,11 +34,11 @@ impl<T> WaitQueue<T> {
 }
 
 pub struct QueryExec {
-    app: Actor<App>,
+    app: Arc<App>,
     wait_queue: WaitQueue<Query>,
 }
 impl QueryExec {
-    pub fn new(app: Actor<App>) -> Self {
+    pub fn new(app: Arc<App>) -> Self {
         Self {
             app,
             wait_queue: WaitQueue::new(),
@@ -61,7 +61,7 @@ impl QueryExec {
             let fut = async move {
                 // The `completion` of the failed queries are dropped
                 // which just results in failing on the client side.
-                if let Ok(resp) = app.read().await.process_read(&q.message).await {
+                if let Ok(resp) = app.process_read(&q.message).await {
                     q.app_completion.complete_with(resp).ok();
                 }
             };

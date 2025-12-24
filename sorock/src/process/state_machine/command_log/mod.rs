@@ -18,11 +18,11 @@ pub struct CommandLog {
     app_completions: BTreeMap<LogIndex, completion::AppCompletion>,
     kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
 
-    app: Actor<App>,
+    app: Arc<App>,
 }
 
 impl CommandLog {
-    pub fn new(storage: storage::LogStore, app: Actor<App>) -> Self {
+    pub fn new(storage: storage::LogStore, app: Arc<App>) -> Self {
         Self {
             storage,
             kernel_pointer: 0,
