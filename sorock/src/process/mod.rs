@@ -89,22 +89,22 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Apply write request to the application.
     /// Calling of this function may change the state of the application.
-    async fn process_write(&self, request: &[u8], entry_index: LogIndex) -> Result<Bytes>;
+    async fn process_write(&mut self, request: &[u8], entry_index: LogIndex) -> Result<Bytes>;
 
     /// Replace the state of the application with the snapshot.
     /// The snapshot is guaranteed to exist in the snapshot store.
-    async fn install_snapshot(&self, snapshot_index: LogIndex) -> Result<()>;
+    async fn install_snapshot(&mut self, snapshot_index: LogIndex) -> Result<()>;
 
     /// Save snapshot with index `snapshot_index` to the snapshot store.
     /// This function is called when the snapshot is fetched from the leader.
-    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()>;
+    async fn save_snapshot(&mut self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()>;
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
     /// This function is called when a follower requests a snapshot from the leader.
     async fn open_snapshot(&self, snapshot_index: LogIndex) -> Result<SnapshotStream>;
 
     /// Delete all the snapshots in `[,  i)` from the snapshot store.
-    async fn delete_snapshots_before(&self, i: LogIndex) -> Result<()>;
+    async fn delete_snapshots_before(&mut self, i: LogIndex) -> Result<()>;
 
     /// Get the index of the latest snapshot in the snapshot store.
     /// If the index is greater than the current snapshot entry index,
@@ -203,7 +203,6 @@ impl Gateway {
 
             let insert_result = command_log::effect::try_insert::Effect {
                 command_log: &mut *self.command_log_actor.write().await,
-                io: self.io.clone(),
             }
             .exec(entry, req.sender_id.clone())
             .await?;
@@ -239,7 +238,7 @@ pub struct RaftProcess {
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
     query_queue: query_queue::QueryQueue,
-    app: state_machine::App,
+    app: Actor<App>,
     io: node::RaftIO,
     _thread_handles: ThreadHandles,
 
@@ -259,7 +258,7 @@ impl RaftProcess {
         let (app_queue_evt_tx, app_queue_evt_rx) = thread::notify();
         let (applied_evt_tx, applied_evt_rx) = thread::notify();
 
-        let app = App::new(app);
+        let app = Arc::new(RwLock::new(App::new(app, io.clone())));
         let (log_store, ballot_store) = storage.get(io.shard_id)?;
 
         let query_queue = Arc::new(parking_lot::Mutex::new(query_queue::QueryQueueRaw::new()));
@@ -561,7 +560,7 @@ impl RaftProcess {
     pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
         let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
         ensure!(index == cur_snapshot_index);
-        let st = self.app.open_snapshot(index).await?;
+        let st = self.app.read().await.open_snapshot(index).await?;
         Ok(st)
     }
 

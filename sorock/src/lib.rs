@@ -18,7 +18,7 @@ pub mod log_storage;
 
 use anyhow::{bail, ensure, Context, Result};
 use bytes::Bytes;
-use derive_more::{Deref, Display, FromStr};
+use derive_more::{Deref, DerefMut, Display, FromStr};
 use futures::Stream;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};

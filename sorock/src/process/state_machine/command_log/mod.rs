@@ -3,9 +3,8 @@ use super::*;
 mod command;
 pub mod effect;
 pub use command::Command;
-mod response_cache;
-use response_cache::ResponseCache;
 mod init;
+mod response_cache;
 
 pub struct CommandLog {
     storage: storage::LogStore,
@@ -18,19 +17,18 @@ pub struct CommandLog {
 
     app_completions: BTreeMap<LogIndex, completion::AppCompletion>,
     kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
-    app: App,
-    response_cache: ResponseCache,
+
+    app: Actor<App>,
 }
 
 impl CommandLog {
-    pub fn new(storage: storage::LogStore, app: App) -> Self {
+    pub fn new(storage: storage::LogStore, app: Actor<App>) -> Self {
         Self {
             storage,
             kernel_pointer: 0,
             app_pointer: 0,
             snapshot_pointer: 0,
             app,
-            response_cache: ResponseCache::new(),
             app_completions: BTreeMap::new(),
             kernel_completions: BTreeMap::new(),
         }

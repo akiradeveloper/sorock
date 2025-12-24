@@ -14,7 +14,7 @@ pub struct AppCommandBody {
 }
 
 pub struct AppExec {
-    app: App,
+    app: Actor<App>,
     response_cache: ResponseCache,
     q: CommandWaitQueue<AppCommand>,
     command_log_actor: Actor<CommandLog>,
@@ -22,7 +22,7 @@ pub struct AppExec {
 }
 
 impl AppExec {
-    pub fn new(app: App, command_log_actor: Actor<CommandLog>) -> Self {
+    pub fn new(app: Actor<App>, command_log_actor: Actor<CommandLog>) -> Self {
         Self {
             app,
             response_cache: ResponseCache::new(),
@@ -61,14 +61,14 @@ impl AppExec {
         debug!("process app@{index}");
         match command {
             Command::Snapshot { .. } => {
-                self.app.apply_snapshot(index).await?;
+                self.app.write().await.apply_snapshot(index).await?;
             }
             Command::ExecuteWriteRequest {
                 message,
                 request_id,
             } => {
                 if self.response_cache.should_execute(&request_id) {
-                    let resp = self.app.process_write(message, index).await?;
+                    let resp = self.app.write().await.process_write(message, index).await?;
                     self.response_cache
                         .insert_response(request_id.clone(), resp);
                 }

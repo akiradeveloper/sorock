@@ -17,7 +17,6 @@ pub enum TryInsertResult {
 
 pub struct Effect<'a> {
     pub command_log: &'a mut CommandLog,
-    pub io: RaftIO,
 }
 
 impl Effect<'_> {
@@ -39,7 +38,9 @@ impl Effect<'_> {
                 if let Err(e) = self
                     .command_log
                     .app
-                    .fetch_snapshot(snapshot_index, sender_id.clone(), self.io)
+                    .write()
+                    .await
+                    .fetch_snapshot(snapshot_index, sender_id.clone())
                     .await
                 {
                     error!(
