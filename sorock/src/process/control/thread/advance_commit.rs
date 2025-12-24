@@ -8,11 +8,9 @@ pub struct Thread {
 
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.ctrl_actor.read().await.read_election_state();
-        ensure!(std::matches!(
-            election_state,
-            control::ElectionState::Leader
-        ));
+        if !self.ctrl_actor.read().await.is_leader() {
+            return Ok(());
+        }
 
         let cur_commit_index = self.ctrl_actor.read().await.commit_pointer;
         let new_commit_index = self.ctrl_actor.read().await.find_new_commit_index().await?;

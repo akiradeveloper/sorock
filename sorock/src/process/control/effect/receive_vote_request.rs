@@ -20,11 +20,10 @@ impl Effect<'_> {
     ) -> Result<bool> {
         let allow_update_ballot = !pre_vote;
 
-        // If it is a force-vote which is set by TimeoutNow,
-        // or it believes the leader has failed, it should vote.
+        // If it is a force-vote which is set by TimeoutNow or it believes the leader has failed, it must vote.
         let leader_failed = self.ctrl.get_election_timeout().is_some();
-        let should_vote = force_vote || leader_failed;
-        if !should_vote {
+        let must_vote = force_vote || leader_failed;
+        if !must_vote {
             return Ok(false);
         }
 

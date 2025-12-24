@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Serialize, Deserialize, std::fmt::Debug)]
 pub enum KernelMessage {
-    AddServer(ServerAddress),
+    AddServer(ServerAddress, bool),
     RemoveServer(ServerAddress),
 }
 

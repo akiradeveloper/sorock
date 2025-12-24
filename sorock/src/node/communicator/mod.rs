@@ -27,7 +27,7 @@ pub struct RaftConnection {
     _abort_hdl: Arc<HandleDrop>,
 }
 impl RaftConnection {
-    pub fn new(self_node_id: ServerAddress, dest_node_id: ServerAddress) -> Self {
+    pub fn new(local_node_id: ServerAddress, dest_node_id: ServerAddress) -> Self {
         let client = {
             let endpoint = tonic::transport::Endpoint::from(dest_node_id.0.clone())
                 // (http2) Send ping to keep connection (default: disabled)
@@ -41,7 +41,7 @@ impl RaftConnection {
 
         let heartbeat_buffer = Arc::new(HeartbeatBuffer::new());
 
-        let fut = heartbeat_multiplex::run(heartbeat_buffer.clone(), client.clone(), self_node_id);
+        let fut = heartbeat_multiplex::run(heartbeat_buffer.clone(), client.clone(), local_node_id);
         let abort_hdl = tokio::spawn(fut).abort_handle();
 
         Self {
@@ -198,7 +198,7 @@ impl Communicator {
         Ok(resp.read_index)
     }
 
-    pub async fn get_membership(&self) -> Result<HashSet<ServerAddress>> {
+    pub async fn get_membership(&self) -> Result<HashMap<ServerAddress, bool>> {
         let req = raft::Shard {
             shard_id: self.shard_id,
         };
@@ -210,9 +210,9 @@ impl Communicator {
             .await?
             .into_inner();
 
-        let mut out = HashSet::new();
-        for m in resp.members {
-            out.insert(m.parse().unwrap());
+        let mut out = HashMap::new();
+        for (k, v) in resp.members {
+            out.insert(k.parse().unwrap(), v);
         }
 
         Ok(out)

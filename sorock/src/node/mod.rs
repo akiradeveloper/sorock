@@ -29,7 +29,7 @@ impl RaftNode {
     pub fn get_io_capability(&self, shard_id: ShardId) -> RaftIO {
         RaftIO {
             shard_id,
-            self_server_id: self.self_server_id.clone(),
+            local_server_id: self.self_server_id.clone(),
             connection_cache: self.cache.clone(),
         }
     }
@@ -60,19 +60,15 @@ impl RaftNode {
 /// `RaftIO` gives I/O capability to a Raft process on a shard.
 #[derive(Clone)]
 pub struct RaftIO {
-    pub self_server_id: ServerAddress,
+    pub local_server_id: ServerAddress,
     pub shard_id: ShardId,
     connection_cache: moka::sync::Cache<ServerAddress, RaftConnection>,
 }
 
 impl RaftIO {
-    pub(super) fn self_server_id(&self) -> ServerAddress {
-        self.self_server_id.clone()
-    }
-
-    pub(super) fn connect(&self, dest_node_id: ServerAddress) -> Communicator {
+    pub(super) fn connect(&self, dest_node_id: &ServerAddress) -> Communicator {
         let conn: RaftConnection = self.connection_cache.get_with(dest_node_id.clone(), || {
-            RaftConnection::new(self.self_server_id.clone(), dest_node_id.clone())
+            RaftConnection::new(self.local_server_id.clone(), dest_node_id.clone())
         });
         Communicator::new(conn, self.shard_id)
     }

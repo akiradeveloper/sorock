@@ -33,7 +33,7 @@ impl Effect<'_> {
 
             // Vote to itself
             new_ballot.cur_term = vote_term;
-            new_ballot.voted_for = Some(self.ctrl.io.self_server_id());
+            new_ballot.voted_for = Some(self.ctrl.io.local_server_id.clone());
             self.ctrl.write_ballot(new_ballot).await?;
 
             // Becoming Candidate avoids this node starts another election during this election.
@@ -62,20 +62,30 @@ impl Effect<'_> {
         force_vote: bool,
         pre_vote: bool,
     ) -> Result<bool> {
-        let (others, remaining) = {
-            let membership = self.ctrl.read_membership();
-            ensure!(membership.contains(&self.ctrl.io.self_server_id()));
+        let membership = self.ctrl.read_membership();
 
-            let n = membership.len();
+        let voters = {
+            let mut out = vec![];
+            for (id, is_voter) in membership {
+                if is_voter {
+                    out.push(id);
+                }
+            }
+            out
+        };
+
+        ensure!(voters.contains(&self.ctrl.io.local_server_id));
+        let (others, remaining) = {
+            let n = voters.len();
+
             let mut others = vec![];
-            for id in membership {
-                if id != self.ctrl.io.self_server_id() {
-                    others.push(id);
+            for voter in voters {
+                if voter != self.ctrl.io.local_server_id {
+                    others.push(voter);
                 }
             }
 
-            let majority = n / 2 + 1;
-            (others, majority - 1)
+            (others, n / 2)
         };
 
         let log_last_clock = {
@@ -91,11 +101,11 @@ impl Effect<'_> {
         // Get remaining votes from others.
         let mut vote_requests = vec![];
         for endpoint in others {
-            let selfid = self.ctrl.io.self_server_id();
-            let conn = self.ctrl.io.connect(endpoint);
+            let local_id = self.ctrl.io.local_server_id.clone();
+            let conn = self.ctrl.io.connect(&endpoint);
             vote_requests.push(async move {
                 let req = request::RequestVote {
-                    candidate_id: selfid,
+                    candidate_id: local_id,
                     candidate_clock: log_last_clock,
                     vote_term,
                     // $3.2.3
@@ -148,7 +158,7 @@ impl Effect<'_> {
     }
 
     async fn reset_replication_state(&mut self, init_next_index: LogIndex) {
-        for (_, cur_progress) in &mut self.ctrl.replication_progresses {
+        for (_, cur_progress) in &mut self.ctrl.replication_contexts {
             *cur_progress.write().await = Replication::new(init_next_index);
         }
     }

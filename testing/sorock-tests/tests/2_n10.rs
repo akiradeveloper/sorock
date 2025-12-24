@@ -5,9 +5,9 @@ use sorock_tests::*;
 #[tokio::test(flavor = "multi_thread")]
 async fn n10_cluster() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;
-    cluster.add_server(0, 0, 0).await?;
+    cluster.add_voter(0, 0, 0).await?;
     for i in 0..9 {
-        cluster.add_server(0, i, i + 1).await?;
+        cluster.add_voter(0, i, i + 1).await?;
     }
     Ok(())
 }
@@ -15,9 +15,9 @@ async fn n10_cluster() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn n10_write() -> Result<()> {
     let mut cluster = Cluster::new(10, 1).await?;
-    cluster.add_server(0, 0, 0).await?;
+    cluster.add_voter(0, 0, 0).await?;
     for i in 0..9 {
-        cluster.add_server(0, i, i + 1).await?;
+        cluster.add_voter(0, i, i + 1).await?;
     }
 
     let mut cur_state = 0;

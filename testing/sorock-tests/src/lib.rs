@@ -69,15 +69,27 @@ impl Cluster {
     }
 
     /// Request node `to` to add a node `id`.
-    pub async fn add_server(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
+    pub async fn add_voter(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
         self.admin(to)
             .add_server(AddServerRequest {
                 shard_id,
                 server_id: self.env.address(id).to_string(),
+                as_voter: true,
             })
             .await?;
         // Make sure the newly added server knows the current leader.
         self.user(id).fetch_add(shard_id, 0).await?;
+        Ok(())
+    }
+
+    pub async fn add_learner(&self, shard_id: u32, to: u8, id: u8) -> Result<()> {
+        self.admin(to)
+            .add_server(AddServerRequest {
+                shard_id,
+                server_id: self.env.address(id).to_string(),
+                as_voter: false,
+            })
+            .await?;
         Ok(())
     }
 

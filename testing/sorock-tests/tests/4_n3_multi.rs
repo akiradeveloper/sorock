@@ -15,7 +15,7 @@ async fn n3_p30_multi_raft_cluster() -> Result<()> {
         let cluster = cluster.clone();
         let fut = async move {
             for node_id in 0..N {
-                cluster.add_server(shard_id, 0, node_id).await?;
+                cluster.add_voter(shard_id, 0, node_id).await?;
             }
 
             // Evenly distribute the leaders.
@@ -46,7 +46,7 @@ async fn n3_p30_multi_raft_io() -> Result<()> {
         let cluster = cluster.clone();
         let fut = async move {
             for node_id in 0..N {
-                cluster.add_server(shard_id, 0, node_id).await?;
+                cluster.add_voter(shard_id, 0, node_id).await?;
             }
             Ok::<(), anyhow::Error>(())
         };
@@ -78,7 +78,7 @@ async fn n3_p30_multi_raft_io_roundrobin() -> Result<()> {
         let cluster = cluster.clone();
         let fut = async move {
             for node_id in 0..N {
-                cluster.add_server(shard_id, 0, node_id).await?;
+                cluster.add_voter(shard_id, 0, node_id).await?;
             }
             Ok::<(), anyhow::Error>(())
         };

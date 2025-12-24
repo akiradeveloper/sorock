@@ -50,9 +50,9 @@ async fn main() -> anyhow::Result<()> {
     for shard_id in 0..opts.num_shards {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_id, 0, 0).await?;
+            cluster.add_voter(shard_id, 0, 0).await?;
             for node_id in 1..opts.num_nodes {
-                cluster.add_server(shard_id, 0, node_id).await?;
+                cluster.add_voter(shard_id, 0, node_id).await?;
             }
             Ok::<(), anyhow::Error>(())
         };

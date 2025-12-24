@@ -5,39 +5,20 @@ pub struct Effect<'a> {
 }
 
 impl Effect<'_> {
-    fn command_log(&self) -> &Actor<CommandLog> {
-        &self.ctrl.command_log_actor
-    }
-
     /// If the latest config doesn't contain itself, then it steps down
     /// by transferring the leadership to another node.
     pub async fn exec(self) -> Result<()> {
-        ensure!(std::matches!(
-            self.ctrl.read_election_state(),
-            control::ElectionState::Leader
-        ));
+        let is_leader = self.ctrl.is_leader();
 
-        // Make sure the membership entry is truly committed
-        // otherwise the configuration change entry may be lost.
-        let last_membership_change_index = {
-            let index = self.ctrl.membership_pointer;
-            ensure!(index <= self.ctrl.commit_pointer);
-            index
-        };
+        let local_is_voter = self.ctrl.is_voter(&self.ctrl.io.local_server_id);
 
-        let config = self
-            .command_log()
-            .read()
-            .await
-            .try_read_membership(last_membership_change_index)
-            .await?
-            .context(Error::BadLogState)?;
-        ensure!(!config.contains(&self.ctrl.io.self_server_id()));
-
-        info!("step down");
-        self.ctrl
-            .write_election_state(control::ElectionState::Follower);
-        self.ctrl.transfer_leadership().await?;
+        // If the local node is still a leader but not a voter any more, it should step down.
+        if is_leader && !local_is_voter {
+            info!("step down. transferring leadership to other node");
+            self.ctrl
+                .write_election_state(control::ElectionState::Follower);
+            self.ctrl.transfer_leadership().await?;
+        }
 
         Ok(())
     }

@@ -11,7 +11,7 @@ impl CommandLog {
                 // If the log is new, insert an initial snapshot entry.
                 // This ensures an invariant that there is always at least one snapshot in the log.
                 let init_command = Command::serialize(Command::Snapshot {
-                    membership: HashSet::new(),
+                    membership: HashMap::new(),
                 });
                 let snapshot = Entry {
                     prev_clock: Clock { term: 0, index: 0 },

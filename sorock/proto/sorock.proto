@@ -94,6 +94,7 @@ message Heartbeat {
 message AddServerRequest {
   uint32 shard_id = 1;
   string server_id = 2;
+  bool as_voter = 3;
 }
 
 // Request to remove a Raft process with `server_id` from a shard.
@@ -107,7 +108,7 @@ message Shard {
 }
 
 message Membership {
-  repeated string members = 1;
+  map<string, bool> members = 1;
 }
 
 // On receiving this request, a server starts a new election
