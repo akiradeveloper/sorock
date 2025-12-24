@@ -101,7 +101,7 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
     /// This function is called when a follower requests a snapshot from the leader.
-    async fn open_snapshot(&self, snapshot_index: LogIndex) -> Result<SnapshotStream>;
+    async fn open_snapshot(&self, snapshot_index: LogIndex) -> Result<Option<SnapshotStream>>;
 
     /// Delete all the snapshots in `[,  i)` from the snapshot store.
     async fn delete_snapshots_before(&mut self, i: LogIndex) -> Result<()>;
@@ -558,9 +558,13 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_snapshot(&self, index: LogIndex) -> Result<SnapshotStream> {
-        let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
-        ensure!(index == cur_snapshot_index);
-        let st = self.app.read().await.open_snapshot(index).await?;
+        let st = self
+            .app
+            .read()
+            .await
+            .open_snapshot(index)
+            .await?
+            .context(Error::SnapshotNotFound(index))?;
         Ok(st)
     }
 

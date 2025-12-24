@@ -250,12 +250,12 @@ impl RaftApp for AppMain {
         Ok(())
     }
 
-    async fn open_snapshot(&self, x: LogIndex) -> Result<SnapshotStream> {
+    async fn open_snapshot(&self, x: LogIndex) -> Result<Option<SnapshotStream>> {
         ensure!(self.snapshots.lock().contains_key(&x));
         let cur_state = self.snapshots.lock().get(&x).unwrap();
         let snap = AppSnapshot(cur_state);
         let st = snap.into_stream();
-        Ok(st)
+        Ok(Some(st))
     }
 
     async fn delete_snapshots_before(&mut self, x: LogIndex) -> Result<()> {

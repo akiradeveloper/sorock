@@ -7,14 +7,14 @@ pub enum Error {
     BadLogState,
     #[error("replication stream is broken")]
     BadReplicationStream,
+    #[error("snapshot not found at index {0}")]
+    SnapshotNotFound(process::LogIndex),
     #[error("snapshot chunk is broken. error={0}")]
     BadSnapshotChunk(#[from] tonic::Status),
     #[error("entry not found at index {0}")]
-    EntryNotFound(u64),
+    EntryNotFound(process::LogIndex),
     #[error("leader is unknown")]
     LeaderUnknown,
-    #[error("peer (node_id={0}) not found")]
-    PeerNotFound(ServerAddress),
     #[error("process not found (shard_id={0})")]
     ProcessNotFound(ShardId),
     #[error("shard not reachable (shard_id={0})")]
