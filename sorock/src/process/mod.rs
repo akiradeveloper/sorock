@@ -17,6 +17,7 @@ use node::RaftIO;
 
 mod state_machine;
 use command_log::{Command, CommandLog};
+use state_machine::command_exec;
 use state_machine::command_exec::{AppExec, KernelExec};
 use state_machine::command_log;
 use state_machine::completion;
@@ -96,14 +97,14 @@ pub trait RaftApp: Sync + Send + 'static {
 
     /// Save snapshot with index `snapshot_index` to the snapshot store.
     /// This function is called when the snapshot is fetched from the leader.
-    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()>;
+    async fn save_snapshot(&mut self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()>;
 
     /// Read existing snapshot with index `snapshot_index` from the snapshot store.
     /// This function is called when a follower requests a snapshot from the leader.
     async fn open_snapshot(&self, snapshot_index: LogIndex) -> Result<Option<SnapshotStream>>;
 
     /// Delete all the snapshots in `[,  i)` from the snapshot store.
-    async fn delete_snapshots_before(&self, i: LogIndex) -> Result<()>;
+    async fn delete_snapshots_before(&mut self, i: LogIndex) -> Result<()>;
 
     /// Get the index of the latest snapshot in the snapshot store.
     /// If the index is greater than the current snapshot entry index,

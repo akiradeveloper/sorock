@@ -181,7 +181,7 @@ struct InnerState {
     counter: u64,
 }
 struct AppMain {
-    state: InnerState,
+    state: spin::RwLock<InnerState>,
     snapshots: parking_lot::Mutex<Snapshots>,
 }
 impl AppMain {
@@ -193,7 +193,7 @@ impl AppMain {
         let file = snap_file.map(|p| OpenOptions::new().read(true).write(true).open(p).unwrap());
         let snapshots = Snapshots::new(file);
         Self {
-            state: init_state,
+            state: spin::RwLock::new(init_state),
             snapshots: parking_lot::Mutex::new(snapshots),
         }
     }
@@ -201,45 +201,50 @@ impl AppMain {
 #[async_trait::async_trait]
 impl RaftApp for AppMain {
     async fn process_write(&mut self, bytes: &[u8], entry_index: LogIndex) -> Result<Bytes> {
+        let mut cur_state = self.state.write();
+
         let req = AppWriteRequest::deserialize(bytes);
         let old_state = match req {
             AppWriteRequest::FetchAdd { bytes } => {
                 let add_val = bytes.len() as u64;
-                let n = self.state.counter;
-                self.state.counter += add_val;
+                let n = cur_state.counter;
+                cur_state.counter += add_val;
                 n
             }
         };
-        self.state.state_index = entry_index;
+        cur_state.state_index = entry_index;
 
         Ok(AppState(old_state).serialize())
     }
 
     async fn process_read(&self, bytes: &[u8]) -> Result<Bytes> {
+        let cur_state = self.state.read();
+
         let req = AppReadRequest::deserialize(bytes);
         match req {
             AppReadRequest::MakeSnapshot => {
-                let idx = self.state.state_index;
+                let idx = cur_state.state_index;
                 let mut snapshots = self.snapshots.lock();
-                snapshots.insert(idx, AppState(self.state.counter));
+                snapshots.insert(idx, AppState(cur_state.counter));
             }
             AppReadRequest::Read => {}
         };
 
-        Ok(AppState(self.state.counter).serialize())
+        Ok(AppState(cur_state.counter).serialize())
     }
 
     async fn install_snapshot(&mut self, snapshot_index: LogIndex) -> Result<()> {
         ensure!(self.snapshots.lock().contains_key(&snapshot_index));
         let snapshot = self.snapshots.lock().get(&snapshot_index).unwrap();
 
-        self.state.state_index = snapshot_index;
-        self.state.counter = snapshot.0;
+        let mut cur_state = self.state.write();
+        cur_state.state_index = snapshot_index;
+        cur_state.counter = snapshot.0;
 
         Ok(())
     }
 
-    async fn save_snapshot(&self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()> {
+    async fn save_snapshot(&mut self, st: SnapshotStream, snapshot_index: LogIndex) -> Result<()> {
         let snap = AppSnapshot::from_stream(st).await;
         self.snapshots.lock().insert(snapshot_index, snap.0);
         Ok(())
@@ -253,7 +258,7 @@ impl RaftApp for AppMain {
         Ok(Some(st))
     }
 
-    async fn delete_snapshots_before(&self, x: LogIndex) -> Result<()> {
+    async fn delete_snapshots_before(&mut self, x: LogIndex) -> Result<()> {
         let mut snapshots = self.snapshots.lock();
         snapshots.delete_before(&x);
         Ok(())
