@@ -664,6 +664,7 @@ impl RaftProcess {
             self.ctrl_actor.read().await.read_election_state(),
             control::ElectionState::Leader
         ) {
+            info!("server: find read_index");
             let read_index = self.ctrl_actor.read().await.find_read_index().await?;
             Ok(read_index)
         } else {
