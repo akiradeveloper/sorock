@@ -15,7 +15,6 @@ impl Thread {
 
         let conn = self.io.connect(self.io.self_server_id.clone());
 
-        info!("ask for read_index to leader");
         if let Some(read_index) = conn.issue_read_index().await? {
             info!("got read_index from leader: {}", read_index);
             self.query_exec_actor
@@ -23,6 +22,7 @@ impl Thread {
                 .await
                 .register(read_index, current_pending_qs);
         } else {
+            info!("requeue pending queries");
             self.query_queue.lock().requeue(current_pending_qs);
         }
 
