@@ -49,6 +49,7 @@ impl AppExec {
 
     async fn do_process_once(&mut self, app_command: AppCommand) -> Result<()> {
         let AppCommand { index, body } = app_command;
+        info!("app: try to process @{index}");
 
         let Some(body) = body else {
             // No need to process non-application commands.

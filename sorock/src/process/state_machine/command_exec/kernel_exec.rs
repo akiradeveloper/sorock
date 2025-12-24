@@ -41,6 +41,8 @@ impl KernelExec {
             kernel_completion,
         } = kernel_command;
 
+        info!("kernel: try to process @{index}");
+
         let command = Command::deserialize(&command);
 
         debug!("process kernel@{index}");
