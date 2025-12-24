@@ -21,7 +21,7 @@ impl App {
         snapshot_index: LogIndex,
         owner: ServerAddress,
     ) -> Result<()> {
-        if owner == self.io.self_server_id() {
+        if owner == self.io.local_server_id {
             return Ok(());
         }
 
@@ -29,7 +29,7 @@ impl App {
             return Ok(());
         }
 
-        let conn = self.io.connect(owner);
+        let conn = self.io.connect(&owner);
         let st = conn.get_snapshot(snapshot_index).await?;
         self.app.save_snapshot(st, snapshot_index).await?;
 

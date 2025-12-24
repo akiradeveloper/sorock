@@ -8,10 +8,10 @@ pub enum Command<'a> {
     /// by allowing only who owns the barrier entry can be elected as a new leader.
     TermBarrier(Term),
     ClusterConfiguration {
-        membership: HashSet<ServerAddress>,
+        membership: HashMap<ServerAddress, bool>,
     },
     Snapshot {
-        membership: HashSet<ServerAddress>,
+        membership: HashMap<ServerAddress, bool>,
     },
     ExecuteWriteRequest {
         #[serde(with = "serde_bytes")]

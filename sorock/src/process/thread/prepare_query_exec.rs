@@ -13,7 +13,7 @@ impl Thread {
             return Ok(());
         }
 
-        let conn = self.io.connect(self.io.self_server_id.clone());
+        let conn = self.io.connect(&self.io.local_server_id);
         if let Some(read_index) = conn.issue_read_index().await? {
             self.query_exec_actor
                 .write()

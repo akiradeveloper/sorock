@@ -11,11 +11,11 @@ impl Effect<'_> {
     }
 
     async fn add_peer(&mut self, id: ServerAddress) -> Result<()> {
-        if id == self.ctrl.io.self_server_id() {
+        if id == self.ctrl.io.local_server_id {
             return Ok(());
         }
 
-        if self.ctrl.replication_progresses.contains_key(&id) {
+        if self.ctrl.replication_contexts.contains_key(&id) {
             return Ok(());
         }
 
@@ -25,7 +25,7 @@ impl Effect<'_> {
         };
 
         self.ctrl
-            .replication_progresses
+            .replication_contexts
             .insert(id.clone(), init_progress.clone());
 
         let thread_handles = ThreadHandles {
@@ -45,16 +45,20 @@ impl Effect<'_> {
 
     fn remove_peer(&mut self, id: ServerAddress) {
         self.ctrl.peer_threads.remove(&id);
-        self.ctrl.replication_progresses.remove(&id);
+        self.ctrl.replication_contexts.remove(&id);
     }
 
-    pub async fn exec(mut self, config: HashSet<ServerAddress>, index: LogIndex) -> Result<()> {
+    pub async fn exec(
+        mut self,
+        config: HashMap<ServerAddress, bool>,
+        index: LogIndex,
+    ) -> Result<()> {
         let cur = self.ctrl.read_membership();
 
         let add_peers = {
             let mut out = vec![];
-            for id in &config {
-                if !cur.contains(id) {
+            for (id, _) in &config {
+                if !cur.contains_key(id) {
                     out.push(id.clone());
                 }
             }
@@ -63,8 +67,8 @@ impl Effect<'_> {
 
         let remove_peers = {
             let mut out = vec![];
-            for id in &cur {
-                if !config.contains(id) {
+            for (id, _) in &cur {
+                if !config.contains_key(id) {
                     out.push(id.clone());
                 }
             }

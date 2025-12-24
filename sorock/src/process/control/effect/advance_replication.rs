@@ -71,7 +71,7 @@ impl Effect<'_> {
         ensure!(n >= 1);
 
         let out_stream = Self::prepare_replication_stream(
-            self.ctrl.io.self_server_id(),
+            self.ctrl.io.local_server_id.clone(),
             cur_term,
             self.command_log().clone(),
             old_progress.next_index,
@@ -79,7 +79,7 @@ impl Effect<'_> {
         )
         .await?;
 
-        let conn = self.ctrl.io.connect(follower_id.clone());
+        let conn = self.ctrl.io.connect(&follower_id);
 
         // If the follower is unable to respond for some internal reasons,
         // we shouldn't repeat request otherwise the situation would be worse.

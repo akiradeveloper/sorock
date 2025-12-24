@@ -110,6 +110,7 @@ impl raft::raft_server::Raft for RaftService {
         if let Some(process) = self.node.get_process(shard_id) {
             let req = request::AddServer {
                 server_id: req.server_id.parse().unwrap(),
+                as_voter: req.as_voter,
             };
             process.add_server(req).await.unwrap();
             return Ok(tonic::Response::new(()));
@@ -122,6 +123,7 @@ impl raft::raft_server::Raft for RaftService {
                 .add_server(raft::AddServerRequest {
                     shard_id,
                     server_id: req.server_id,
+                    as_voter: req.as_voter,
                 })
                 .await;
         }
@@ -169,7 +171,11 @@ impl raft::raft_server::Raft for RaftService {
         if let Some(process) = self.node.get_process(shard_id) {
             let resp = process.get_membership().await.unwrap();
             let out = raft::Membership {
-                members: resp.members.into_iter().map(|x| x.to_string()).collect(),
+                members: resp
+                    .members
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v))
+                    .collect(),
             };
             return Ok(tonic::Response::new(out));
         }

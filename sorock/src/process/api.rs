@@ -23,6 +23,7 @@ pub mod request {
 
     pub struct AddServer {
         pub server_id: ServerAddress,
+        pub as_voter: bool,
     }
 
     pub struct RemoveServer {
@@ -75,6 +76,6 @@ pub mod response {
     }
 
     pub struct Membership {
-        pub members: HashSet<ServerAddress>,
+        pub members: HashMap<ServerAddress, bool>,
     }
 }

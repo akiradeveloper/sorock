@@ -10,8 +10,7 @@ pub struct Thread {
 
 impl Thread {
     async fn advance_once(&self) -> Result<bool> {
-        let election_state = self.ctrl_actor.read().await.read_election_state();
-        if !std::matches!(election_state, control::ElectionState::Leader) {
+        if !self.ctrl_actor.read().await.is_leader() {
             return Ok(false);
         }
 

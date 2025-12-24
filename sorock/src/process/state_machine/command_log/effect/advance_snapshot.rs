@@ -7,11 +7,7 @@ pub struct Effect<'a> {
 impl Effect<'_> {
     /// Advance the snapshot index if there is a newer snapshot proposed.
     pub async fn exec(self) -> Result<()> {
-        let proposed_snapshot_index = self
-            .command_log
-            .app
-            .get_latest_snapshot()
-            .await?;
+        let proposed_snapshot_index = self.command_log.app.get_latest_snapshot().await?;
         let cur_snapshot_index = self.command_log.snapshot_pointer;
         if proposed_snapshot_index > cur_snapshot_index {
             info!("found a newer proposed snapshot@{proposed_snapshot_index} > {cur_snapshot_index}. will move the snapshot index.");

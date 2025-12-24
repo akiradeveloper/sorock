@@ -12,7 +12,7 @@ async fn n1_p10_multi_raft_io() -> Result<()> {
     for shard_id in 0..P {
         let cluster = cluster.clone();
         let fut = async move {
-            cluster.add_server(shard_id, 0, 0).await?;
+            cluster.add_voter(shard_id, 0, 0).await?;
             Ok::<(), anyhow::Error>(())
         };
         futs.push(fut);

@@ -359,9 +359,9 @@ impl RaftProcess {
     /// Forming a new cluster with a single node is called "cluster bootstrapping".
     /// Raft algorith doesn't define adding node when the cluster is empty.
     /// We need to handle this special case.
-    async fn bootstrap_cluster(&self) -> Result<()> {
-        let mut membership = HashSet::new();
-        membership.insert(self.io.self_server_id());
+    async fn bootstrap_cluster(&self, as_voter: bool) -> Result<()> {
+        let mut membership = HashMap::new();
+        membership.insert(self.io.local_server_id.clone(), as_voter);
 
         let command = Command::serialize(Command::ClusterConfiguration {
             membership: membership.clone(),
@@ -382,23 +382,23 @@ impl RaftProcess {
         // After this function is called
         // this server should immediately become the leader by self-vote and advance commit index.
         // Consequently, when initial install_snapshot is called this server is already the leader.
-        let conn = self.io.connect(self.io.self_server_id());
-        conn.send_timeout_now().await?;
+        let conn = self.io.connect(&self.io.local_server_id);
+        conn.send_timeout_now().await.ok();
 
         Ok(())
     }
 
     pub(super) async fn add_server(&self, req: request::AddServer) -> Result<()> {
         if self.ctrl_actor.read().await.read_membership().is_empty()
-            && req.server_id == self.io.self_server_id()
+            && req.server_id == self.io.local_server_id
         {
-            self.bootstrap_cluster().await?;
+            self.bootstrap_cluster(req.as_voter).await?;
         } else {
-            let msg = kernel_message::KernelMessage::AddServer(req.server_id);
+            let msg = kernel_message::KernelMessage::AddServer(req.server_id, req.as_voter);
             let req = request::KernelRequest {
                 message: msg.serialize(),
             };
-            let conn = self.io.connect(self.io.self_server_id());
+            let conn = self.io.connect(&self.io.local_server_id);
             conn.process_kernel_request(req).await?;
         }
         Ok(())
@@ -409,7 +409,7 @@ impl RaftProcess {
         let req = request::KernelRequest {
             message: msg.serialize(),
         };
-        let conn = self.io.connect(self.io.self_server_id());
+        let conn = self.io.connect(&self.io.local_server_id);
         conn.process_kernel_request(req).await?;
         Ok(())
     }
@@ -444,17 +444,14 @@ impl RaftProcess {
             bail!(Error::LeaderUnknown)
         };
 
-        if std::matches!(
-            self.ctrl_actor.read().await.read_election_state(),
-            control::ElectionState::Leader
-        ) {
+        if self.ctrl_actor.read().await.is_leader() {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
             let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
-                kernel_message::KernelMessage::AddServer(id) => {
+                kernel_message::KernelMessage::AddServer(id, as_voter) => {
                     ensure!(self.ctrl_actor.read().await.allow_queue_new_membership());
 
                     let mut membership = self.ctrl_actor.read().await.read_membership();
-                    membership.insert(id);
+                    membership.insert(id, as_voter);
                     Command::ClusterConfiguration { membership }
                 }
                 kernel_message::KernelMessage::RemoveServer(id) => {
@@ -477,8 +474,8 @@ impl RaftProcess {
             rx.await?;
         } else {
             // Avoid looping.
-            ensure!(self.io.self_server_id() != leader_id);
-            let conn = self.io.connect(leader_id);
+            ensure!(self.io.local_server_id != leader_id);
+            let conn = self.io.connect(&leader_id);
             conn.process_kernel_request(req).await?;
         }
         Ok(())
@@ -510,10 +507,7 @@ impl RaftProcess {
             bail!(Error::LeaderUnknown)
         };
 
-        let resp = if std::matches!(
-            self.ctrl_actor.read().await.read_election_state(),
-            control::ElectionState::Leader
-        ) {
+        let resp = if self.ctrl_actor.read().await.is_leader() {
             let (app_completion, rx) = completion::prepare_app_completion();
 
             let command = Command::ExecuteWriteRequest {
@@ -533,8 +527,8 @@ impl RaftProcess {
             rx.await?
         } else {
             // Avoid looping.
-            ensure!(self.io.self_server_id() != leader_id);
-            let conn = self.io.connect(leader_id);
+            ensure!(self.io.local_server_id != leader_id);
+            let conn = self.io.connect(&leader_id);
             conn.process_application_write_request(req).await?
         };
         Ok(resp)
@@ -631,18 +625,15 @@ impl RaftProcess {
             bail!(Error::LeaderUnknown)
         };
 
-        if std::matches!(
-            self.ctrl_actor.read().await.read_election_state(),
-            control::ElectionState::Leader
-        ) {
+        if self.ctrl_actor.read().await.is_leader() {
             let out = response::Membership {
                 members: self.ctrl_actor.read().await.read_membership(),
             };
             Ok(out)
         } else {
             // Avoid looping.
-            ensure!(self.io.self_server_id() != leader_id);
-            let conn = self.io.connect(leader_id);
+            ensure!(self.io.local_server_id != leader_id);
+            let conn = self.io.connect(&leader_id);
             let members = conn.get_membership().await?;
             Ok(response::Membership { members })
         }
@@ -660,16 +651,13 @@ impl RaftProcess {
             bail!(Error::LeaderUnknown)
         };
 
-        if std::matches!(
-            self.ctrl_actor.read().await.read_election_state(),
-            control::ElectionState::Leader
-        ) {
+        if self.ctrl_actor.read().await.is_leader() {
             let read_index = self.ctrl_actor.read().await.find_read_index().await?;
             Ok(read_index)
         } else {
             // Avoid looping.
-            ensure!(self.io.self_server_id() != leader_id);
-            let conn = self.io.connect(leader_id);
+            ensure!(self.io.local_server_id != leader_id);
+            let conn = self.io.connect(&leader_id);
             let resp = conn.issue_read_index().await?;
             Ok(resp)
         }

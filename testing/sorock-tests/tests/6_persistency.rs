@@ -9,9 +9,9 @@ async fn n3_restore() -> Result<()> {
         .with_persistency(true)
         .build(3, 1)
         .await?;
-    cluster.add_server(0, 0, 0).await?;
-    cluster.add_server(0, 0, 1).await?;
-    cluster.add_server(0, 1, 2).await?;
+    cluster.add_voter(0, 0, 0).await?;
+    cluster.add_voter(0, 0, 1).await?;
+    cluster.add_voter(0, 1, 2).await?;
 
     let mut cur_state = 0;
     for i in 0..10 {

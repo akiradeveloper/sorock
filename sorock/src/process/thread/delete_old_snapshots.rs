@@ -8,9 +8,7 @@ pub struct Thread {
 impl Thread {
     async fn run_once(&self) -> Result<()> {
         let cur_snapshot_index = self.command_log_actor.read().await.snapshot_pointer;
-        self.app
-            .delete_snapshots_before(cur_snapshot_index)
-            .await?;
+        self.app.delete_snapshots_before(cur_snapshot_index).await?;
         Ok(())
     }
 

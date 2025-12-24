@@ -30,8 +30,8 @@ pub struct Control {
     pub commit_pointer: u64,
 
     // peers
-    membership: HashSet<ServerAddress>,
-    replication_progresses: HashMap<ServerAddress, Actor<Replication>>,
+    membership: HashMap<ServerAddress, bool>,
+    replication_contexts: HashMap<ServerAddress, Actor<Replication>>,
     peer_threads: HashMap<ServerAddress, ThreadHandles>,
     queue_evt_rx: EventWaiter<QueueEvent>,
     replication_evt_tx: EventNotifier<ReplicationEvent>,
@@ -61,8 +61,8 @@ impl Control {
             commit_pointer: 0,
 
             membership_pointer: 0,
-            membership: HashSet::new(),
-            replication_progresses: HashMap::new(),
+            membership: HashMap::new(),
+            replication_contexts: HashMap::new(),
             peer_threads: HashMap::new(),
             queue_evt_rx,
             replication_evt_tx,
@@ -72,8 +72,8 @@ impl Control {
         }
     }
 
-    pub fn read_election_state(&self) -> ElectionState {
-        self.state
+    pub fn is_leader(&self) -> bool {
+        matches!(self.state, ElectionState::Leader)
     }
 
     fn write_election_state(&mut self, e: ElectionState) {
@@ -106,12 +106,16 @@ impl Control {
     }
 
     pub fn get_election_timeout(&self) -> Option<Duration> {
-        // This is an optimization to avoid unnecessary election.
-        // If the node doesn't contain itself in its membership,
-        // it can't become a new leader anyway.
-        if !self.read_membership().contains(&self.io.self_server_id()) {
+        if !matches!(self.state, ElectionState::Follower) {
             return None;
         }
+
+        // This is an optimization to avoid unnecessary election.
+        // If the node doesn't contain itself in its voting membership, it can't become a new leader anyway.
+        if !self.is_voter(&self.io.local_server_id) {
+            return None;
+        }
+
         self.leader_failure_detector.get_election_timeout()
     }
 
@@ -122,27 +126,38 @@ impl Control {
             sender_term: ballot.cur_term,
             sender_commit_index: cur_commit_index,
         };
-        let conn = self.io.connect(follower_id);
+        let conn = self.io.connect(&follower_id);
         conn.queue_heartbeat(req);
         Ok(())
     }
 
-    pub fn read_membership(&self) -> HashSet<ServerAddress> {
+    pub fn read_membership(&self) -> HashMap<ServerAddress, bool> {
         self.membership.clone()
+    }
+
+    pub fn is_voter(&self, server_id: &ServerAddress) -> bool {
+        *self.membership.get(server_id).unwrap_or(&false)
     }
 
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
-        let last_log_index = self
-            .command_log_actor
-            .read()
-            .await
-            .get_log_last_index()
-            .await?;
-        match_indices.push(last_log_index);
+        if self.is_voter(&self.io.local_server_id) {
+            // Include self match_index
+            let last_log_index = self
+                .command_log_actor
+                .read()
+                .await
+                .get_log_last_index()
+                .await?;
+            match_indices.push(last_log_index);
+        }
 
-        for (_, peer) in &self.replication_progresses {
+        for (id, peer) in &self.replication_contexts {
+            if !self.is_voter(&id) {
+                continue;
+            }
+
             let peer = peer.clone();
             // We use try_lock here to avoid waiting for slow followers.
             let match_index = peer.try_read().map(|p| p.match_index).unwrap_or(0);
@@ -165,8 +180,12 @@ impl Control {
     pub async fn transfer_leadership(&self) -> Result<()> {
         let mut xs = {
             let mut out = vec![];
-            for (id, peer) in &self.replication_progresses {
-                let progress = peer.read().await;
+            for (id, ctx) in &self.replication_contexts {
+                if !self.is_voter(&id) {
+                    continue;
+                }
+
+                let progress = ctx.read().await;
                 out.push((id.clone(), progress.match_index));
             }
             out
@@ -176,7 +195,7 @@ impl Control {
 
         if let Some(new_leader) = xs.pop() {
             info!("transfer leadership to {}", new_leader.0);
-            let conn = self.io.connect(new_leader.0.clone());
+            let conn = self.io.connect(&new_leader.0);
             conn.send_timeout_now().await?;
         }
 
@@ -196,13 +215,16 @@ impl Control {
         let saved = self.commit_pointer;
 
         let peers = self.membership.clone();
-        let n = peers.len();
 
         // Need to confirm majority of peers have terms less than or equal to `cur_term`.
         // This ensures that this node has maintained leadership when commit-index was saved.
         let mut futs = vec![];
-        for peer in peers {
-            let conn = self.io.connect(peer.clone());
+        for (peer, _) in peers {
+            if !self.is_voter(&peer) {
+                continue;
+            }
+
+            let conn = self.io.connect(&peer);
             let fut = async move {
                 let resp = conn.compare_term(cur_term).await;
                 // Treat errors as NACK.
@@ -211,6 +233,7 @@ impl Control {
             futs.push(fut);
         }
 
+        let n = futs.len();
         let ok = quorum::join((n + 2) / 2, futs).await;
         if ok {
             Ok(Some(saved))

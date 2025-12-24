@@ -7,20 +7,15 @@ pub struct Thread {
 
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        let election_state = self.ctrl_actor.read().await.read_election_state();
-        ensure!(std::matches!(
-            election_state,
-            control::ElectionState::Follower
-        ));
-
-        // sleep random duration
+        // Sleep random duration
         let timeout = self.ctrl_actor.read().await.get_election_timeout();
         if let Some(timeout) = timeout {
             tokio::time::sleep(timeout).await;
+        } else {
+            return Ok(());
         }
 
-        // if it doesn't receive any heartbeat from a leader (or new leader)
-        // it try to become a leader.
+        // Double-check if it doesn't receive any heartbeat.
         let timeout = self.ctrl_actor.read().await.get_election_timeout();
         if timeout.is_some() {
             info!("election timeout. try to become a leader");
