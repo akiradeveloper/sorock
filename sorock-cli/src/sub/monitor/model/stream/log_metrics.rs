@@ -13,10 +13,11 @@ impl CopyLogMetrics {
         while let Some(metric) = st.next().await {
             if let Some(state) = data.write().nodes.get_mut(&self.url) {
                 let new_state = LogState {
-                    head_index: metric.head_index,
                     snapshot_index: metric.snapshot_index,
-                    app_index: metric.app_index,
-                    commit_index: metric.commit_index,
+                    // These indices can be behind snapshot_index for a short time.
+                    // (e.g. after snapshot entry is inserted but before applied)
+                    app_index: u64::max(metric.app_index, metric.snapshot_index),
+                    commit_index: u64::max(metric.commit_index, metric.snapshot_index),
                     last_index: metric.last_index,
                 };
                 state.log_state = new_state;

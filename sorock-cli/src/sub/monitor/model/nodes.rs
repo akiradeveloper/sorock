@@ -10,7 +10,6 @@ impl Drop for DropHandle {
 
 #[derive(Default)]
 pub struct LogState {
-    pub head_index: u64,
     pub snapshot_index: u64,
     pub app_index: u64,
     pub commit_index: u64,
@@ -49,7 +48,6 @@ impl Nodes {
             Uri::from_static("http://n1:3000"),
             NodeState {
                 log_state: model::LogState {
-                    head_index: 100,
                     snapshot_index: 110,
                     app_index: 140,
                     commit_index: 160,
@@ -62,7 +60,6 @@ impl Nodes {
             Uri::from_static("http://n2:3000"),
             NodeState {
                 log_state: model::LogState {
-                    head_index: 125,
                     snapshot_index: 130,
                     app_index: 140,
                     commit_index: 165,
@@ -75,7 +72,6 @@ impl Nodes {
             Uri::from_static("http://n3:3000"),
             NodeState {
                 log_state: model::LogState {
-                    head_index: 168,
                     snapshot_index: 168,
                     app_index: 168,
                     commit_index: 168,

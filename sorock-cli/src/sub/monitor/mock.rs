@@ -19,16 +19,16 @@ impl MockNode {
 impl model::stream::Node for MockNode {
     async fn watch_membership(&self) -> Pin<Box<dyn Stream<Item = sorock::Membership> + Send>> {
         let out = sorock::Membership {
-            members: vec![
-                "http://n1:4000".to_string(),
-                "http://n2:4000".to_string(),
-                "http://n3:4000".to_string(),
-                "http://n4:4000".to_string(),
-                "http://n5:4000".to_string(),
-                "http://n6:4000".to_string(),
-                "http://n7:4000".to_string(),
-                "http://n8:4000".to_string(),
-            ],
+            members: std::collections::HashMap::from([
+                ("http://n1:4000".to_string(), true),
+                ("http://n2:4000".to_string(), true),
+                ("http://n3:4000".to_string(), true),
+                ("http://n4:4000".to_string(), true),
+                ("http://n5:4000".to_string(), true),
+                ("http://n6:4000".to_string(), true),
+                ("http://n7:4000".to_string(), true),
+                ("http://n8:4000".to_string(), true),
+            ]),
         };
         Box::pin(futures::stream::once(async move { out }))
     }

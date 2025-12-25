@@ -120,7 +120,7 @@ impl StatefulWidget for &App {
             let min_index = reader
                 .nodes
                 .values()
-                .map(|node_state| node_state.log_state.head_index)
+                .map(|node_state| node_state.log_state.snapshot_index)
                 .min()
                 .unwrap_or(0);
             let max_index = reader
@@ -134,7 +134,6 @@ impl StatefulWidget for &App {
                 let log_state = &node_state.log_state;
                 nodes.push(ui::node_list::Node {
                     name: uri.to_string(),
-                    head_index: log_state.head_index,
                     snapshot_index: log_state.snapshot_index,
                     app_index: log_state.app_index,
                     commit_index: log_state.commit_index,
