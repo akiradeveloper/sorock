@@ -56,8 +56,8 @@ async fn n3_p30_multi_raft_io() -> Result<()> {
 
     let mut cur_state = [0; P as usize];
     for _ in 0..100 {
-        let shard_id = rand::thread_rng().gen_range(0..P);
-        let add_v = rand::thread_rng().gen_range(1..=9);
+        let shard_id = rand::rng().random_range(0..P);
+        let add_v = rand::rng().random_range(1..=9);
         let old_v = cluster.user(0).fetch_add(shard_id, add_v).await?;
         assert_eq!(old_v, cur_state[shard_id as usize]);
         cur_state[shard_id as usize] += add_v;
@@ -88,8 +88,8 @@ async fn n3_p30_multi_raft_io_roundrobin() -> Result<()> {
 
     let mut cur_state = [0; P as usize];
     for i in 0..100 {
-        let shard_id = rand::thread_rng().gen_range(0..P);
-        let add_v = rand::thread_rng().gen_range(1..=9);
+        let shard_id = rand::rng().random_range(0..P);
+        let add_v = rand::rng().random_range(1..=9);
         let io_node = (i % 3) as u8;
         let old_v = cluster.user(io_node).fetch_add(shard_id, add_v).await?;
         assert_eq!(old_v, cur_state[shard_id as usize]);
