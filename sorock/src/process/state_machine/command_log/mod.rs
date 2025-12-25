@@ -9,10 +9,11 @@ pub struct CommandLog {
     storage: storage::LogStore,
 
     // Pointers in the log.
-    // Invariant: kernel_pointer >= app_pointer >= snapshot_pointer
-    pub kernel_pointer: u64,
-    pub app_pointer: u64,
+    // Invariant: app_pointer ≤ commit_pointer ≤ kernel_pointer ≤ tail_pointer
     pub snapshot_pointer: u64,
+    pub app_pointer: u64,
+    pub kernel_pointer: u64,
+    pub tail_pointer: u64,
 
     app_completions: BTreeMap<LogIndex, completion::AppCompletion>,
     kernel_completions: BTreeMap<LogIndex, completion::KernelCompletion>,
@@ -24,6 +25,7 @@ impl CommandLog {
     pub fn new(storage: storage::LogStore, app: Arc<App>) -> Self {
         Self {
             storage,
+            tail_pointer: 0,
             kernel_pointer: 0,
             app_pointer: 0,
             snapshot_pointer: 0,
@@ -51,14 +53,9 @@ impl CommandLog {
         Ok(())
     }
 
-    pub async fn get_log_head_index(&self) -> Result<LogIndex> {
-        let head_log_index = self.storage.get_head_index().await?;
+    pub async fn get_log_min_index(&self) -> Result<LogIndex> {
+        let head_log_index = self.storage.get_min_index().await?;
         Ok(head_log_index)
-    }
-
-    pub async fn get_log_last_index(&self) -> Result<LogIndex> {
-        let last_log_index = self.storage.get_last_index().await?;
-        Ok(last_log_index)
     }
 
     // This function won't return None because every caller of this function

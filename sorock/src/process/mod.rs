@@ -210,11 +210,16 @@ impl Gateway {
                         .await?;
                 }
                 TryInsertResult::SkippedInsertion => {}
-                TryInsertResult::InconsistentInsertion { want, found } => {
+                TryInsertResult::InconsistentInsertion {
+                    prev_expected: want,
+                    prev_actual: found,
+                } => {
                     warn!("rejected append entry (clock={:?}) for inconsisntency (want:{want:?} != found:{found:?}", cur.this_clock);
                     break;
                 }
-                TryInsertResult::LeapInsertion { want } => {
+                TryInsertResult::LeapInsertion {
+                    prev_expected: want,
+                } => {
                     debug!(
                         "rejected append entry (clock={:?}) for leap insertion (want={want:?})",
                         cur.this_clock
@@ -423,12 +428,7 @@ impl RaftProcess {
 
         let resp = response::ReplicationStream {
             n_inserted,
-            log_last_index: self
-                .command_log_actor
-                .read()
-                .await
-                .get_log_last_index()
-                .await?,
+            log_last_index: self.command_log_actor.read().await.tail_pointer,
         };
         Ok(resp)
     }
@@ -599,14 +599,9 @@ impl RaftProcess {
                 .command_log_actor
                 .read()
                 .await
-                .get_log_head_index()
+                .get_log_min_index()
                 .await?,
-            last_index: self
-                .command_log_actor
-                .read()
-                .await
-                .get_log_last_index()
-                .await?,
+            last_index: self.command_log_actor.read().await.tail_pointer,
             snapshot_index: self.command_log_actor.read().await.snapshot_pointer,
             app_index: self.command_log_actor.read().await.app_pointer,
             commit_index: self.ctrl_actor.read().await.commit_pointer,

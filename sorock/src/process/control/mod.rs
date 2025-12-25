@@ -144,12 +144,7 @@ impl Control {
 
         if self.is_voter(&self.io.local_server_id) {
             // Include self match_index
-            let last_log_index = self
-                .command_log_actor
-                .read()
-                .await
-                .get_log_last_index()
-                .await?;
+            let last_log_index = self.command_log_actor.read().await.tail_pointer;
             match_indices.push(last_log_index);
         }
 

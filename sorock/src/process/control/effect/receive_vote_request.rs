@@ -43,7 +43,7 @@ impl Effect<'_> {
         }
 
         let last_log_clock = {
-            let cur_last_index = self.command_log().read().await.get_log_last_index().await?;
+            let cur_last_index = self.command_log().read().await.tail_pointer;
             if cur_last_index == 0 {
                 Clock { term: 0, index: 0 }
             } else {

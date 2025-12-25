@@ -23,14 +23,15 @@ impl CommandLog {
             }
         };
 
-        self.kernel_pointer = snapshot_index - 1;
-        self.app_pointer = snapshot_index - 1;
-        self.snapshot_pointer = snapshot_index;
-
         // Normalize the log by deleting invalid entries.
         self.storage.delete_entries_before(snapshot_index).await?;
         let last_valid_index = self.traverse_valid_entries_from(snapshot_index).await?;
         self.storage.delete_entries_after(last_valid_index).await?;
+
+        self.kernel_pointer = snapshot_index - 1;
+        self.app_pointer = snapshot_index - 1;
+        self.snapshot_pointer = snapshot_index;
+        self.tail_pointer = last_valid_index;
 
         info!("restore state: snapshot_index={snapshot_index}, range=[{snapshot_index}, {last_valid_index}]");
         Ok(())
@@ -53,7 +54,7 @@ impl CommandLog {
 
     /// Find the last snapshot in the log.
     async fn find_last_snapshot_index(&self) -> Result<Option<LogIndex>> {
-        let to = self.storage.get_last_index().await?;
+        let to = self.storage.get_max_index().await?;
         for i in (1..=to).rev() {
             if let Some(e) = self.storage.get_entry(i).await? {
                 match Command::deserialize(&e.command) {

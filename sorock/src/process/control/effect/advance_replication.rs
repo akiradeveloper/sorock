@@ -48,7 +48,7 @@ impl Effect<'_> {
         let cur_progress = *self.progress;
 
         let old_progress = cur_progress;
-        let cur_last_log_index = self.command_log().read().await.get_log_last_index().await?;
+        let cur_last_log_index = self.command_log().read().await.tail_pointer;
 
         // More entries to send?
         ensure!(old_progress.next_index <= cur_last_log_index);

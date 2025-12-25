@@ -89,7 +89,7 @@ impl Effect<'_> {
         };
 
         let log_last_clock = {
-            let last_log_index = self.command_log.read().await.get_log_last_index().await?;
+            let last_log_index = self.command_log.read().await.tail_pointer;
             self.command_log
                 .read()
                 .await

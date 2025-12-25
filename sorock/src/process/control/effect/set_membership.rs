@@ -20,7 +20,7 @@ impl Effect<'_> {
         }
 
         let init_progress = {
-            let last_log_index = self.command_log().read().await.get_log_last_index().await?;
+            let last_log_index = self.command_log().read().await.tail_pointer;
             Arc::new(RwLock::new(Replication::new(last_log_index)))
         };
 
