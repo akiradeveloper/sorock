@@ -135,6 +135,10 @@ impl Control {
         self.membership.clone()
     }
 
+    pub fn is_local_voter(&self) -> bool {
+        self.is_voter(&self.io.local_server_id)
+    }
+
     pub fn is_voter(&self, server_id: &ServerAddress) -> bool {
         *self.membership.get(server_id).unwrap_or(&false)
     }
@@ -142,7 +146,7 @@ impl Control {
     pub async fn find_new_commit_index(&self) -> Result<LogIndex> {
         let mut match_indices = vec![];
 
-        if self.is_voter(&self.io.local_server_id) {
+        if self.is_local_voter() {
             // Include self match_index
             let last_log_index = self.command_log_actor.read().await.tail_pointer;
             match_indices.push(last_log_index);
@@ -203,7 +207,7 @@ impl Control {
             return Ok(None);
         }
 
-        if !self.is_voter(&self.io.local_server_id) {
+        if !self.is_local_voter() {
             return Ok(None);
         }
 
