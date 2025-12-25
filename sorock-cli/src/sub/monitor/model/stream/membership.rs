@@ -8,8 +8,8 @@ impl CopyMembership {
         while let Some(membership) = st.next().await {
             let new_membership = {
                 let mut out = HashSet::new();
-                for mem in membership.members {
-                    let url = Uri::from_maybe_shared(mem).unwrap();
+                for (member, _) in membership.members {
+                    let url = Uri::from_maybe_shared(member).unwrap();
                     out.insert(url);
                 }
                 out

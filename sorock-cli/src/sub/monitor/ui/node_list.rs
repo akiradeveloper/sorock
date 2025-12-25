@@ -7,8 +7,7 @@ pub struct IndexRange {
 }
 
 struct LogStripe {
-    min_to_head: u16,
-    head_to_snap: u16,
+    min_to_snap: u16,
     snap_to_app: u16,
     app_to_commit: u16,
     commit_to_last: u16,
@@ -18,7 +17,6 @@ impl LogStripe {
     pub fn from(node: &Node) -> Self {
         let width = node.min_max.max_index - node.min_max.min_index;
 
-        let min_to_head = (node.head_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_snap = (node.snapshot_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_app = (node.app_index - node.min_max.min_index) as f64 / width as f64;
         let min_to_commit = (node.commit_index - node.min_max.min_index) as f64 / width as f64;
@@ -27,8 +25,7 @@ impl LogStripe {
         let k = 10000.0;
 
         Self {
-            min_to_head: (min_to_head * k) as u16,
-            head_to_snap: ((min_to_snap - min_to_head) * k) as u16,
+            min_to_snap: (min_to_snap * k) as u16,
             snap_to_app: ((min_to_app - min_to_snap) * k) as u16,
             app_to_commit: ((min_to_commit - min_to_app) * k) as u16,
             commit_to_last: ((min_to_last - min_to_commit) * k) as u16,
@@ -41,7 +38,6 @@ impl LogStripe {
 pub struct Node {
     pub name: String,
 
-    pub head_index: u64,
     pub snapshot_index: u64,
     pub app_index: u64,
     pub commit_index: u64,
@@ -64,8 +60,7 @@ impl Widget for Node {
             .direction(Direction::Horizontal)
             .constraints(
                 [
-                    Constraint::Fill(stripe.min_to_head),
-                    Constraint::Fill(stripe.head_to_snap),
+                    Constraint::Fill(stripe.min_to_snap),
                     Constraint::Fill(stripe.snap_to_app),
                     Constraint::Fill(stripe.app_to_commit),
                     Constraint::Fill(stripe.commit_to_last),
@@ -82,7 +77,7 @@ impl Widget for Node {
                     .bg(Color::Black)
                     .add_modifier(Modifier::ITALIC),
             )
-            .label("gc")
+            .label("applied")
             .ratio(1.0)
             .render(chunks[1], buf);
 
@@ -93,7 +88,7 @@ impl Widget for Node {
                     .bg(Color::Black)
                     .add_modifier(Modifier::ITALIC),
             )
-            .label("applied")
+            .label("commit")
             .ratio(1.0)
             .render(chunks[2], buf);
 
@@ -104,20 +99,9 @@ impl Widget for Node {
                     .bg(Color::Black)
                     .add_modifier(Modifier::ITALIC),
             )
-            .label("commit")
-            .ratio(1.0)
-            .render(chunks[3], buf);
-
-        Gauge::default()
-            .gauge_style(
-                Style::default()
-                    .fg(Color::Red)
-                    .bg(Color::Black)
-                    .add_modifier(Modifier::ITALIC),
-            )
             .label("uncommit")
             .ratio(1.0)
-            .render(chunks[4], buf);
+            .render(chunks[3], buf);
 
         outer_block.render(area, buf);
     }
@@ -147,13 +131,8 @@ impl StatefulWidget for NodeList {
             let idx = ctx.index;
             let mut node = self.nodes[idx].clone();
             let name = format!(
-                "{} [{}/{}/{}/{}/{}]",
-                node.name,
-                node.head_index,
-                node.snapshot_index,
-                node.app_index,
-                node.commit_index,
-                node.last_index
+                "{} [{}/{}/{}/{}]",
+                node.name, node.snapshot_index, node.app_index, node.commit_index, node.last_index
             );
             node.name = if selected {
                 format!("> {}", name)
