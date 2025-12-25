@@ -7,7 +7,12 @@ pub struct Thread {
 
 impl Thread {
     async fn run_once(&self) -> Result<()> {
-        if !self.ctrl_actor.read().await.is_leader() {
+        let is_leader = self.ctrl_actor.read().await.is_leader();
+        // When the server is removed or downgraded to learner, it should stop heartbeating.
+        // In theory, a learner can be elected as leader but it should be demoted to follower
+        // quickly by other servers to start election.
+        let is_voter = self.ctrl_actor.read().await.is_local_voter();
+        if !(is_leader && is_voter) {
             return Ok(());
         }
 

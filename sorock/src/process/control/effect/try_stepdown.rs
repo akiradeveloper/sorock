@@ -8,15 +8,18 @@ impl Effect<'_> {
     /// If the latest config doesn't contain itself, then it steps down
     /// by transferring the leadership to another node.
     pub async fn exec(self) -> Result<()> {
-        let is_leader = self.ctrl.is_leader();
+        // At least the configuration that removed this node should be committed.
+        if !self.ctrl.allow_queue_new_membership() {
+            return Ok(());
+        }
 
-        let local_is_voter = self.ctrl.is_voter(&self.ctrl.io.local_server_id);
+        let is_leader = self.ctrl.is_leader();
+        let is_voter = self.ctrl.is_local_voter();
 
         // If the local node is still a leader but not a voter any more, it should step down.
-        if is_leader && !local_is_voter {
+        if is_leader && !is_voter {
             info!("step down. transferring leadership to other node");
-            self.ctrl
-                .write_election_state(control::ElectionState::Follower);
+            self.ctrl.write_election_state(ElectionState::Follower);
             self.ctrl.transfer_leadership().await?;
         }
 
