@@ -128,11 +128,10 @@ message CompareTermResponse {
 }
 
 message LogMetrics {
-  uint64 head_index = 1;
-  uint64 snapshot_index = 2;
-  uint64 app_index = 3;
-  uint64 commit_index = 4;
-  uint64 last_index = 5;
+  uint64 snapshot_index = 1;
+  uint64 app_index = 2;
+  uint64 commit_index = 3;
+  uint64 last_index = 4;
 }
 
 message ShardMapping {

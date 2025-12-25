@@ -363,7 +363,6 @@ impl raft::raft_server::Raft for RaftService {
                     .unwrap();
                 let log_state = process.get_log_state().await.unwrap();
                 let metrics = raft::LogMetrics {
-                    head_index: log_state.head_index,
                     snapshot_index: log_state.snapshot_index,
                     app_index: log_state.app_index,
                     commit_index: log_state.commit_index,
