@@ -68,7 +68,6 @@ pub mod response {
     }
 
     pub struct LogState {
-        pub head_index: LogIndex,
         pub snapshot_index: LogIndex,
         pub app_index: LogIndex,
         pub commit_index: LogIndex,
