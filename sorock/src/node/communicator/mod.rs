@@ -96,18 +96,6 @@ impl Communicator {
         Ok(resp.message)
     }
 
-    pub async fn process_application_read_request(
-        &self,
-        req: request::AppReadRequest,
-    ) -> Result<Bytes> {
-        let req = raft::ReadRequest {
-            shard_id: self.shard_id,
-            message: req.message,
-        };
-        let resp = self.conn.client.clone().read(req).await?.into_inner();
-        Ok(resp.message)
-    }
-
     pub async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         let req = raft::KernelRequest {
             shard_id: self.shard_id,

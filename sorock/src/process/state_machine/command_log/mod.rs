@@ -4,7 +4,6 @@ mod command;
 pub mod effect;
 pub use command::Command;
 mod init;
-mod response_cache;
 
 pub struct CommandLog {
     storage: storage::LogStore,

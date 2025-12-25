@@ -3,7 +3,6 @@ use super::*;
 use anyhow::Result;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
@@ -17,7 +16,6 @@ use node::RaftIO;
 
 mod state_machine;
 use command_log::{Command, CommandLog};
-use state_machine::command_exec;
 use state_machine::command_exec::{AppExec, KernelExec};
 use state_machine::command_log;
 use state_machine::completion;
@@ -131,7 +129,6 @@ struct ThreadHandles {
 struct Gateway {
     command_log_actor: Actor<CommandLog>,
     ctrl_actor: Actor<Control>,
-    io: node::RaftIO,
     queue_evt_tx: EventNotifier<QueueEvent>,
 }
 
@@ -340,7 +337,6 @@ impl RaftProcess {
         let gateway = Arc::new(Mutex::new(Gateway {
             command_log_actor: command_log_actor.clone(),
             ctrl_actor: ctrl_actor.clone(),
-            io: io.clone(),
             queue_evt_tx: queue_evt_tx.clone(),
         }));
 

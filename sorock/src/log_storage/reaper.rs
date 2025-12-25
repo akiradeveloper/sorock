@@ -49,14 +49,10 @@ impl Reaper {
                 .into_iter()
                 .rev()
             {
-                let last_index = es.last().unwrap().index;
                 for e in es {
                     tbl.insert(e.index, e.data)?;
                     notifiers.push(e.notifier);
                 }
-                // BUG:
-                // Inserting a snapshot entry will remove all the subsequent entries.
-                // tbl.retain_in((last_index + 1).., |_, _| false)?;
             }
         }
         tx.commit()?;
