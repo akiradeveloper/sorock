@@ -50,11 +50,10 @@ impl model::stream::Node for MockNode {
                     (a * b) as u64
                 };
                 let metrics = sorock::LogMetrics {
-                    head_index: f(x),
-                    snapshot_index: f(x+1),
-                    app_index: f(x+2),
-                    commit_index: f(x+3),
-                    last_index: f(x+4),
+                    snapshot_index: f(x),
+                    app_index: f(x+1),
+                    commit_index: f(x+2),
+                    last_index: f(x+3),
                 };
                 yield metrics
             }
