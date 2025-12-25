@@ -15,7 +15,7 @@ async fn n3_restore() -> Result<()> {
 
     let mut cur_state = 0;
     for i in 0..10 {
-        let add_v = rand::thread_rng().gen_range(1..=9);
+        let add_v = rand::rng().random_range(1..=9);
         let old_v = cluster.user(0).fetch_add(0, add_v).await?;
         assert_eq!(old_v, cur_state);
         cur_state += add_v;
@@ -26,14 +26,14 @@ async fn n3_restore() -> Result<()> {
         }
     }
 
-    cluster.env().remove_node(0);
-    cluster.env().remove_node(1);
-    cluster.env().remove_node(2);
+    cluster.env_mut().remove_node(0);
+    cluster.env_mut().remove_node(1);
+    cluster.env_mut().remove_node(2);
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    cluster.env().add_node(0);
+    cluster.env_mut().add_node(0);
     cluster.env().check_connectivity(0).await?;
-    cluster.env().add_node(1);
+    cluster.env_mut().add_node(1);
     cluster.env().check_connectivity(1).await?;
     // Wait for election.
     tokio::time::sleep(Duration::from_secs(5)).await;

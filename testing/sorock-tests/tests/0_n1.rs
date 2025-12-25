@@ -25,7 +25,7 @@ async fn n1_write() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_read() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
 
     let mut cli = cluster.user(0);
@@ -40,7 +40,7 @@ async fn n1_read() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_snapshot() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
 
     for n in 1..10 {
@@ -58,7 +58,7 @@ async fn n1_snapshot() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n1_exec_once() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
 
     let chan = cluster.env().get_connection(0);

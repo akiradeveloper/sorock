@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     for node_id in 0..opts.num_nodes {
-        let addr = cluster.env().address(node_id);
+        let addr = cluster.env_mut().address(node_id);
         eprintln!("node#{node_id} = {addr}");
     }
     let cluster = Arc::new(cluster);

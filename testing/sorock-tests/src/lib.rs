@@ -53,7 +53,11 @@ impl Cluster {
         Self::builder().build(n, n_shards).await
     }
 
-    pub fn env(&mut self) -> &mut Env {
+    pub fn env(&self) -> &Env {
+        &self.env
+    }
+
+    pub fn env_mut(&mut self) -> &mut Env {
         &mut self.env
     }
 

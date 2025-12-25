@@ -4,7 +4,7 @@ use sorock_tests::*;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_cluster() -> Result<()> {
-    let mut cluster = Cluster::new(3, 1).await?;
+    let cluster = Cluster::new(3, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
     cluster.add_voter(0, 0, 1).await?;
     cluster.add_voter(0, 1, 2).await?;
@@ -13,14 +13,14 @@ async fn n3_cluster() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_write() -> Result<()> {
-    let mut cluster = Cluster::new(3, 1).await?;
+    let cluster = Cluster::new(3, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
     cluster.add_voter(0, 0, 1).await?;
     cluster.add_voter(0, 1, 2).await?;
 
     let mut cur_state = 0;
     for i in 0..100 {
-        let add_v = rand::thread_rng().gen_range(1..=9);
+        let add_v = rand::rng().random_range(1..=9);
         let io_node = (i % 3) as u8;
         let old_v = cluster.user(io_node).fetch_add(0, add_v).await?;
         assert_eq!(old_v, cur_state);
@@ -39,7 +39,7 @@ async fn n3_write() -> Result<()> {
 async fn n3_par_write() -> Result<()> {
     const N: u64 = 50;
 
-    let mut cluster = Cluster::new(3, 1).await?;
+    let cluster = Cluster::new(3, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
     cluster.add_voter(0, 0, 1).await?;
     cluster.add_voter(0, 1, 2).await?;
@@ -60,7 +60,7 @@ async fn n3_par_write() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_snapshot() -> Result<()> {
-    let mut cluster = Cluster::new(3, 1).await?;
+    let cluster = Cluster::new(3, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
 
     cluster.user(0).fetch_add(0, 1).await?;
@@ -93,7 +93,7 @@ async fn n3_leader_stop() -> Result<()> {
     // The actual intention here is stop the node, not remove it.
     // Since the tokio runtime doesn't support disabling the scheduler,
     // we have no way but to remove the node.
-    cluster.env().remove_node(0);
+    cluster.env_mut().remove_node(0);
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     for i in 0..10 {
@@ -105,7 +105,7 @@ async fn n3_leader_stop() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn n3_leader_stepdown() -> Result<()> {
-    let mut cluster = Cluster::new(3, 1).await?;
+    let cluster = Cluster::new(3, 1).await?;
     cluster.add_voter(0, 0, 0).await?;
 
     for i in 0..10 {
@@ -134,10 +134,10 @@ async fn n3_down2_err() -> Result<()> {
 
     cluster.user(0).fetch_add(0, 1).await?;
 
-    cluster.env().remove_node(1); // down
+    cluster.env_mut().remove_node(1); // down
     cluster.user(0).fetch_add(0, 2).await?;
 
-    cluster.env().remove_node(2); // down
+    cluster.env_mut().remove_node(2); // down
     assert!(cluster.user(0).fetch_add(0, 4).await.is_err());
 
     Ok(())

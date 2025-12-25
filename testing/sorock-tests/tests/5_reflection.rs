@@ -3,7 +3,7 @@ use sorock_tests::*;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn reflection_grpcurl_access() -> Result<()> {
-    let mut cluster = Cluster::new(1, 1).await?;
+    let cluster = Cluster::new(1, 1).await?;
 
     let address = {
         let raw: tonic::transport::Uri = cluster.env().address(0);
