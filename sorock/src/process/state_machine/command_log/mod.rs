@@ -53,11 +53,6 @@ impl CommandLog {
         Ok(())
     }
 
-    pub async fn get_log_min_index(&self) -> Result<LogIndex> {
-        let head_log_index = self.storage.get_min_index().await?;
-        Ok(head_log_index)
-    }
-
     // This function won't return None because every caller of this function
     // doesn't care about the non-existence of the entry.
     pub async fn get_entry(&self, index: LogIndex) -> Result<Entry> {

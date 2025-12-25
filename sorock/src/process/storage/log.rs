@@ -70,10 +70,6 @@ impl LogStore {
         })
     }
 
-    pub async fn get_min_index(&self) -> Result<LogIndex> {
-        self.view.get_min_index().await
-    }
-
     pub async fn get_max_index(&self) -> Result<LogIndex> {
         self.view.get_max_index().await
     }

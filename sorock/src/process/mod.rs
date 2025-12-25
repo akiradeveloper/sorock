@@ -595,12 +595,6 @@ impl RaftProcess {
 
     pub(super) async fn get_log_state(&self) -> Result<response::LogState> {
         let out = response::LogState {
-            head_index: self
-                .command_log_actor
-                .read()
-                .await
-                .get_log_min_index()
-                .await?,
             last_index: self.command_log_actor.read().await.tail_pointer,
             snapshot_index: self.command_log_actor.read().await.snapshot_pointer,
             app_index: self.command_log_actor.read().await.app_pointer,
