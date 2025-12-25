@@ -62,20 +62,20 @@ mod tests {
         assert!(log.get_entry(2).await?.is_none());
 
         log.insert_entry(1, entry1).await?;
-        assert_eq!(log.get_head_index().await?, 1);
-        assert_eq!(log.get_last_index().await?, 1);
+        assert_eq!(log.get_min_index().await?, 1);
+        assert_eq!(log.get_max_index().await?, 1);
         assert!(log.get_entry(1).await?.is_some());
         assert!(log.get_entry(2).await?.is_none());
 
         log.insert_entry(2, entry2).await?;
-        assert_eq!(log.get_head_index().await?, 1);
-        assert_eq!(log.get_last_index().await?, 2);
+        assert_eq!(log.get_min_index().await?, 1);
+        assert_eq!(log.get_max_index().await?, 2);
         assert!(log.get_entry(1).await?.is_some());
         assert!(log.get_entry(2).await?.is_some());
 
         log.delete_entries_before(2).await?;
-        assert_eq!(log.get_head_index().await?, 2);
-        assert_eq!(log.get_last_index().await?, 2);
+        assert_eq!(log.get_min_index().await?, 2);
+        assert_eq!(log.get_max_index().await?, 2);
         assert!(log.get_entry(1).await?.is_none());
         assert!(log.get_entry(2).await?.is_some());
 

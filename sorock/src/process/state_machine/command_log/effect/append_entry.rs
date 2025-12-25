@@ -17,7 +17,7 @@ impl Effect<'_> {
         term: Option<Term>,
         completion: Option<Completion>,
     ) -> Result<LogIndex> {
-        let cur_last_log_index = self.command_log.get_log_last_index().await?;
+        let cur_last_log_index = self.command_log.tail_pointer;
         let prev_clock = self
             .command_log
             .get_entry(cur_last_log_index)
@@ -42,6 +42,7 @@ impl Effect<'_> {
             command,
         };
         self.command_log.insert_entry(e).await?;
+        self.command_log.tail_pointer = append_index;
 
         if let Some(completion) = completion {
             self.command_log

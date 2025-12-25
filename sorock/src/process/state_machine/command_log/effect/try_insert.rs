@@ -1,18 +1,18 @@
 use super::*;
 
 pub enum TryInsertResult {
+    /// Successfully inserted.
     Inserted,
-    /// If the entry is already inserted then we can skip the insertion.
+    /// Insertion was skipped because the same entry already exists.
     SkippedInsertion,
     /// If the entry is inconsistent with the log then we should reject the entry.
     /// In this case, the leader should rewind the replication status to the follower.
     InconsistentInsertion {
-        want: Clock,
-        found: Clock,
+        prev_expected: Clock,
+        prev_actual: Clock,
     },
-    LeapInsertion {
-        want: Clock,
-    },
+    /// Previous entry is missing.
+    LeapInsertion { prev_expected: Clock },
 }
 
 pub struct Effect<'a> {
@@ -49,6 +49,7 @@ impl Effect<'_> {
                 }
 
                 self.command_log.insert_snapshot(entry).await?;
+                self.command_log.tail_pointer = snapshot_index;
 
                 return Ok(TryInsertResult::Inserted);
             }
@@ -59,6 +60,7 @@ impl Effect<'_> {
             term: _,
             index: prev_index,
         } = entry.prev_clock;
+
         if let Some(prev_clock) = self
             .command_log
             .storage
@@ -67,10 +69,10 @@ impl Effect<'_> {
             .map(|x| x.this_clock)
         {
             if prev_clock != entry.prev_clock {
-                // consistency check failed.
+                // Consistency check failed.
                 Ok(TryInsertResult::InconsistentInsertion {
-                    want: entry.prev_clock,
-                    found: prev_clock,
+                    prev_expected: entry.prev_clock,
+                    prev_actual: prev_clock,
                 })
             } else {
                 let Clock {
@@ -78,7 +80,7 @@ impl Effect<'_> {
                     index: this_index,
                 } = entry.this_clock;
 
-                // optimization to skip actual insertion.
+                // Optimization to skip actual insertion.
                 if let Some(old_clock) = self
                     .command_log
                     .storage
@@ -87,13 +89,15 @@ impl Effect<'_> {
                     .map(|e| e.this_clock)
                 {
                     if old_clock == entry.this_clock {
-                        // If there is a entry with the same term and index
+                        // If there is a entry with the same term and index,
                         // then the entry should be the same so we can skip insertion.
+                        self.command_log.tail_pointer = this_index;
                         return Ok(TryInsertResult::SkippedInsertion);
                     }
                 }
 
                 self.command_log.insert_entry(entry).await?;
+                self.command_log.tail_pointer = this_index;
 
                 // discard [this_index, )
                 self.command_log.app_completions.split_off(&this_index);
@@ -103,7 +107,7 @@ impl Effect<'_> {
             }
         } else {
             Ok(TryInsertResult::LeapInsertion {
-                want: entry.prev_clock,
+                prev_expected: entry.prev_clock,
             })
         }
     }

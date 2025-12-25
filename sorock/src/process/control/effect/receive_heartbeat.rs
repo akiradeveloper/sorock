@@ -39,10 +39,8 @@ impl Effect<'_> {
 
         self.ctrl.write_ballot(ballot).await?;
 
-        let new_commit_index = std::cmp::min(
-            sender_commit,
-            self.command_log().read().await.get_log_last_index().await?,
-        );
+        let new_commit_index =
+            std::cmp::min(sender_commit, self.command_log().read().await.tail_pointer);
         self.ctrl.advance_commit_index(new_commit_index);
 
         Ok(())

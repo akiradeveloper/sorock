@@ -73,7 +73,7 @@ impl LogShardView {
         }
     }
 
-    pub async fn get_head_index(&self) -> Result<u64> {
+    pub async fn get_min_index(&self) -> Result<u64> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.first()?;
@@ -83,7 +83,7 @@ impl LogShardView {
         })
     }
 
-    pub async fn get_last_index(&self) -> Result<u64> {
+    pub async fn get_max_index(&self) -> Result<u64> {
         let tx = self.db.begin_read()?;
         let tbl = tx.open_table(table_def(&self.space))?;
         let out = tbl.last()?;
