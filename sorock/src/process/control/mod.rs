@@ -241,4 +241,9 @@ impl Control {
             Ok(None)
         }
     }
+
+    pub async fn compare_term(&self, term: Term) -> Result<bool> {
+        let ballot = self.read_ballot().await?;
+        Ok(term >= ballot.cur_term)
+    }
 }

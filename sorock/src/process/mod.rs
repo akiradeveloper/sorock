@@ -640,8 +640,7 @@ impl RaftProcess {
     }
 
     pub async fn compare_term(&self, term: Term) -> Result<bool> {
-        let cur_term = self.ctrl_actor.read().await.read_ballot().await?.cur_term;
-        Ok(term >= cur_term)
+        self.ctrl_actor.read().await.compare_term(term).await
     }
 
     pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
