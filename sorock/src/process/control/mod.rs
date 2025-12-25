@@ -208,6 +208,10 @@ impl Control {
             return Ok(None);
         }
 
+        if !self.is_voter(&self.io.local_server_id) {
+            return Ok(None);
+        }
+
         let cur_term = self.read_ballot().await?.cur_term;
 
         // A commit-index can be selected as a safety point for readers which we call "read-index".
@@ -224,6 +228,11 @@ impl Control {
                 continue;
             }
 
+            // Ack from local node is implicit.
+            if peer == self.io.local_server_id {
+                continue;
+            }
+
             let conn = self.io.connect(&peer);
             let fut = async move {
                 let resp = conn.compare_term(cur_term).await;
@@ -234,7 +243,7 @@ impl Control {
         }
 
         let n = futs.len();
-        let ok = quorum::join((n + 2) / 2, futs).await;
+        let ok = quorum::join(n / 2, futs).await;
         if ok {
             Ok(Some(saved))
         } else {
