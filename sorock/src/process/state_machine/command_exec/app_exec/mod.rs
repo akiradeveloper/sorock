@@ -44,11 +44,16 @@ impl AppExec {
 
         match self.do_process_once(app_command).await {
             Ok(()) => true,
-            Err(_) => false,
+            Err(app_command) => {
+                // Requeue the command for retry.
+                self.insert(app_command);
+
+                false
+            }
         }
     }
 
-    async fn do_process_once(&mut self, app_command: AppCommand) -> Result<()> {
+    async fn do_process_once(&mut self, app_command: AppCommand) -> Result<(), AppCommand> {
         let AppCommand { index, body } = app_command;
 
         let Some(body) = body else {
@@ -62,7 +67,12 @@ impl AppExec {
         debug!("process app@{index}");
         match command {
             Command::Snapshot { .. } => {
-                self.app.apply_snapshot(index).await?;
+                if let Err(_) = self.app.apply_snapshot(index).await {
+                    return Err(AppCommand {
+                        index,
+                        body: Some(body),
+                    });
+                }
             }
             Command::ExecuteWriteRequest {
                 message,
@@ -77,9 +87,13 @@ impl AppExec {
 
                 // We don't execute the same request twice.
                 if !self.response_cache.contains_key(&request_id) {
-                    let resp = self.app.process_write(message, index).await?;
-                    self.response_cache
-                        .insert(request_id.clone(), resp.clone());
+                    let Ok(resp) = self.app.process_write(message, index).await else {
+                        return Err(AppCommand {
+                            index,
+                            body: Some(body),
+                        });
+                    };
+                    self.response_cache.insert(request_id.clone(), resp.clone());
                 }
 
                 if let Some(completion) = body.completion {
