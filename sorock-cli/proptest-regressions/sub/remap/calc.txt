@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 94ba30c2fc473dea0a34cc25e5bcd583a1f084f5173f53e17b4ddced1669c2db # shrinks to init_state = {http://1:50051/: (State { is_voter: false, is_leader: false, exists: false }, State { is_voter: false, is_leader: false, exists: false }), http://0:50051/: (State { is_voter: false, is_leader: false, exists: false }, State { is_voter: false, is_leader: false, exists: false }), http://2:50051/: (State { is_voter: false, is_leader: false, exists: false }, State { is_voter: false, is_leader: false, exists: false })}

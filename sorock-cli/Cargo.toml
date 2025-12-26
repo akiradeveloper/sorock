@@ -19,3 +19,6 @@ tui-widget-list = "0.13.1"
 
 [build-dependencies]
 tonic-prost-build.workspace = true
+
+[dev-dependencies]
+proptest = "0.9.6"
