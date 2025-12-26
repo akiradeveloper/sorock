@@ -8,7 +8,8 @@ impl Effect<'_> {
     /// If the latest config doesn't contain itself, then it steps down
     /// by transferring the leadership to another node.
     pub async fn exec(self) -> Result<()> {
-        // At least the configuration that removed this node should be committed.
+        // $4.2.2
+        // The configuration that removed this node should be committed before stepping down.
         if !self.ctrl.allow_queue_new_membership() {
             return Ok(());
         }
