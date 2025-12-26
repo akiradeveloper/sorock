@@ -1,8 +1,5 @@
 use super::*;
 
-mod response_cache;
-use response_cache::ResponseCache;
-
 pub struct AppCommand {
     pub index: LogIndex,
     pub body: Option<AppCommandBody>,
@@ -15,7 +12,7 @@ pub struct AppCommandBody {
 
 pub struct AppExec {
     app: Arc<App>,
-    response_cache: ResponseCache,
+    response_cache: moka::sync::Cache<String, Bytes>,
     q: CommandWaitQueue<AppCommand>,
     command_log_actor: Actor<CommandLog>,
     pub applied_index: LogIndex,
@@ -25,7 +22,11 @@ impl AppExec {
     pub fn new(app: Arc<App>, command_log_actor: Actor<CommandLog>) -> Self {
         Self {
             app,
-            response_cache: ResponseCache::new(),
+            response_cache: moka::sync::Cache::builder()
+                // We don't care about requests that doesn't complete within 10 minutes.
+                // Within this time, the client is able to retry the request sufficiently mulptiple times.
+                .time_to_live(Duration::from_mins(10))
+                .build(),
             q: CommandWaitQueue::new(),
             command_log_actor,
             applied_index: 0,
@@ -67,25 +68,26 @@ impl AppExec {
                 message,
                 request_id,
             } => {
-                if self.response_cache.should_execute(&request_id) {
+                // The section $6.3 describes a special case that clients may resend the same write request.
+                // The author proposes to use session between clients and servers but I think it is overkill.
+                // Instead, our solution is to use response cache with TTL.
+                // This approach is much simpler but still effective to most of the practical use cases but
+                // the worst-case senario leader stop occurs over and over again within TTL period, and that's
+                // almost impossible in reality.
+
+                // We don't execute the same request twice.
+                if !self.response_cache.contains_key(&request_id) {
                     let resp = self.app.process_write(message, index).await?;
                     self.response_cache
-                        .insert_response(request_id.clone(), resp);
+                        .insert(request_id.clone(), resp.clone());
                 }
 
                 if let Some(completion) = body.completion {
-                    // Leader may have the completion for the request.
-                    if let Some(resp) = self.response_cache.get_response(&request_id) {
-                        // If client abort the request before retry,
-                        // the completion channel is destroyed because the gRPC is context is cancelled.
-                        // In this case, we should keep the response in the cache for the later request.
-                        if let Err(resp) = completion.complete_with(resp) {
-                            self.response_cache
-                                .insert_response(request_id.clone(), resp);
-                        } else {
-                            // After the request is completed, we queue a `CompleteRequest` command for terminating the context.
-                            // This should be queued and replicated to the followers.
-                            // Otherwise followers will never know the request is completed and the context will never be terminated.
+                    if let Some(resp) = self.response_cache.get(&request_id) {
+                        // If the completion succeeds, we assume the client has received the response.
+                        if completion.complete_with(resp.clone()).is_ok() {
+                            // After the request is completed, we queue a `CompleteWriteRequest` command terminating
+                            // response caches from all nodes including followers.
                             let command = Command::CompleteWriteRequest { request_id };
                             command_log::effect::append_entry::Effect {
                                 command_log: &mut *self.command_log_actor.write().await,
@@ -98,12 +100,13 @@ impl AppExec {
                 }
             }
             Command::CompleteWriteRequest { request_id } => {
-                self.response_cache.complete_response(&request_id);
+                self.response_cache.invalidate(&request_id);
             }
             _ => {}
         }
 
         self.applied_index = index;
+
         Ok(())
     }
 }

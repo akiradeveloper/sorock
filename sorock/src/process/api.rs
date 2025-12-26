@@ -36,11 +36,11 @@ pub mod request {
         /// The term candidate try to promote at.
         pub vote_term: Term,
         /// $4.2.3
-        /// If force_vote is set, the receiver server accepts the vote request
-        /// regardless of the heartbeat timeout otherwise the vote request is
-        /// dropped when it's receiving heartbeat.
+        /// If force_vote is set, the receiver server accepts the vote request regardless of the heartbeat timeout
+        /// otherwise the vote request is dropped when it's receiving heartbeat.
         pub force_vote: bool,
-        /// $9.6 Preventing disruptions when a server rejoins the cluster
+        /// $9.6
+        /// Preventing disruptions when a server rejoins the cluster
         /// We recommend the Pre-Vote extension in deployments that would benefit from additional robustness.
         pub pre_vote: bool,
     }

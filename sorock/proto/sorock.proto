@@ -7,7 +7,7 @@ package sorock;
 // Update request to the `RaftApp`.
 // This type of request is serialized in the log and processed sequentially.
 // `request_id` is unique identifier of the request to avoid executing duplicating requests.
-// Client may send a write requests twice but they are executed only once as long as
+// Client may send a write requests twice but they should be executed only once as long as
 // they have the same `request_id`.
 message WriteRequest {
   uint32 shard_id = 1;
