@@ -23,7 +23,8 @@ async fn n3_p30_multi_raft_cluster() -> Result<()> {
             cluster
                 .admin(leader)
                 .send_timeout_now(TimeoutNow { shard_id })
-                .await.ok();
+                .await
+                .ok();
 
             Ok::<(), anyhow::Error>(())
         };

@@ -617,7 +617,7 @@ impl RaftProcess {
 
             let conn = self.io.connect(&leader_id);
             let members = conn.get_membership().await?;
-            Ok(response::Membership { members })
+            Ok(members)
         }
     }
 

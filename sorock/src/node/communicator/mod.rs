@@ -186,7 +186,7 @@ impl Communicator {
         Ok(resp.read_index)
     }
 
-    pub async fn get_membership(&self) -> Result<HashMap<ServerAddress, bool>> {
+    pub async fn get_membership(&self) -> Result<response::Membership> {
         let req = raft::Shard {
             shard_id: self.shard_id,
         };
@@ -203,6 +203,6 @@ impl Communicator {
             out.insert(k.parse().unwrap(), v);
         }
 
-        Ok(out)
+        Ok(response::Membership { members: out })
     }
 }
