@@ -434,12 +434,6 @@ impl RaftProcess {
     }
 
     pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
-        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
-
-        let Some(leader_id) = ballot.voted_for else {
-            bail!(Error::LeaderUnknown)
-        };
-
         if self.ctrl_actor.read().await.is_leader() {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
             let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
@@ -469,8 +463,13 @@ impl RaftProcess {
 
             rx.await?;
         } else {
+            let ballot = self.ctrl_actor.read().await.read_ballot().await?;
+            let Some(leader_id) = ballot.voted_for else {
+                bail!(Error::LeaderUnknown)
+            };
             // Avoid looping.
-            ensure!(self.io.local_server_id != leader_id);
+            ensure!(leader_id != self.io.local_server_id);
+
             let conn = self.io.connect(&leader_id);
             conn.process_kernel_request(req).await?;
         }
@@ -497,12 +496,6 @@ impl RaftProcess {
         &self,
         req: request::AppWriteRequest,
     ) -> Result<Bytes> {
-        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
-
-        let Some(leader_id) = ballot.voted_for else {
-            bail!(Error::LeaderUnknown)
-        };
-
         let resp = if self.ctrl_actor.read().await.is_leader() {
             let (app_completion, rx) = completion::prepare_app_completion();
 
@@ -522,8 +515,13 @@ impl RaftProcess {
 
             rx.await?
         } else {
+            let ballot = self.ctrl_actor.read().await.read_ballot().await?;
+            let Some(leader_id) = ballot.voted_for else {
+                bail!(Error::LeaderUnknown)
+            };
             // Avoid looping.
-            ensure!(self.io.local_server_id != leader_id);
+            ensure!(leader_id != self.io.local_server_id);
+
             let conn = self.io.connect(&leader_id);
             conn.process_application_write_request(req).await?
         };
@@ -604,20 +602,19 @@ impl RaftProcess {
     }
 
     pub(super) async fn get_membership(&self) -> Result<response::Membership> {
-        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
-
-        let Some(leader_id) = ballot.voted_for else {
-            bail!(Error::LeaderUnknown)
-        };
-
         if self.ctrl_actor.read().await.is_leader() {
             let out = response::Membership {
                 members: self.ctrl_actor.read().await.read_membership(),
             };
             Ok(out)
         } else {
+            let ballot = self.ctrl_actor.read().await.read_ballot().await?;
+            let Some(leader_id) = ballot.voted_for else {
+                bail!(Error::LeaderUnknown)
+            };
             // Avoid looping.
-            ensure!(self.io.local_server_id != leader_id);
+            ensure!(leader_id != self.io.local_server_id);
+
             let conn = self.io.connect(&leader_id);
             let members = conn.get_membership().await?;
             Ok(response::Membership { members })
@@ -629,18 +626,17 @@ impl RaftProcess {
     }
 
     pub async fn issue_read_index(&self) -> Result<Option<LogIndex>> {
-        let ballot = self.ctrl_actor.read().await.read_ballot().await?;
-
-        let Some(leader_id) = ballot.voted_for else {
-            bail!(Error::LeaderUnknown)
-        };
-
         if self.ctrl_actor.read().await.is_leader() {
             let read_index = self.ctrl_actor.read().await.find_read_index().await?;
             Ok(read_index)
         } else {
+            let ballot = self.ctrl_actor.read().await.read_ballot().await?;
+            let Some(leader_id) = ballot.voted_for else {
+                bail!(Error::LeaderUnknown)
+            };
             // Avoid looping.
-            ensure!(self.io.local_server_id != leader_id);
+            ensure!(leader_id != self.io.local_server_id);
+
             let conn = self.io.connect(&leader_id);
             let resp = conn.issue_read_index().await?;
             Ok(resp)
