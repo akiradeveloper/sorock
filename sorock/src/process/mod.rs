@@ -605,6 +605,7 @@ impl RaftProcess {
         if self.ctrl_actor.read().await.is_leader() {
             let out = response::Membership {
                 members: self.ctrl_actor.read().await.read_membership(),
+                leader_id: self.io.local_server_id.clone(),
             };
             Ok(out)
         } else {

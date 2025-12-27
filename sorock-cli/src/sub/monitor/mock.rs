@@ -29,6 +29,7 @@ impl model::stream::Node for MockNode {
                 ("http://n7:4000".to_string(), true),
                 ("http://n8:4000".to_string(), true),
             ]),
+            leader_id: "http://n3:4000".to_string(),
         };
         Box::pin(futures::stream::once(async move { out }))
     }
