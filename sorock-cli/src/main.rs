@@ -19,6 +19,7 @@ mod sub;
 #[derive(Subcommand, Debug)]
 enum Sub {
     Sync(sub::sync::CommandArgs),
+    Remap(sub::remap::CommandArgs),
     Monitor(sub::monitor::CommandArgs),
 }
 
@@ -34,6 +35,9 @@ async fn main() -> Result<()> {
     match args.sub {
         Sub::Sync(args) => {
             sub::sync::run(args).await?;
+        }
+        Sub::Remap(args) => {
+            sub::remap::run(args)?;
         }
         Sub::Monitor(args) => {
             sub::monitor::run(args).await?;

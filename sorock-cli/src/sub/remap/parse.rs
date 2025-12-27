@@ -2,6 +2,7 @@ use super::*;
 
 use regex::Regex;
 
+#[derive(Debug)]
 pub struct ParseResult {
     pub shard_id: u32,
     pub replicas: ShardState,
@@ -48,6 +49,7 @@ impl DoParseLine {
         }
     }
 
+    /// Parse a line in a form <shard_id> <replica_state>+
     fn parse_line(&self, line: &str) -> Option<(u32, Vec<ReplicaState>)> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         let shard_id = parts[0].parse::<u32>().ok()?;

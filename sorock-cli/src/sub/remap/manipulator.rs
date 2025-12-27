@@ -22,6 +22,7 @@ impl Manipulator {
 
     pub async fn run_once(&mut self) -> Result<()> {
         let cur = self.get_current_state().await?;
+        self.io_node = cur.pick_one_node();
 
         let (uri, action) = {
             let mut g = HashSet::new();
@@ -67,6 +68,7 @@ impl Manipulator {
                 client.add_server(req).await?;
             }
             calc::Action::NominateLeader => {
+                let mut client = RaftClient::connect(uri.clone()).await?;
                 let req = sorock::TimeoutNow {
                     shard_id: self.shard_id,
                 };
