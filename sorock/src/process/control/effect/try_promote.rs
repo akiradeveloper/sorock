@@ -8,6 +8,8 @@ pub struct Effect<'a> {
 impl Effect<'_> {
     /// Try to become a leader.
     pub async fn exec(mut self, force_vote: bool) -> Result<()> {
+        ensure!(matches!(self.ctrl.state, ElectionState::Follower));
+
         info!("try to promote to leader (force={force_vote})");
 
         let pre_vote_term = {
