@@ -4,6 +4,7 @@ use clap::Parser;
 use clap::Subcommand;
 use futures::Stream;
 use futures::StreamExt;
+use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::time::{Duration, Instant};
 use tonic::transport::{Endpoint, Uri};
