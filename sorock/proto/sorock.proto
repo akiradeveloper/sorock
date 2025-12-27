@@ -109,6 +109,7 @@ message Shard {
 
 message Membership {
   map<string, bool> members = 1;
+  string leader_id = 2;
 }
 
 // On receiving this request, a server starts a new election

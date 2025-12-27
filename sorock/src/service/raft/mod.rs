@@ -176,6 +176,7 @@ impl raft::raft_server::Raft for RaftService {
                     .into_iter()
                     .map(|(k, v)| (k.to_string(), v))
                     .collect(),
+                leader_id: resp.leader_id.to_string(),
             };
             return Ok(tonic::Response::new(out));
         }

@@ -76,5 +76,6 @@ pub mod response {
 
     pub struct Membership {
         pub members: HashMap<ServerAddress, bool>,
+        pub leader_id: ServerAddress,
     }
 }
