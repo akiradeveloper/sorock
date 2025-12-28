@@ -8,7 +8,7 @@ pub struct Manipulator {
 
 impl Manipulator {
     pub fn new(shard_id: u32, target: ShardState) -> Self {
-        let io_node = target.pick_one_node();
+        let io_node = target.chooese_randomly();
         Self {
             shard_id,
             io_node,
@@ -17,12 +17,34 @@ impl Manipulator {
     }
 
     async fn get_current_state(&self) -> Result<ShardState> {
-        todo!()
+        let mut client = RaftClient::connect(self.io_node.clone()).await?;
+        let resp = client
+            .get_membership(sorock::Shard {
+                shard_id: self.shard_id,
+            })
+            .await?
+            .into_inner();
+
+        let mut out = HashMap::new();
+        for (server_id, is_voter) in resp.members {
+            let is_leader = server_id == resp.leader_id;
+            let uri = server_id.parse()?;
+            out.insert(
+                uri,
+                calc::State {
+                    exists: true,
+                    is_voter,
+                    is_leader,
+                },
+            );
+        }
+
+        Ok(ShardState { h: out })
     }
 
     pub async fn run_once(&mut self) -> Result<()> {
         let cur = self.get_current_state().await?;
-        self.io_node = cur.pick_one_node();
+        self.io_node = cur.chooese_randomly();
 
         let (uri, action) = {
             let mut g = HashSet::new();

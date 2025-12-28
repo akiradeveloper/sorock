@@ -1,5 +1,6 @@
 use super::*;
 
+use rand::seq::IteratorRandom;
 use sorock::raft_client::RaftClient;
 use std::io::BufRead;
 
@@ -22,8 +23,8 @@ struct ShardState {
 }
 
 impl ShardState {
-    fn pick_one_node(&self) -> Uri {
-        self.h.keys().next().unwrap().clone()
+    fn chooese_randomly(&self) -> Uri {
+        self.h.keys().choose(&mut rand::rng()).unwrap().clone()
     }
 }
 
