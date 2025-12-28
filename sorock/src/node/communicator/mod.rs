@@ -203,6 +203,9 @@ impl Communicator {
             out.insert(k.parse().unwrap(), v);
         }
 
-        Ok(response::Membership { members: out, leader_id: resp.leader_id.parse()? })
+        Ok(response::Membership {
+            members: out,
+            leader_id: resp.leader_id.parse()?,
+        })
     }
 }
