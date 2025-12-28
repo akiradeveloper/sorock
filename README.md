@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/akiradeveloper/sorock/graph/badge.svg?token=QOUNE81WNS)](https://codecov.io/gh/akiradeveloper/sorock)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/akiradeveloper/sorock/blob/master/LICENSE)
 
-A Multi-Raft implementation in Rust language.
+A Multi-Raft implementation in Rust.
 
 ## Features
 
