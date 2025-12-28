@@ -44,9 +44,12 @@ impl ShardTable {
         }
     }
 
+    /// Randomly choose one replica for a given shard.
     pub fn choose_one_replica(&self, shard_id: ShardId) -> Option<ServerAddress> {
+        use rand::seq::IteratorRandom;
+
         self.back
             .get(&shard_id)
-            .and_then(|nodes| nodes.iter().next().cloned())
+            .and_then(|nodes| nodes.iter().choose(&mut rand::rng()).cloned())
     }
 }

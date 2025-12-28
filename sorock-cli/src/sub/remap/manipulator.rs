@@ -8,7 +8,7 @@ pub struct Manipulator {
 
 impl Manipulator {
     pub fn new(shard_id: u32, target: ShardState) -> Self {
-        let io_node = target.chooese_randomly();
+        let io_node = target.choose_one_replica();
         Self {
             shard_id,
             io_node,
@@ -44,7 +44,7 @@ impl Manipulator {
 
     pub async fn run_once(&mut self) -> Result<()> {
         let cur = self.get_current_state().await?;
-        self.io_node = cur.chooese_randomly();
+        self.io_node = cur.choose_one_replica();
 
         let (uri, action) = {
             let mut g = HashSet::new();

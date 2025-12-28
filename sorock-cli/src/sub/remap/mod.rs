@@ -23,7 +23,7 @@ struct ShardState {
 }
 
 impl ShardState {
-    fn chooese_randomly(&self) -> Uri {
+    fn choose_one_replica(&self) -> Uri {
         self.h.keys().choose(&mut rand::rng()).unwrap().clone()
     }
 }
