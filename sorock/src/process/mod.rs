@@ -76,7 +76,7 @@ impl Ballot {
 pub type SnapshotStream =
     std::pin::Pin<Box<dyn futures::stream::Stream<Item = anyhow::Result<Bytes>> + Send>>;
 
-pub type Actor<T> = Arc<RwLock<T>>;
+type Actor<T> = Arc<RwLock<T>>;
 
 /// `RaftApp` is an abstraction of state machine and snapshot store used by `RaftProcess`.
 #[async_trait::async_trait]
