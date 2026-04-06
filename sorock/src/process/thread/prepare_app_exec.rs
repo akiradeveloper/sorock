@@ -22,8 +22,9 @@ impl Thread {
 
     fn run_loop(self) -> ThreadHandle {
         let fut = async move {
+            let mut kernel_queue_evt_rx = self.kernel_queue_evt_rx.clone();
             loop {
-                self.kernel_queue_evt_rx
+                kernel_queue_evt_rx
                     .consume_events(Duration::from_millis(100))
                     .await;
                 while self.advance_once().await.is_ok() {
