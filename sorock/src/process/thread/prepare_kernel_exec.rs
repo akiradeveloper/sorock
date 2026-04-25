@@ -26,8 +26,9 @@ impl Thread {
 
     fn run_loop(self) -> ThreadHandle {
         let fut = async move {
+            let mut commit_evt_rx = self.commit_evt_rx.clone();
             loop {
-                self.commit_evt_rx
+                commit_evt_rx
                     .consume_events(Duration::from_millis(100))
                     .await;
                 while self.advance_once().await.is_ok() {

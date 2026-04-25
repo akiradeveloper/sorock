@@ -1,5 +1,7 @@
 use super::*;
 
+use std::marker::PhantomData;
+use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 /// Wrapper around a `AbortHandle` that aborts it is dropped.
@@ -11,46 +13,41 @@ impl Drop for ThreadHandle {
     }
 }
 
-use std::marker::PhantomData;
-use std::sync::Arc;
-use tokio::sync::Notify;
-
 #[derive(Clone)]
 pub struct EventNotifier<T> {
-    inner: Arc<Notify>,
+    tx: watch::Sender<u64>,
     phantom: PhantomData<T>,
 }
 
 impl<T> EventNotifier<T> {
     pub fn push_event(&self, _: T) {
-        self.inner.notify_waiters();
+        let cur = *self.tx.borrow();
+        let _ = self.tx.send(cur.wrapping_add(1));
     }
 }
 
 #[derive(Clone)]
 pub struct EventWaiter<T> {
-    inner: Arc<Notify>,
+    rx: watch::Receiver<u64>,
     phantom: PhantomData<T>,
 }
 
 impl<T> EventWaiter<T> {
     /// Return if events are produced or timeout.
-    pub async fn consume_events(&self, timeout: Duration) {
-        tokio::time::timeout(timeout, self.inner.notified())
-            .await
-            .ok();
+    pub async fn consume_events(&mut self, timeout: Duration) {
+        let _ = tokio::time::timeout(timeout, self.rx.changed()).await;
     }
 }
 
 pub fn notify<T>() -> (EventNotifier<T>, EventWaiter<T>) {
-    let inner = Arc::new(Notify::new());
+    let (tx, rx) = watch::channel(0u64);
     (
         EventNotifier {
-            inner: inner.clone(),
+            tx,
             phantom: PhantomData,
         },
         EventWaiter {
-            inner,
+            rx,
             phantom: PhantomData,
         },
     )
