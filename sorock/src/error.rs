@@ -7,6 +7,8 @@ pub enum Error {
     BadLogState,
     #[error("replication stream is broken")]
     BadReplicationStream,
+    #[error("kernel message is broken")]
+    BadKernelMessage,
     #[error("snapshot not found at index {0}")]
     SnapshotNotFound(process::LogIndex),
     #[error("snapshot chunk is broken. error={0}")]

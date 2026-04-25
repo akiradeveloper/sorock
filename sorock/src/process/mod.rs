@@ -436,7 +436,9 @@ impl RaftProcess {
     pub(super) async fn process_kernel_request(&self, req: request::KernelRequest) -> Result<()> {
         if self.ctrl_actor.read().await.is_leader() {
             let (kern_completion, rx) = completion::prepare_kernel_completion();
-            let command = match kernel_message::KernelMessage::deserialize(&req.message).unwrap() {
+            let command = match kernel_message::KernelMessage::deserialize(&req.message)
+                .context(Error::BadKernelMessage)?
+            {
                 kernel_message::KernelMessage::AddServer(id, as_voter) => {
                     ensure!(self.ctrl_actor.read().await.allow_queue_new_membership());
 
