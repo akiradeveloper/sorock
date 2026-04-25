@@ -8,6 +8,7 @@ type RaftClient = raft::raft_client::RaftClient<tonic::transport::channel::Chann
 use process::*;
 use raft::raft_server::{Raft, RaftServer};
 use std::pin::Pin;
+use tonic::Status;
 
 pub mod client;
 mod shard_table;
@@ -45,6 +46,29 @@ impl RaftService {
     }
 }
 
+fn into_status(e: anyhow::Error) -> Status {
+    if let Some(e) = e.downcast_ref::<Error>() {
+        return match e {
+            Error::BadReplicationStream | Error::BadKernelMessage | Error::BadSnapshotChunk(_) => {
+                Status::invalid_argument(e.to_string())
+            }
+            Error::SnapshotNotFound(_) | Error::EntryNotFound(_) | Error::ProcessNotFound(_) => {
+                Status::not_found(e.to_string())
+            }
+            Error::LeaderUnknown | Error::ShardUnreachable(_) => Status::unavailable(e.to_string()),
+            Error::BadLogState => Status::internal(e.to_string()),
+        };
+    }
+
+    Status::internal(e.to_string())
+}
+
+fn parse_server_address(input: &str, field: &str) -> std::result::Result<ServerAddress, Status> {
+    input
+        .parse()
+        .map_err(|e| Status::invalid_argument(format!("invalid {field}: {e}")))
+}
+
 #[tonic::async_trait]
 impl raft::raft_server::Raft for RaftService {
     type GetSnapshotStream = stream::SnapshotStreamOut;
@@ -62,7 +86,10 @@ impl raft::raft_server::Raft for RaftService {
                 message: req.message,
                 request_id: req.request_id,
             };
-            let resp = process.process_app_write_request(req).await.unwrap();
+            let resp = process
+                .process_app_write_request(req)
+                .await
+                .map_err(into_status)?;
             return Ok(tonic::Response::new(raft::Response { message: resp }));
         }
 
@@ -72,7 +99,9 @@ impl raft::raft_server::Raft for RaftService {
             return self.connect(&replica).write(req).await;
         }
 
-        Err(Error::ShardUnreachable(shard_id)).unwrap()
+        Err(Status::unavailable(
+            Error::ShardUnreachable(shard_id).to_string(),
+        ))
     }
 
     async fn read(
@@ -87,7 +116,10 @@ impl raft::raft_server::Raft for RaftService {
             let req = request::AppReadRequest {
                 message: req.message,
             };
-            let resp = process.process_app_read_request(req).await.unwrap();
+            let resp = process
+                .process_app_read_request(req)
+                .await
+                .map_err(into_status)?;
             return Ok(tonic::Response::new(raft::Response { message: resp }));
         }
 
@@ -97,7 +129,9 @@ impl raft::raft_server::Raft for RaftService {
             return self.connect(&replica).read(req).await;
         }
 
-        Err(Error::ShardUnreachable(shard_id)).unwrap()
+        Err(Status::unavailable(
+            Error::ShardUnreachable(shard_id).to_string(),
+        ))
     }
 
     async fn add_server(
@@ -109,10 +143,10 @@ impl raft::raft_server::Raft for RaftService {
 
         if let Some(process) = self.node.get_process(shard_id) {
             let req = request::AddServer {
-                server_id: req.server_id.parse().unwrap(),
+                server_id: parse_server_address(&req.server_id, "server_id")?,
                 as_voter: req.as_voter,
             };
-            process.add_server(req).await.unwrap();
+            process.add_server(req).await.map_err(into_status)?;
             return Ok(tonic::Response::new(()));
         }
 
@@ -128,7 +162,9 @@ impl raft::raft_server::Raft for RaftService {
                 .await;
         }
 
-        Err(Error::ShardUnreachable(shard_id)).unwrap()
+        Err(Status::unavailable(
+            Error::ShardUnreachable(shard_id).to_string(),
+        ))
     }
 
     async fn remove_server(
@@ -140,9 +176,9 @@ impl raft::raft_server::Raft for RaftService {
 
         if let Some(process) = self.node.get_process(shard_id) {
             let req = request::RemoveServer {
-                server_id: req.server_id.parse().unwrap(),
+                server_id: parse_server_address(&req.server_id, "server_id")?,
             };
-            process.remove_server(req).await.unwrap();
+            process.remove_server(req).await.map_err(into_status)?;
             return Ok(tonic::Response::new(()));
         }
 
@@ -157,7 +193,9 @@ impl raft::raft_server::Raft for RaftService {
                 .await;
         }
 
-        Err(Error::ShardUnreachable(shard_id)).unwrap()
+        Err(Status::unavailable(
+            Error::ShardUnreachable(shard_id).to_string(),
+        ))
     }
 
     async fn get_membership(
@@ -169,7 +207,7 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let resp = process.get_membership().await.unwrap();
+            let resp = process.get_membership().await.map_err(into_status)?;
             let out = raft::Membership {
                 members: resp
                     .members
@@ -190,7 +228,9 @@ impl raft::raft_server::Raft for RaftService {
                 .await;
         }
 
-        Err(Error::ShardUnreachable(shard_id)).unwrap()
+        Err(Status::unavailable(
+            Error::ShardUnreachable(shard_id).to_string(),
+        ))
     }
 
     async fn process_kernel_request(
@@ -205,11 +245,16 @@ impl raft::raft_server::Raft for RaftService {
             let req = request::KernelRequest {
                 message: req.message,
             };
-            process.process_kernel_request(req).await.unwrap();
+            process
+                .process_kernel_request(req)
+                .await
+                .map_err(into_status)?;
             return Ok(tonic::Response::new(()));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn request_vote(
@@ -219,9 +264,11 @@ impl raft::raft_server::Raft for RaftService {
         let req = request.into_inner();
         let shard_id = req.shard_id;
         let req = request::RequestVote {
-            candidate_id: req.candidate_id.parse().unwrap(),
+            candidate_id: parse_server_address(&req.candidate_id, "candidate_id")?,
             candidate_clock: {
-                let clock = req.candidate_clock.unwrap();
+                let clock = req
+                    .candidate_clock
+                    .ok_or_else(|| Status::invalid_argument("missing candidate_clock"))?;
                 Clock {
                     term: clock.term,
                     index: clock.index,
@@ -233,13 +280,15 @@ impl raft::raft_server::Raft for RaftService {
         };
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let resp = process.request_vote(req).await.unwrap();
+            let resp = process.request_vote(req).await.map_err(into_status)?;
             return Ok(tonic::Response::new(raft::VoteResponse {
                 vote_granted: resp,
             }));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn send_replication_stream(
@@ -247,17 +296,24 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<tonic::Streaming<raft::ReplicationStreamChunk>>,
     ) -> std::result::Result<tonic::Response<raft::ReplicationStreamResponse>, tonic::Status> {
         let st = request.into_inner();
-        let (shard_id, st) = stream::into_internal_replication_stream(st).await.unwrap();
+        let (shard_id, st) = stream::into_internal_replication_stream(st)
+            .await
+            .map_err(into_status)?;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let resp = process.send_replication_stream(st).await.unwrap();
+            let resp = process
+                .send_replication_stream(st)
+                .await
+                .map_err(into_status)?;
             return Ok(tonic::Response::new(raft::ReplicationStreamResponse {
                 n_inserted: resp.n_inserted,
                 log_last_index: resp.log_last_index,
             }));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn get_snapshot(
@@ -268,12 +324,14 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let resp = process.get_snapshot(req.index).await.unwrap();
+            let resp = process.get_snapshot(req.index).await.map_err(into_status)?;
             let resp = stream::into_external_snapshot_stream(resp);
             return Ok(tonic::Response::new(resp));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn send_heartbeat(
@@ -281,7 +339,7 @@ impl raft::raft_server::Raft for RaftService {
         request: tonic::Request<raft::Heartbeat>,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
-        let leader_id: ServerAddress = req.sender_id.parse().unwrap();
+        let leader_id = parse_server_address(&req.sender_id, "sender_id")?;
 
         let mut futs = vec![];
         for (shard_id, leader_state) in req.sender_commit_states {
@@ -294,7 +352,9 @@ impl raft::raft_server::Raft for RaftService {
                 futs.push(async move { process.receive_heartbeat(leader_id, req).await });
             }
         }
-        futures::future::try_join_all(futs).await.unwrap();
+        futures::future::try_join_all(futs)
+            .await
+            .map_err(into_status)?;
         Ok(tonic::Response::new(()))
     }
 
@@ -306,11 +366,13 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            process.send_timeout_now().await.unwrap();
+            process.send_timeout_now().await.map_err(into_status)?;
             return Ok(tonic::Response::new(()));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn compare_term(
@@ -321,11 +383,16 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let ack = process.compare_term(req.sender_term).await.unwrap();
+            let ack = process
+                .compare_term(req.sender_term)
+                .await
+                .map_err(into_status)?;
             return Ok(tonic::Response::new(raft::CompareTermResponse { ack }));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     async fn issue_read_index(
@@ -336,12 +403,14 @@ impl raft::raft_server::Raft for RaftService {
         let shard_id = req.shard_id;
 
         if let Some(process) = self.node.get_process(shard_id) {
-            let read_index = process.issue_read_index().await.unwrap();
+            let read_index = process.issue_read_index().await.map_err(into_status)?;
             let out = raft::ReadIndex { read_index };
             return Ok(tonic::Response::new(out));
         }
 
-        Err(Error::ProcessNotFound(shard_id)).unwrap()
+        Err(Status::not_found(
+            Error::ProcessNotFound(shard_id).to_string(),
+        ))
     }
 
     type WatchLogMetricsStream =
@@ -361,8 +430,8 @@ impl raft::raft_server::Raft for RaftService {
                 let process = node
                     .get_process(shard_id)
                     .context(Error::ProcessNotFound(shard_id))
-                    .unwrap();
-                let log_state = process.get_log_state().await.unwrap();
+                    .map_err(into_status)?;
+                let log_state = process.get_log_state().await.map_err(into_status)?;
                 let metrics = raft::LogMetrics {
                     snapshot_index: log_state.snapshot_index,
                     app_index: log_state.app_index,
@@ -397,7 +466,7 @@ impl raft::raft_server::Raft for RaftService {
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         let req = request.into_inner();
 
-        let node_id: ServerAddress = req.server_id.parse().unwrap();
+        let node_id = parse_server_address(&req.server_id, "server_id")?;
         self.mapping
             .write()
             .update_mapping(node_id, req.shard_indices);

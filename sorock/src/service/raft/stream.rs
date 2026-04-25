@@ -44,14 +44,14 @@ pub async fn into_internal_replication_stream(
                     Some(e)
                 },
                 None => None,
-                _ => unreachable!("the replication stream entry is broken"),
+                _ => None,
             };
             yield e;
         }
     };
 
     let st = request::ReplicationStream {
-        sender_id: sender_id.parse().unwrap(),
+        sender_id: sender_id.parse().map_err(|_| Error::BadReplicationStream)?,
         sender_term,
         prev_clock,
         entries: Box::pin(entries),
