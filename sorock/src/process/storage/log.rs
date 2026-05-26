@@ -18,12 +18,12 @@ mod value {
             cur_term: x.this_clock.term,
             command: x.command,
         };
-        let bin = bincode::serialize(&x).unwrap();
+        let bin = postcard::to_stdvec(&x).unwrap();
         bin
     }
 
     pub fn desr(bin: &[u8]) -> Entry {
-        let x: OnDiskStruct = bincode::deserialize(bin).unwrap();
+        let x: OnDiskStruct = postcard::from_bytes(bin).unwrap();
         Entry {
             prev_clock: Clock {
                 index: x.cur_index - 1,

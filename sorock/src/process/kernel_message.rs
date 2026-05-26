@@ -8,10 +8,10 @@ pub enum KernelMessage {
 
 impl KernelMessage {
     pub fn serialize(self) -> Bytes {
-        bincode::serialize(&self).unwrap().into()
+        postcard::to_stdvec(&self).unwrap().into()
     }
 
     pub fn deserialize(x: &[u8]) -> Option<Self> {
-        bincode::deserialize(x).ok()
+        postcard::from_bytes(x).ok()
     }
 }
