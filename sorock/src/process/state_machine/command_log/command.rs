@@ -25,10 +25,10 @@ pub enum Command<'a> {
 
 impl<'a> Command<'a> {
     pub fn serialize(self) -> Bytes {
-        bincode::serialize(&self).unwrap().into()
+        postcard::to_stdvec(&self).unwrap().into()
     }
 
     pub fn deserialize(x: &[u8]) -> Command<'_> {
-        bincode::deserialize(x).unwrap()
+        postcard::from_bytes(x).unwrap()
     }
 }

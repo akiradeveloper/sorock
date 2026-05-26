@@ -16,12 +16,12 @@ mod value {
             term: x.cur_term,
             voted_for: x.voted_for,
         };
-        let bin = bincode::serialize(&x).unwrap();
+        let bin = postcard::to_stdvec(&x).unwrap();
         bin
     }
 
     pub fn desr(bin: &[u8]) -> Ballot {
-        let x: OnDiskStruct = bincode::deserialize(bin).unwrap();
+        let x: OnDiskStruct = postcard::from_bytes(bin).unwrap();
         Ballot {
             cur_term: x.term,
             voted_for: x.voted_for,

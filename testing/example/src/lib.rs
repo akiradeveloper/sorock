@@ -14,11 +14,11 @@ pub enum AppWriteRequest {
 }
 impl AppWriteRequest {
     pub fn serialize(self) -> Bytes {
-        bincode::serialize(&self).unwrap().into()
+        postcard::to_stdvec(&self).unwrap().into()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Self {
-        bincode::deserialize(bytes).unwrap()
+        postcard::from_bytes(bytes).unwrap()
     }
 }
 
@@ -29,11 +29,11 @@ pub enum AppReadRequest {
 }
 impl AppReadRequest {
     pub fn serialize(self) -> Bytes {
-        bincode::serialize(&self).unwrap().into()
+        postcard::to_stdvec(&self).unwrap().into()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Self {
-        bincode::deserialize(bytes).unwrap()
+        postcard::from_bytes(bytes).unwrap()
     }
 }
 
@@ -41,11 +41,11 @@ impl AppReadRequest {
 pub struct AppState(pub u64);
 impl AppState {
     pub fn serialize(&self) -> Bytes {
-        bincode::serialize(&self).unwrap().into()
+        postcard::to_stdvec(&self).unwrap().into()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Self {
-        bincode::deserialize(bytes).unwrap()
+        postcard::from_bytes(bytes).unwrap()
     }
 }
 
